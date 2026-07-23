@@ -5,6 +5,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ## Current status (2026-07-23) — deployable from GitHub via Portainer
 
 **Done (this repo is ready to deploy):**
+
 - [x] Custom image + CI: `.github/workflows/build-and-push.yml` builds the `Dockerfile` and
   pushes to GHCR (Portainer can't build from a repo). Compose references it via `image:`.
 - [x] `config.yaml`: all 15 models ported from the old gateway (`vllm_refs/models.yaml`),
@@ -14,6 +15,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   (`LLAMA_SWAP_IMAGE`, `HF_TOKEN`).
 
 **Remaining — needs the host (can't be done from the repo):**
+
 - [ ] **Rotate the HF token** that was pasted into `.env` (it's git-ignored, but was exposed).
 - [ ] Make the GHCR package public (or add registry creds in Portainer).
 - [ ] Cold-start validation, especially the tight-fit contexts flagged `VALIDATE` in
@@ -63,7 +65,8 @@ Translate each entry from the old `config/models.yaml`. Source list:
 - [ ] `Ternary-Bonsai-27B`  → **llama.cpp / PrismML fork**, NOT vLLM (see below)
 
 For each vLLM model, carry over from the old config:
-- [ ] repo id + `--quantization`
+
+- [x] repo id + `--quantization`
 - [ ] `--max-model-len`, `--max-num-seqs`
 - [ ] `--gpu-memory-utilization` (compute by hand per card — see ARCHITECTURE)
 - [ ] `--tensor-parallel-size` (2 only if it doesn't fit one card)

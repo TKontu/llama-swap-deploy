@@ -11,10 +11,9 @@
 
 services:
   llama-swap:
-    # Pre-built image (see workflow above). LLAMA_SWAP_IMAGE must be set in the
-    # Portainer stack env; the CHANGE_ME default is intentionally invalid so an
-    # unset var fails loudly instead of pulling the wrong thing.
-    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/CHANGE_ME/llama-swap-deploy:latest}
+    # Pre-built image (see workflow above). Defaults to this repo's GHCR package;
+    # override with the LLAMA_SWAP_IMAGE stack env var to pin a :sha tag or a fork.
+    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest}
     # For LOCAL development only (Portainer ignores this for Git stacks):
     #   docker compose build && docker compose up
     # build: .
