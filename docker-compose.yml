@@ -26,8 +26,11 @@ services:
       - HF_TOKEN=${HF_TOKEN}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./config.yaml:/etc/llama-swap/config/config.yaml:ro
       - /models/hf-cache:/root/.cache/huggingface
+      # config.yaml is baked into the image (see Dockerfile). To live-edit it on the host
+      # instead of rebuilding, uncomment the next line AND point it at a real file on the
+      # host (NOT a Portainer relative path, which auto-creates a directory and fails):
+      #   - /models/llama-swap/config.yaml:/etc/llama-swap/config/config.yaml:ro
     command:
       - --config
       - /etc/llama-swap/config/config.yaml

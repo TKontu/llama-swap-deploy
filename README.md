@@ -75,10 +75,15 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 3. Add these **environment variables**:
    - `LLAMA_SWAP_IMAGE=ghcr.io/<owner>/llama-swap-deploy:latest`
    - `HF_TOKEN=hf_…`
-4. Enable **automatic updates** (poll or webhook) for push-to-deploy. Because `config.yaml`
-   is bind-mounted from the cloned repo, **editing models is just a git push** — Portainer
-   re-pulls and restarts; no image rebuild is needed (only `Dockerfile` changes rebuild).
+4. Enable **automatic updates** with **re-pull image** (poll or webhook) for push-to-deploy.
+   `config.yaml` is **baked into the image**, so **editing models is a git push** → CI
+   rebuilds the image (a `config.yaml` change triggers it) → Portainer re-pulls and restarts.
 5. Deploy.
+
+> **Updating an already-running stack:** because the tag is `:latest`, Portainer must be
+> told to re-pull — use *Update the stack* → **Re-pull image and redeploy** (or pin
+> `LLAMA_SWAP_IMAGE` to a `:<short-sha>` tag from the Actions run). A plain redeploy reuses
+> the cached image and you won't see your change.
 
 After deploy, llama-swap listens on **`http://<host>:9292`** (OpenAI-compatible), with a
 web UI at `http://<host>:9292/ui`.

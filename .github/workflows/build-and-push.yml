@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - "Dockerfile"
+      - "config.yaml"
       - ".github/workflows/build-and-push.yml"
   workflow_dispatch:
 

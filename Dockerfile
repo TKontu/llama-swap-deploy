@@ -13,5 +13,13 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends docker.io ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 
+# Bake the model config into the image (instead of a bind mount). A single-file bind
+# mount from a Portainer stack is fragile: if the file isn't present at container-create
+# time, Docker auto-creates the source as a *directory* and the mount fails with
+# "not a directory". Baking it in makes the container start reliably regardless of how
+# the stack is deployed. CI rebuilds the image whenever config.yaml changes, so editing
+# models stays a git push (see .github/workflows/build-and-push.yml).
+COPY config.yaml /etc/llama-swap/config/config.yaml
+
 # Entrypoint/CMD are inherited from the base image; the compose file passes
 # --config and --listen.

@@ -77,9 +77,11 @@ Portainer stack
 Portainer **cannot build** an image from a Git-repository stack (the `build:` directive is
 unsupported there). So `.github/workflows/build-and-push.yml` builds the `Dockerfile` on
 GitHub Actions and pushes it to **GHCR**; the compose file references it via `image:`
-(`LLAMA_SWAP_IMAGE`). `config.yaml` is **bind-mounted from the cloned repo, not baked into
-the image** — so model edits are a plain `git push` (Portainer re-pulls + restarts), and
-only `Dockerfile` changes trigger an image rebuild.
+(`LLAMA_SWAP_IMAGE`). `config.yaml` is **baked into the image** (`COPY` in the Dockerfile),
+not bind-mounted: a single-file bind mount from a Portainer stack fails when the file isn't
+present at container-create time (Docker auto-creates the source as a directory →
+"not a directory" mount error). Model edits stay GitOps — a `config.yaml` change triggers
+the CI rebuild, and Portainer re-pulls the new image.
 
 ### Why these choices
 
