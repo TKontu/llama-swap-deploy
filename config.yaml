@@ -1,0 +1,110 @@
+# llama-swap configuration for the `inference` host.
+# Schema: https://raw.githubusercontent.com/mostlygeek/llama-swap/refs/heads/main/config-schema.json
+#
+# This is a STARTER covering the representative cases. Fill in the remaining models from
+# the old config/models.yaml — see TODO.md for the full list and the per-model checklist.
+#
+# Conventions:
+#   - vLLM models run as sibling Docker containers (llama-swap has the docker CLI + socket).
+#   - Pin GPUs by UUID (indices reorder across reboots):
+#       3090 #0  GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1   (PCI 06:10)
+#       A2000    GPU-690062e6-be81-ab00-ebd3-7181cafcea4a   (PCI 06:11, 12 GB)
+#       3090 #2  GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb   (PCI 06:1B)
+#   - Publish ${PORT}:8000 and set proxy http://127.0.0.1:${PORT} (llama-swap is host-net).
+#   - Size --gpu-memory-utilization by hand so co-resident models fit the card (< ~0.90 sum).
+
+# Global defaults ------------------------------------------------------------
+healthCheckTimeout: 900        # seconds to wait for a cold-starting model's /health
+logLevel: info
+
+macros:
+  vllm-image: "vllm/vllm-openai:v0.25.1"
+  # Common docker run preamble for vLLM. Per-model cmd adds --gpus and vLLM flags.
+  vllm-run: >-
+    docker run --rm --name ${MODEL_ID}
+    -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+    -v /models/hf-cache:/root/.cache/huggingface
+    -p ${PORT}:8000
+
+models:
+
+  # === Big model: tensor-parallel across BOTH 3090s ========================
+  "Qwen3.6-35B-A3B":
+    name: "Qwen3.6 35B A3B (AWQ 4-bit)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      ${vllm-image}
+      --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit --quantization awq
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.58
+      --max-model-len 16384 --max-num-seqs 8
+      --enforce-eager
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 0            # persistent member of the co-load group; never idle-unload
+
+  # === Small model: TP=1 on ONE 3090 (co-resident with a 35B rank) =========
+  "gemma-4-E4B":
+    name: "Gemma 4 E4B IT (QAT AWQ INT4)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      ${vllm-image}
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4 --quantization awq
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.30
+      --max-model-len 16384 --max-num-seqs 32
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 0
+
+  # === Exotic GGUF: llama.cpp (PrismML fork), on the A2000 =================
+  # Ternary-Bonsai is hybrid-attention + multimodal + ternary quant, built for a
+  # PrismML fork of llama.cpp. vLLM 0.25.1 cannot serve it. Replace <prismml-llamacpp>
+  # with the fork image, and confirm the server flags/port.
+  "Ternary-Bonsai-27B":
+    name: "Ternary Bonsai 27B (GGUF, llama.cpp)"
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --gpus '"device=GPU-690062e6-be81-ab00-ebd3-7181cafcea4a"'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      <prismml-llamacpp>
+      -m /root/.cache/huggingface/models--prism-ml--Ternary-Bonsai-27B-gguf/snapshots/*/Ternary-Bonsai-27B-dspark-bf16.gguf
+      --host 0.0.0.0 --port 8080 -ngl 99 -c 16384
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 600
+
+  # === TEMPLATE: copy for each remaining model (see TODO.md list) ==========
+  # "Qwen3.6-27B-AWQ-INT4":
+  #   cmd: |
+  #     ${vllm-run}
+  #     --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+  #     ${vllm-image}
+  #     --model <repo> --quantization awq
+  #     --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+  #     --max-model-len <n> --max-num-seqs <n>
+  #     --port 8000
+  #   cmdStop: docker stop ${MODEL_ID}
+  #   proxy: http://127.0.0.1:${PORT}
+  #   ttl: 600
+
+# Concurrency ----------------------------------------------------------------
+swap:
+  use: group
+  group:
+    groups:
+      # Keep the 35B and the small model loaded together, and never let another
+      # model's load evict them.
+      coload:
+        swap: false
+        exclusive: false
+        persistent: true
+        members:
+          - "Qwen3.6-35B-A3B"
+          - "gemma-4-E4B"
+      # All other models default to on-demand swapping (one at a time) unless you
+      # add them to their own group here.

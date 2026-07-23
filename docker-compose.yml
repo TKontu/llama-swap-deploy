@@ -1,0 +1,35 @@
+# llama-swap stack for the `inference` host (deploy via Portainer).
+#
+# - build: .  → Portainer builds the custom image (unified-cuda + docker CLI).
+#   To deploy via the web editor instead, pre-build & push the image and replace
+#   `build: .` with `image: <your-registry>/llama-swap-docker:latest`.
+# - network_mode: host → llama-swap serves on :9292 and reaches vLLM sibling
+#   containers at 127.0.0.1:<PORT> (their published ports).
+# - /var/run/docker.sock → lets llama-swap spawn vLLM containers (DooD).
+# - runtime: nvidia → GPUs for any bundled llama.cpp child processes.
+
+services:
+  llama-swap:
+    build: .
+    # image: your-registry/llama-swap-docker:latest   # <- use instead of build: for web-editor deploys
+    container_name: llama-swap
+    restart: unless-stopped
+    network_mode: host
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config.yaml:/etc/llama-swap/config/config.yaml:ro
+      - /models/hf-cache:/root/.cache/huggingface
+    command:
+      - --config
+      - /etc/llama-swap/config/config.yaml
+      - --listen
+      - 0.0.0.0:9292
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9292/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
