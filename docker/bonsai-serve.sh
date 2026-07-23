@@ -27,7 +27,8 @@ MODEL="$(find_model || true)"
 if [ -z "$MODEL" ]; then
     echo "Bonsai: weights not in cache — downloading $REPO (Q2_0 + mmproj + dspark)…"
     echo "        (one-time; ~10 GB into $DIR — first cold-start will be slow)"
-    huggingface-cli download "$REPO" \
+    # Use the `hf` CLI; `huggingface-cli` is deprecated and no longer functions.
+    hf download "$REPO" \
         --include "*Q2_0*.gguf" "*mmproj*.gguf" "*dspark-Q4_1*.gguf" \
         --cache-dir "$DIR"
     MODEL="$(find_model || true)"
