@@ -26,13 +26,14 @@ WORKDIR /src
 # devel image ships, exposed as libcuda.so.1 via LIBRARY_PATH. Build ONLY the
 # server target (the fork's extra example binaries fail to link the stub and we
 # don't need them). Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
-RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 \
- && export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
+RUN export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
  && cmake -B build -G Ninja \
       -DGGML_CUDA=ON \
       -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHS} \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLAMA_BUILD_TESTS=OFF \
+      -DCMAKE_SHARED_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs -lcuda" \
+      -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs -lcuda" \
  && MEM_GB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1048576 )) \
  && JOBS=$([ "${MEM_GB:-0}" -lt 16 ] && echo 2 || echo 4) \
  && echo "building with -j${JOBS} (host ~${MEM_GB} GB RAM)" \
