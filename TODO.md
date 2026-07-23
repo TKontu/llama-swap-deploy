@@ -21,7 +21,10 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] Cold-start validation, especially the tight-fit contexts flagged `VALIDATE` in
   `config.yaml`: `Qwen3.6-27B-AWQ-INT4` (262k), `Qwythos-…-1M-AWQ` (1M — likely needs TP2 or
   less context), `Qwythos-…-256k` (bf16).
-- [ ] `Ternary-Bonsai-27B`: supply the PrismML llama.cpp fork image (entry is a placeholder).
+- [~] `Ternary-Bonsai-27B`: PrismML fork image is now CI-built (`Dockerfile.bonsai` →
+  `ghcr.io/tkontu/bonsai-llama`) and the model is wired on a 3090. Remaining: make that GHCR
+  package public, download the GGUF weights (`prism-ml/Ternary-Bonsai-27B-gguf`: Q2_0 + mmproj
+  + dspark-Q4_1) into `/models/hf-cache`, then cold-start to validate the fork flags.
 
 ## 0. Decisions to lock first
 

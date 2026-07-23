@@ -20,7 +20,9 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 | `ARCHITECTURE.md` | Design, hardware constraints, why llama-swap, topology |
 | `TODO.md` | Migration checklist + open questions |
 | `Dockerfile` | Custom image = `llama-swap:unified-cuda` + `docker` CLI (needed to spawn vLLM containers) |
+| `Dockerfile.bonsai` + `docker/bonsai-serve.sh` | PrismML llama.cpp fork image for Ternary-Bonsai-27B (built by CI → GHCR) |
 | `.github/workflows/build-and-push.yml` | CI: builds the Dockerfile and pushes the image to GHCR (Portainer can't build from a repo) |
+| `.github/workflows/bonsai-image.yml` | CI: builds the PrismML fork image → `ghcr.io/<owner>/bonsai-llama` |
 | `docker-compose.yml` | Portainer stack definition (pulls the pre-built image) |
 | `config.yaml` | llama-swap model definitions — all 15 models, ported from the old gateway |
 | `.env.example` | Secrets/vars (copy to `.env`, or set as Portainer stack env vars) |
@@ -169,6 +171,30 @@ groups:
 > models could then never load. See `config.yaml` for the sized co-load pair.
 
 ---
+
+## Ternary-Bonsai-27B (PrismML fork backend)
+
+Ternary-Bonsai needs PrismML's **fork** of llama.cpp (Q2_0_g128 ternary + hybrid-attention
+kernels); mainline llama.cpp/vLLM can't load it, and the HF repo is **weights only**. So the
+repo builds the fork into its own image and points the model at it:
+
+1. **Build the image** — the `bonsai-image` workflow (`Dockerfile.bonsai`) compiles the fork
+   (`PrismML-Eng/llama.cpp`, branch `prism`, CUDA sm_86) and pushes
+   `ghcr.io/<owner>/bonsai-llama:latest`. It runs on changes to those files or via *Run
+   workflow* (it's a CUDA compile — several minutes). Then **make that GHCR package public**
+   too (same as the main image).
+2. **Download the weights** on the host into the HF cache (the repos are gated → use your token):
+
+   ```bash
+   HF_TOKEN=hf_... huggingface-cli download prism-ml/Ternary-Bonsai-27B-gguf \
+     --include "*Q2_0*.gguf" "*mmproj*.gguf" "*dspark-Q4_1*.gguf" \
+     --cache-dir /models/hf-cache
+   ```
+
+   (Q2_0 = the 7 GB ternary model; `*mmproj*` = vision; `*dspark-Q4_1*` = speculative drafter.)
+3. Request `Ternary-Bonsai-27B` — the image entrypoint discovers those files and starts
+   `llama-server` with vision + DSpark speculative + tool calling, on one 3090. It speaks
+   OpenAI `/v1` + `/health`, so llama-swap proxies it like any other model.
 
 ## Operational notes
 

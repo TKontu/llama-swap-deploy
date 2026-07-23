@@ -327,31 +327,27 @@ models:
     ttl: 3600   # VALIDATE: 1M-token KV very likely will NOT fit one 3090. If cold-start OOMs,
                 # use both 3090s + --tensor-parallel-size 2, or lower --max-model-len.
 
-  # ======================= Ternary-Bonsai 27B (GGUF) — SPECIAL CASE ===========
-  # Hybrid-attention + multimodal + ternary quant, built for a PrismML fork of llama.cpp.
-  # vLLM 0.25.1 CANNOT serve it. PLACEHOLDER: replace <prismml-llamacpp> with the fork image
-  # and confirm the server flags. The config still loads with the placeholder — only
-  # *requesting* this model fails until the image is set.
+  # ======================= Ternary-Bonsai 27B (GGUF, PrismML fork) =============
+  # Ternary (Q2_0_g128) + hybrid-attention + vision — needs the PrismML llama.cpp fork,
+  # which we build into ghcr.io/tkontu/bonsai-llama (see Dockerfile.bonsai + the
+  # bonsai-image workflow). The image's entrypoint (docker/bonsai-serve.sh) finds the
+  # Q2_0 weights + mmproj (vision) + DSpark drafter (speculative) in the mounted HF cache
+  # and launches llama-server with the 27B flag set. On a single 3090 (A2000 is off-limits).
+  # REQUIRES on the host: prism-ml/Ternary-Bonsai-27B-gguf downloaded into /models/hf-cache
+  # (Q2_0 + *mmproj* + *dspark-Q4_1*). See README "Ternary-Bonsai".
   "Ternary-Bonsai-27B":
-    name: "Ternary Bonsai 27B (GGUF, llama.cpp PrismML fork)"
+    name: "Ternary Bonsai 27B (GGUF, PrismML llama.cpp fork)"
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      --gpus '"device=GPU-690062e6-be81-ab00-ebd3-7181cafcea4a"'
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
-      <prismml-llamacpp>
-      -m /root/.cache/huggingface/models--prism-ml--Ternary-Bonsai-27B-gguf/snapshots/*/Ternary-Bonsai-27B-dspark-bf16.gguf
-      --host 0.0.0.0 --port 8080 -ngl 99 -c 16384
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 600
-    # Old config carried vLLM-style tokenizer args (--tokenizer / --hf-config-path
-    # Qwen/Qwen3.6-27B). Map to the fork's equivalents once the image is known.
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
 
 # Concurrency ----------------------------------------------------------------
 # `groups` is a TOP-LEVEL key. Any model NOT in a group is on-demand and swaps normally
