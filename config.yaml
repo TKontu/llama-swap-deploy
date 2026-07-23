@@ -339,7 +339,10 @@ models:
     name: "Ternary Bonsai 27B (GGUF, PrismML llama.cpp fork)"
     cmd: |
       docker run --rm --name ${MODEL_ID}
+      --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
