@@ -1,50 +1,56 @@
 # PrismML llama.cpp fork image for Ternary-Bonsai-27B.
 #
 # Ternary-Bonsai needs PrismML's fork (Q2_0_g128 ternary + hybrid-attention CUDA
-# kernels); mainline llama.cpp / vLLM cannot load it. We build `llama-server` from
-# the fork's `prism` branch and ship it as an OpenAI-compatible server that
-# llama-swap proxies exactly like the vLLM models.
+# kernels); mainline llama.cpp / vLLM cannot load it, and the HF repo is weights-only.
+# We build llama-server from the fork's `prism` branch and ship it as an
+# OpenAI-compatible server that llama-swap proxies like the vLLM models.
 #
-# Built & pushed to GHCR by .github/workflows/bonsai-image.yml. Referenced from
-# config.yaml's "Ternary-Bonsai-27B" entry.
+# Built & pushed to GHCR by .github/workflows/bonsai-image.yml.
+# NOTE: Dockerfile inline comments are only valid on their own line (never after an
+# instruction like ARG/ENV), so all comments here stand alone.
 
 # ---- build stage -----------------------------------------------------------
 FROM nvidia/cuda:12.6.2-devel-ubuntu22.04 AS build
-ARG CUDA_ARCHS=86          # RTX 3090 = sm_86 (this box's two LLM cards)
+# RTX 3090 = sm_86 (this box's two LLM cards).
+ARG CUDA_ARCHS=86
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git cmake ninja-build build-essential ca-certificates \
+      git cmake ninja-build build-essential ca-certificates libcurl4-openssl-dev \
  && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth 1 -b prism https://github.com/PrismML-Eng/llama.cpp.git /src
 WORKDIR /src
 
-# Static link (BUILD_SHARED_LIBS=OFF) so the runtime image only needs the CUDA
-# runtime libs, not llama.cpp's .so files. Build just the server target.
+# Match PrismML's build_cuda_linux.sh (shared libs, all targets), tests off to save
+# time. Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
 RUN cmake -B build -G Ninja \
       -DGGML_CUDA=ON \
       -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHS} \
       -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_SHARED_LIBS=OFF \
-      -DLLAMA_CURL=OFF \
+      -DLLAMA_BUILD_TESTS=OFF \
  && MEM_GB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1048576 )) \
  && JOBS=$([ "${MEM_GB:-0}" -lt 16 ] && echo 2 || echo 4) \
  && echo "building with -j${JOBS} (host ~${MEM_GB} GB RAM)" \
- && cmake --build build --target llama-server -j "${JOBS}"
+ && cmake --build build -j "${JOBS}"
 
 # ---- runtime stage ---------------------------------------------------------
 FROM nvidia/cuda:12.6.2-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 # python3 + gguf: read the DSpark drafter's block_size for --spec-draft-n-max.
-# curl: container-side health tooling. libgomp1: OpenMP runtime for ggml.
+# libcurl4/libgomp1: runtime deps of llama-server. curl: container health tooling.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 python3-pip libgomp1 ca-certificates curl \
+      python3 python3-pip libgomp1 libcurl4 ca-certificates curl \
  && pip3 install --no-cache-dir gguf \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /src/build/bin/llama-server /usr/local/bin/llama-server
+# llama-server + its shared libs (libllama, libggml*, libmtmd) from the build.
+COPY --from=build /src/build/bin/llama-server /opt/bonsai/bin/llama-server
+COPY --from=build /src/build/bin/*.so /opt/bonsai/bin/
+ENV PATH="/opt/bonsai/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/opt/bonsai/bin"
+
 COPY docker/bonsai-serve.sh /usr/local/bin/bonsai-serve.sh
-RUN chmod +x /usr/local/bin/llama-server /usr/local/bin/bonsai-serve.sh
+RUN chmod +x /usr/local/bin/bonsai-serve.sh /opt/bonsai/bin/llama-server
 
 # The entrypoint discovers the GGUF weights (mounted at /root/.cache/huggingface)
 # and launches llama-server with vision + speculative + tool-calling flags.
