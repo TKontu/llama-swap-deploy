@@ -24,7 +24,7 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 | `docker-compose.yml` | Portainer stack definition (pulls the pre-built image) |
 | `config.yaml` | llama-swap model definitions — all 15 models, ported from the old gateway |
 | `.env.example` | Secrets/vars (copy to `.env`, or set as Portainer stack env vars) |
-| `vllm_refs/` | Reference: the old vLLM-gateway `models.yaml` + measured VRAM footprints (provenance for sizing) |
+| `stack.env` | Placeholder env file for the Portainer stack (set real values in the Portainer UI) |
 
 ---
 
