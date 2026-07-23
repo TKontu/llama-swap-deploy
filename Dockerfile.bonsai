@@ -21,9 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --depth 1 -b prism https://github.com/PrismML-Eng/llama.cpp.git /src
 WORKDIR /src
 
-# Match PrismML's build_cuda_linux.sh (shared libs, all targets), tests off to save
-# time. Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
-RUN cmake -B build -G Ninja \
+# The build box has no GPU/driver, so executables can't resolve CUDA driver-API
+# symbols (cuMemCreate, cuDeviceGet, ...). Link against the CUDA driver STUB the
+# devel image ships, exposed as libcuda.so.1 via LIBRARY_PATH. Build ONLY the
+# server target (the fork's extra example binaries fail to link the stub and we
+# don't need them). Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
+RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 \
+ && export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
+ && cmake -B build -G Ninja \
       -DGGML_CUDA=ON \
       -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHS} \
       -DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +36,7 @@ RUN cmake -B build -G Ninja \
  && MEM_GB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1048576 )) \
  && JOBS=$([ "${MEM_GB:-0}" -lt 16 ] && echo 2 || echo 4) \
  && echo "building with -j${JOBS} (host ~${MEM_GB} GB RAM)" \
- && cmake --build build -j "${JOBS}"
+ && cmake --build build --target llama-server -j "${JOBS}"
 
 # ---- runtime stage ---------------------------------------------------------
 FROM nvidia/cuda:12.6.2-runtime-ubuntu22.04
@@ -43,14 +48,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && pip3 install --no-cache-dir gguf \
  && rm -rf /var/lib/apt/lists/*
 
-# llama-server + its shared libs (libllama, libggml*, libmtmd) from the build.
-COPY --from=build /src/build/bin/llama-server /opt/bonsai/bin/llama-server
-COPY --from=build /src/build/bin/*.so /opt/bonsai/bin/
+# Copy the whole build output dir so the versioned .so SONAME symlinks
+# (libggml-cuda.so -> .so.0 -> .so.0.13.1) are preserved for the runtime linker.
+COPY --from=build /src/build/bin/ /opt/bonsai/bin/
 ENV PATH="/opt/bonsai/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/bonsai/bin"
 
 COPY docker/bonsai-serve.sh /usr/local/bin/bonsai-serve.sh
-RUN chmod +x /usr/local/bin/bonsai-serve.sh /opt/bonsai/bin/llama-server
+RUN chmod +x /usr/local/bin/bonsai-serve.sh
 
 # The entrypoint discovers the GGUF weights (mounted at /root/.cache/huggingface)
 # and launches llama-server with vision + speculative + tool-calling flags.
