@@ -13,11 +13,12 @@ SNAP="$DIR/models--prism-ml--Ternary-Bonsai-27B-gguf/snapshots"
 PORT="${BONSAI_PORT:-8080}"
 CTX="${BONSAI_CTX:-16384}"     # DSpark re-prefills each request → give it room
 
-# Find the Q2_0 ternary model (exclude mmproj/dspark/kv-bias extras).
+# Find the main Q2_0 ternary model. Use "-Q2_0.gguf" so we don't match the
+# PQ2_0 variant, and exclude the mmproj/dspark/kv-bias extras.
 find_model() {
-    for f in "$SNAP"/*/*Q2_0*.gguf; do
+    for f in "$SNAP"/*/*-Q2_0.gguf; do
         [ -f "$f" ] || continue
-        case "$f" in *mmproj*|*dspark*|*kv-bias*) continue ;; esac
+        case "$f" in *mmproj*|*dspark*|*kv-bias*|*PQ2_0*) continue ;; esac
         echo "$f"; return 0
     done
     return 1
@@ -27,9 +28,13 @@ MODEL="$(find_model || true)"
 if [ -z "$MODEL" ]; then
     echo "Bonsai: weights not in cache — downloading $REPO (Q2_0 + mmproj + dspark)…"
     echo "        (one-time; ~10 GB into $DIR — first cold-start will be slow)"
-    # Use the `hf` CLI; `huggingface-cli` is deprecated and no longer functions.
+    # Use the `hf` CLI (`huggingface-cli` is deprecated) and EXPLICIT filenames:
+    # hf's --include is ignored when positional names are present, which silently
+    # skipped the main model. Naming the files avoids that.
     hf download "$REPO" \
-        --include "*Q2_0*.gguf" "*mmproj*.gguf" "*dspark-Q4_1*.gguf" \
+        Ternary-Bonsai-27B-Q2_0.gguf \
+        Ternary-Bonsai-27B-mmproj-Q8_0.gguf \
+        Ternary-Bonsai-27B-dspark-Q4_1.gguf \
         --cache-dir "$DIR"
     MODEL="$(find_model || true)"
 fi
