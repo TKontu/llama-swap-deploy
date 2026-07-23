@@ -25,10 +25,20 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Free up disk space (CUDA build needs room)
+      # The CUDA build produces GBs of object files; the runner's / is only ~14 GB.
+      # Free extra space AND move Docker's storage to the large /mnt volume (~70 GB)
+      # so buildkit doesn't fill / mid-build (the earlier run got killed uncleanly).
+      - name: Maximize build disk
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
-          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /usr/local/lib/android /opt/hostedtoolcache /usr/share/swift \
+                      /usr/local/share/boost /usr/lib/jvm /usr/share/miniconda || true
+          sudo swapoff -a || true
+          sudo systemctl stop docker docker.socket || true
+          sudo mkdir -p /mnt/docker
+          echo '{"data-root":"/mnt/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          echo "--- disk ---"; df -h / /mnt; docker info | grep -i "docker root" || true
 
       - name: Checkout
         uses: actions/checkout@v4
