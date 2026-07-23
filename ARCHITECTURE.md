@@ -72,6 +72,15 @@ Portainer stack
       └── runs (child process) ──▶ llama-server               (per GGUF model, bundled in image)
 ```
 
+### Image delivery (CI → GHCR → Portainer)
+
+Portainer **cannot build** an image from a Git-repository stack (the `build:` directive is
+unsupported there). So `.github/workflows/build-and-push.yml` builds the `Dockerfile` on
+GitHub Actions and pushes it to **GHCR**; the compose file references it via `image:`
+(`LLAMA_SWAP_IMAGE`). `config.yaml` is **bind-mounted from the cloned repo, not baked into
+the image** — so model edits are a plain `git push` (Portainer re-pulls + restarts), and
+only `Dockerfile` changes trigger an image rebuild.
+
 ### Why these choices
 
 - **Custom image (unified-cuda + `docker` CLI).** The stock `unified-cuda` image is

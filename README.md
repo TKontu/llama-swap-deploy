@@ -20,9 +20,11 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 | `ARCHITECTURE.md` | Design, hardware constraints, why llama-swap, topology |
 | `TODO.md` | Migration checklist + open questions |
 | `Dockerfile` | Custom image = `llama-swap:unified-cuda` + `docker` CLI (needed to spawn vLLM containers) |
-| `docker-compose.yml` | Portainer stack definition |
-| `config.yaml` | llama-swap model definitions (template — fill in all models) |
-| `.env.example` | Secrets/vars (copy to `.env`) |
+| `.github/workflows/build-and-push.yml` | CI: builds the Dockerfile and pushes the image to GHCR (Portainer can't build from a repo) |
+| `docker-compose.yml` | Portainer stack definition (pulls the pre-built image) |
+| `config.yaml` | llama-swap model definitions — all 15 models, ported from the old gateway |
+| `.env.example` | Secrets/vars (copy to `.env`, or set as Portainer stack env vars) |
+| `vllm_refs/` | Reference: the old vLLM-gateway `models.yaml` + measured VRAM footprints (provenance for sizing) |
 
 ---
 
@@ -47,30 +49,48 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 
 ---
 
-## Deploy with Portainer
+## Deploy with Portainer (GitOps)
 
-The upstream llama-swap repo ships **no compose file**, so you cannot point Portainer at
-it directly. Deploy one of these two ways instead:
+> **Important:** Portainer **cannot build an image** from a Git-repository stack — the
+> `build:` directive is not supported there
+> ([Portainer docs](https://docs.portainer.io/faqs/troubleshooting/stacks-deployments-and-updates/can-i-build-an-image-while-deploying-a-stack-application-from-git)).
+> So this repo builds the image in **GitHub Actions** and pushes it to **GHCR**; Portainer
+> just pulls it. The same GitHub repo is both the image source and the stack source.
 
-### Option A — Repository stack (recommended, GitOps)
+### One-time setup
 
-1. Push this folder to its own git repo.
-2. Portainer → **Stacks → Add stack → Repository**.
-3. Repository URL = your repo; **Compose path** = `docker-compose.yml`.
-4. Add env vars (or reference `.env`): `HF_TOKEN=…`.
-5. Enable **automatic updates** (poll or webhook) if you want push-to-deploy.
-6. Deploy. Portainer builds the `Dockerfile` and starts the stack.
+1. **Push this folder to a GitHub repo** and let the workflow run (Actions tab →
+   `build-and-push`; it also runs on `Dockerfile` changes and via *Run workflow*).
+2. **Make the GHCR package public** (repo → *Packages* → the image → *Package settings* →
+   change visibility → *Public*). The image contains no secrets — only llama-swap + the
+   `docker` CLI. (Keep it private instead if you prefer; then add GHCR registry credentials
+   in Portainer → *Registries*.)
+3. Grab the image reference from the workflow's run summary, e.g.
+   `ghcr.io/<owner>/llama-swap-deploy:latest` (all lowercase).
 
-### Option B — Web editor (quick start)
+### Create the stack
 
-1. Portainer → **Stacks → Add stack → Web editor**.
-2. Paste `docker-compose.yml`. Because it uses `build:`, either pre-build/push the image
-   to a registry and switch to `image:`, or use the Repository method (Option A) which
-   builds for you.
-3. Set env vars, deploy.
+1. Portainer → **Stacks → Add stack → Repository**.
+2. Repository URL = your repo; **Compose path** = `docker-compose.yml`.
+3. Add these **environment variables**:
+   - `LLAMA_SWAP_IMAGE=ghcr.io/<owner>/llama-swap-deploy:latest`
+   - `HF_TOKEN=hf_…`
+4. Enable **automatic updates** (poll or webhook) for push-to-deploy. Because `config.yaml`
+   is bind-mounted from the cloned repo, **editing models is just a git push** — Portainer
+   re-pulls and restarts; no image rebuild is needed (only `Dockerfile` changes rebuild).
+5. Deploy.
 
 After deploy, llama-swap listens on **`http://<host>:9292`** (OpenAI-compatible), with a
 web UI at `http://<host>:9292/ui`.
+
+### Local development
+
+The compose file keeps a commented `build: .` for local use only (Portainer ignores it):
+
+```bash
+cp .env.example .env      # fill in HF_TOKEN; LLAMA_SWAP_IMAGE unused locally
+docker compose build && docker compose up
+```
 
 ---
 
@@ -83,7 +103,7 @@ curl -Ns http://<host>:9292/logs/stream           # live logs
 
 # fire a request (loads the model on demand)
 curl http://<host>:9292/v1/chat/completions -H 'Content-Type: application/json' -d '{
-  "model": "Qwen3.6-35B-A3B",
+  "model": "Qwen3.6-27B-AWQ-INT4",
   "messages": [{"role":"user","content":"hi"}]
 }'
 ```
@@ -127,20 +147,21 @@ Redeploy the stack (or `POST /api/models/unload/:id`) to pick up changes.
 
 ## Concurrency (which models run together)
 
-Defined under `swap.group.groups` in `config.yaml`. To keep the big model and a small
-model **both loaded at once**:
+Defined under the **top-level** `groups` key in `config.yaml` (there is no `swap:`
+wrapper). Any model not in a group swaps on demand, one at a time. To keep the big model
+and a small model **both loaded at once**:
 
 ```yaml
-swap:
-  use: group
-  group:
-    groups:
-      coload:
-        swap: false        # members stay loaded together (no swap among them)
-        exclusive: false    # loading a member does not unload other groups
-        persistent: true    # other groups can never evict this one
-        members: ["Qwen3.6-35B-A3B", "gemma-4-E4B"]
+groups:
+  coload:
+    swap: false        # members stay loaded together (no swap among them)
+    exclusive: true    # loading this pair unloads other models (one 24 GB pair at a time)
+    persistent: false  # keep false — `true` would let this pair block every other model
+    members: ["Qwen3.6-35B-A3B-AWQ-4bit_16k_8seqs", "gemma-4-E4B-it-qat-AWQ-INT4-shortkv"]
 ```
+
+> ⚠️ Don't set `persistent: true` on a group that occupies both 3090s — the other 13
+> models could then never load. See `config.yaml` for the sized co-load pair.
 
 ---
 

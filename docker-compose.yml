@@ -1,8 +1,9 @@
-# llama-swap stack for the `inference` host (deploy via Portainer).
+# llama-swap stack for the `inference` host (deploy via Portainer, GitOps).
 #
-# - build: .  → Portainer builds the custom image (unified-cuda + docker CLI).
-#   To deploy via the web editor instead, pre-build & push the image and replace
-#   `build: .` with `image: <your-registry>/llama-swap-docker:latest`.
+# - image: → Portainer CANNOT build from a Git repository stack, so we run a
+#   PRE-BUILT image from GHCR. It is built & pushed by .github/workflows/build-and-push.yml
+#   on every push that touches the Dockerfile. Set LLAMA_SWAP_IMAGE as a stack env var
+#   (e.g. ghcr.io/<owner>/llama-swap-deploy:latest). See README → "Deploy with Portainer".
 # - network_mode: host → llama-swap serves on :9292 and reaches vLLM sibling
 #   containers at 127.0.0.1:<PORT> (their published ports).
 # - /var/run/docker.sock → lets llama-swap spawn vLLM containers (DooD).
@@ -10,8 +11,13 @@
 
 services:
   llama-swap:
-    build: .
-    # image: your-registry/llama-swap-docker:latest   # <- use instead of build: for web-editor deploys
+    # Pre-built image (see workflow above). LLAMA_SWAP_IMAGE must be set in the
+    # Portainer stack env; the CHANGE_ME default is intentionally invalid so an
+    # unset var fails loudly instead of pulling the wrong thing.
+    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/CHANGE_ME/llama-swap-deploy:latest}
+    # For LOCAL development only (Portainer ignores this for Git stacks):
+    #   docker compose build && docker compose up
+    # build: .
     container_name: llama-swap
     restart: unless-stopped
     network_mode: host

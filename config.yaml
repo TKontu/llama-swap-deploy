@@ -1,25 +1,37 @@
 # llama-swap configuration for the `inference` host.
 # Schema: https://raw.githubusercontent.com/mostlygeek/llama-swap/refs/heads/main/config-schema.json
 #
-# This is a STARTER covering the representative cases. Fill in the remaining models from
-# the old config/models.yaml — see TODO.md for the full list and the per-model checklist.
+# Ported from the old vLLM-gateway `config/models.yaml` (see vllm_refs/). The gateway
+# packed many models per card in "budget mode"; llama-swap instead SWAPS models (one at a
+# time) unless they are grouped, so each solo model owns its card(s) while loaded and can
+# safely take a high --gpu-memory-utilization. VRAM sizing below is anchored to the
+# gateway's measured footprints (vllm_refs/memory_footprints.json).
 #
 # Conventions:
 #   - vLLM models run as sibling Docker containers (llama-swap has the docker CLI + socket).
-#   - Pin GPUs by UUID (indices reorder across reboots):
-#       3090 #0  GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1   (PCI 06:10)
-#       A2000    GPU-690062e6-be81-ab00-ebd3-7181cafcea4a   (PCI 06:11, 12 GB)
-#       3090 #2  GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb   (PCI 06:1B)
+#   - GPUs pinned by UUID (indices reorder across reboots):
+#       3090 #0  GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1   (24 GB, PCI 06:10)
+#       A2000    GPU-690062e6-be81-ab00-ebd3-7181cafcea4a   (12 GB, PCI 06:11)
+#       3090 #2  GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb   (24 GB, PCI 06:1B)
 #   - Publish ${PORT}:8000 and set proxy http://127.0.0.1:${PORT} (llama-swap is host-net).
-#   - Size --gpu-memory-utilization by hand so co-resident models fit the card (< ~0.90 sum).
+#   - --quantization is OMITTED: vLLM auto-detects AWQ/INT4 from each repo's config.json
+#     (the production gateway did the same). Add it explicitly only if auto-detect fails.
+#   - `kv_reservation_seqs` from the old config has no vLLM equivalent — it was a budget-mode
+#     packing knob. Solo models here get the whole card, so it is simply dropped.
+#   - The 262144 / 1048576 / 256000-token context models are marked VALIDATE: confirm they
+#     actually fit on cold-start before relying on them (see notes inline).
 
 # Global defaults ------------------------------------------------------------
-healthCheckTimeout: 900        # seconds to wait for a cold-starting model's /health
+healthCheckTimeout: 900        # seconds to wait for a cold-starting model's /health (weights download + load)
 logLevel: info
 
 macros:
   vllm-image: "vllm/vllm-openai:v0.25.1"
-  # Common docker run preamble for vLLM. Per-model cmd adds --gpus and vLLM flags.
+  gpu-both-3090: "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"
+  gpu-3090-0:    "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"
+  gpu-3090-2:    "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"
+  gpu-a2000:     "GPU-690062e6-be81-ab00-ebd3-7181cafcea4a"
+  # Common docker-run preamble for vLLM. Per-model cmd adds --gpus and the vLLM flags.
   vllm-run: >-
     docker run --rm --name ${MODEL_ID}
     -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -28,46 +40,256 @@ macros:
 
 models:
 
-  # === Big model: tensor-parallel across BOTH 3090s ========================
-  "Qwen3.6-35B-A3B":
-    name: "Qwen3.6 35B A3B (AWQ 4-bit)"
+  # ======================= Qwen 3.6 35B A3B (AWQ 4-bit) ========================
+  # Full-context profile: TP=2 across both 3090s. Measured ~0.63/card at 131072 ctx.
+  "Qwen3.6-35B-A3B-AWQ-4bit":
+    name: "Qwen3.6 35B A3B — 131k (AWQ 4-bit, TP2)"
     cmd: |
       ${vllm-run}
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      --gpus '"device=${gpu-both-3090}"'
       ${vllm-image}
-      --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit --quantization awq
+      --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.90
+      --max-model-len 131072 --max-num-seqs 1
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+    # Production omitted --enforce-eager here. If the Xid 31 MMU fault recurs
+    # (see ARCHITECTURE → known issues), add --enforce-eager as on the 16k profile.
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # 16k / 8-seq co-load profile: hand-sized so it co-resides with a small model on one
+  # 3090 (see the `coload` group below). util 0.58 → ~14 GB/card (measured ~13.8 GB).
+  "Qwen3.6-35B-A3B-AWQ-4bit_16k_8seqs":
+    name: "Qwen3.6 35B A3B — 16k co-load (AWQ 4-bit, TP2)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-both-3090}"'
+      ${vllm-image}
+      --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
       --tensor-parallel-size 2 --gpu-memory-utilization 0.58
       --max-model-len 16384 --max-num-seqs 8
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 0            # persistent member of the co-load group; never idle-unload
+    ttl: 3600
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
-  # === Small model: TP=1 on ONE 3090 (co-resident with a 35B rank) =========
-  "gemma-4-E4B":
-    name: "Gemma 4 E4B IT (QAT AWQ INT4)"
+  # ======================= Qwen 3.6 27B (AWQ INT4) ============================
+  # 262144 ctx needs both cards (measured ~0.85/card). util 0.92 leaves a little headroom.
+  "Qwen3.6-27B-AWQ-INT4":
+    name: "Qwen3.6 27B — 262k (AWQ INT4, TP2)"
     cmd: |
       ${vllm-run}
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      --gpus '"device=${gpu-both-3090}"'
       ${vllm-image}
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4 --quantization awq
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.30
-      --max-model-len 16384 --max-num-seqs 32
+      --model cyankiwi/Qwen3.6-27B-AWQ-INT4
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.92
+      --max-model-len 262144 --max-num-seqs 1
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 0
+    ttl: 3600   # VALIDATE: 262k ctx is the tightest fit on this box; watch cold-start /health.
 
-  # === Exotic GGUF: llama.cpp (PrismML fork), on the A2000 =================
-  # Ternary-Bonsai is hybrid-attention + multimodal + ternary quant, built for a
-  # PrismML fork of llama.cpp. vLLM 0.25.1 cannot serve it. Replace <prismml-llamacpp>
-  # with the fork image, and confirm the server flags/port.
+  # ======================= Gemma 4 E4B (QAT AWQ INT4) =========================
+  # Long-context profile on one 3090 (measured ~0.80/card at 128k).
+  "gemma-4-E4B-it-qat-AWQ-INT4":
+    name: "Gemma 4 E4B — 128k (QAT AWQ INT4)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 128000 --max-num-seqs 8
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # Short-KV co-load profile: TP=1 on 3090 #0 beside the 35B rank (util 0.30 → ~7 GB).
+  # Production ran this TP=2 for budget packing; TP=1 on one card is correct for co-load.
+  "gemma-4-E4B-it-qat-AWQ-INT4-shortkv":
+    name: "Gemma 4 E4B — 16k co-load (QAT AWQ INT4)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.30
+      --max-model-len 16384 --max-num-seqs 32
+      --enforce-eager
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ======================= Gemma 4 12B (QAT AWQ INT4) =========================
+  "gemma-4-12B-it-qat-AWQ-INT4":
+    name: "Gemma 4 12B — 32k (QAT AWQ INT4)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 32000 --max-num-seqs 4
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # ======================= Gemma 4 26B A4B (QAT AWQ INT4) =====================
+  # Standard profile: fits one 3090 at 16800 ctx (measured ~0.81/card).
+  "gemma-4-26B-A4B-it-qat-AWQ-INT4":
+    name: "Gemma 4 26B A4B — 16k (QAT AWQ INT4)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 16800 --max-num-seqs 1
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # Max-context profile of the SAME repo: TP=2 for 131072 ctx (measured ~0.53/card, TP2).
+  "gemma4-26B-A4B-it-INT4-max":
+    name: "Gemma 4 26B A4B — 131k (QAT AWQ INT4, TP2)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-both-3090}"'
+      ${vllm-image}
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.90
+      --max-model-len 131072 --max-num-seqs 1
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # ======================= Qwen 3.5 9B (AWQ 4-bit) ============================
+  "qwen3.5-9b":
+    name: "Qwen3.5 9B — 16k (AWQ 4-bit)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 16384 --max-num-seqs 2
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # ======================= Qwen 3.5 4B (AWQ 4-bit) ============================
+  # Production ran TP=2 (budget packing); a 4B trivially fits one card, so TP=1 (no PCIe tax).
+  "Qwen3.5-4B-AWQ-4bit-shortkv":
+    name: "Qwen3.5 4B — 16k short-KV (AWQ 4-bit)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 16384 --max-num-seqs 32
+      --enforce-eager
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ======================= Phi-4 (AWQ) ========================================
+  "phi-4-AWQ":
+    name: "Phi-4 — 16k (AWQ)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model stelterlab/phi-4-AWQ
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 16384 --max-num-seqs 4
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # ======================= Mellum 2 12B A2.5B (AWQ INT4) ======================
+  "Mellum2-12B-A2.5B-Instruct-AWQ-INT4":
+    name: "Mellum2 12B A2.5B — 128k (AWQ INT4)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.90
+      --max-model-len 128000 --max-num-seqs 12
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600
+
+  # ======================= Qwythos 9B Claude-Mythos (bf16) ====================
+  # Un-quantized (bf16) — no --quantization. 256k ctx across both 3090s.
+  "Qwythos-9B-Claude-Mythos-5-1M":
+    name: "Qwythos 9B Claude-Mythos — 256k (bf16, TP2)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-both-3090}"'
+      ${vllm-image}
+      --model empero-ai/Qwythos-9B-Claude-Mythos-5-1M
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.90
+      --max-model-len 256000 --max-num-seqs 1
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600   # VALIDATE: bf16 9B weights + 256k KV — confirm it fits TP=2 on cold-start.
+
+  # AWQ variant at 1M context. NO footprint was measured for this in the old gateway.
+  "Qwythos-9B-Claude-Mythos-5-1M-AWQ":
+    name: "Qwythos 9B Claude-Mythos — 1M (AWQ)"
+    cmd: |
+      ${vllm-run}
+      --gpus '"device=${gpu-3090-0}"'
+      ${vllm-image}
+      --model sahilchachra/Qwythos-9B-Claude-Mythos-5-1M-AWQ
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 1048576 --max-num-seqs 4
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 3600   # VALIDATE: 1M-token KV very likely will NOT fit one 3090. If cold-start OOMs,
+                # switch to '"device=${gpu-both-3090}"' + --tensor-parallel-size 2, or lower --max-model-len.
+
+  # ======================= Ternary-Bonsai 27B (GGUF) — SPECIAL CASE ===========
+  # Hybrid-attention + multimodal + ternary quant, built for a PrismML fork of llama.cpp.
+  # vLLM 0.25.1 CANNOT serve it (see ARCHITECTURE → backend matrix). This entry is a
+  # PLACEHOLDER: replace <prismml-llamacpp> with the fork image and confirm the server flags.
+  # The config still loads with the placeholder — only *requesting* this model fails until set.
   "Ternary-Bonsai-27B":
-    name: "Ternary Bonsai 27B (GGUF, llama.cpp)"
+    name: "Ternary Bonsai 27B (GGUF, llama.cpp PrismML fork)"
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      --gpus '"device=GPU-690062e6-be81-ab00-ebd3-7181cafcea4a"'
+      --gpus '"device=${gpu-a2000}"'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       <prismml-llamacpp>
@@ -77,34 +299,27 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 600
-
-  # === TEMPLATE: copy for each remaining model (see TODO.md list) ==========
-  # "Qwen3.6-27B-AWQ-INT4":
-  #   cmd: |
-  #     ${vllm-run}
-  #     --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-  #     ${vllm-image}
-  #     --model <repo> --quantization awq
-  #     --tensor-parallel-size 1 --gpu-memory-utilization 0.90
-  #     --max-model-len <n> --max-num-seqs <n>
-  #     --port 8000
-  #   cmdStop: docker stop ${MODEL_ID}
-  #   proxy: http://127.0.0.1:${PORT}
-  #   ttl: 600
+    # Old config carried vLLM-style tokenizer args (--tokenizer / --hf-config-path
+    # Qwen/Qwen3.6-27B). Map those to the fork's equivalents once the image is known.
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
 # Concurrency ----------------------------------------------------------------
-swap:
-  use: group
-  group:
-    groups:
-      # Keep the 35B and the small model loaded together, and never let another
-      # model's load evict them.
-      coload:
-        swap: false
-        exclusive: false
-        persistent: true
-        members:
-          - "Qwen3.6-35B-A3B"
-          - "gemma-4-E4B"
-      # All other models default to on-demand swapping (one at a time) unless you
-      # add them to their own group here.
+# `groups` is a TOP-LEVEL key in the llama-swap schema — there is no `swap:` wrapper.
+# Any model NOT listed in a group is on-demand and swaps normally (one at a time): loading
+# any model unloads the currently-resident one, so each solo model safely owns its card(s).
+#
+# The `coload` group keeps the 35B (16k profile) and a small Gemma resident TOGETHER on the
+# two 3090s (the original goal of this migration). Requesting either member loads both.
+# Sizing (per ARCHITECTURE → "GPU / VRAM placement"): on shared 3090 #0 the utils must sum
+# < ~0.90 → 0.58 (35B rank) + 0.30 (Gemma) = 0.88.
+groups:
+  coload:
+    swap: false          # members stay co-resident (no swapping among them)
+    exclusive: true      # loading this pair unloads other models (and vice versa) — one 24 GB pair at a time
+    persistent: false    # the pair is evictable like any other model (do NOT set true, or the other 13 models can never load)
+    members:
+      - "Qwen3.6-35B-A3B-AWQ-4bit_16k_8seqs"
+      - "gemma-4-E4B-it-qat-AWQ-INT4-shortkv"

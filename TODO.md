@@ -2,6 +2,25 @@
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
+## Current status (2026-07-23) — deployable from GitHub via Portainer
+
+**Done (this repo is ready to deploy):**
+- [x] Custom image + CI: `.github/workflows/build-and-push.yml` builds the `Dockerfile` and
+  pushes to GHCR (Portainer can't build from a repo). Compose references it via `image:`.
+- [x] `config.yaml`: all 15 models ported from the old gateway (`vllm_refs/models.yaml`),
+  with VRAM sizing anchored to `vllm_refs/memory_footprints.json`.
+- [x] Co-load group (`groups.coload`) defined and hand-sized (35B-16k + Gemma short-KV).
+- [x] `docker-compose.yml` / `.env.example` wired for Portainer stack env vars
+  (`LLAMA_SWAP_IMAGE`, `HF_TOKEN`).
+
+**Remaining — needs the host (can't be done from the repo):**
+- [ ] **Rotate the HF token** that was pasted into `.env` (it's git-ignored, but was exposed).
+- [ ] Make the GHCR package public (or add registry creds in Portainer).
+- [ ] Cold-start validation, especially the tight-fit contexts flagged `VALIDATE` in
+  `config.yaml`: `Qwen3.6-27B-AWQ-INT4` (262k), `Qwythos-…-1M-AWQ` (1M — likely needs TP2 or
+  less context), `Qwythos-…-256k` (bf16).
+- [ ] `Ternary-Bonsai-27B`: supply the PrismML llama.cpp fork image (entry is a placeholder).
+
 ## 0. Decisions to lock first
 
 - [ ] **GPU layout for the co-load pair.** Pick one:

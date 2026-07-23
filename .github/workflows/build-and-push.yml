@@ -1,0 +1,62 @@
+name: build-and-push
+
+# Builds the custom llama-swap image (unified-cuda + docker CLI) and pushes it to
+# GHCR, so Portainer can pull it for a Git-repository stack (Portainer cannot build
+# `build:` itself). config.yaml is bind-mounted at runtime and is NOT baked into the
+# image, so it does not need to trigger a rebuild — only the Dockerfile does.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".github/workflows/build-and-push.yml"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  # Resolves to <owner>/<repo>; docker/metadata-action lowercases it for GHCR.
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Summary
+        run: |
+          echo "### Image pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Set this as the \`LLAMA_SWAP_IMAGE\` stack env var in Portainer:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
