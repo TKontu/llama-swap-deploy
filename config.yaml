@@ -120,19 +120,22 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
 
-  # Short-KV co-load profile: TP=1 on 3090 #0 beside the 35B rank (util 0.30 → ~7 GB).
+  # Short-KV CO-LOAD profile. MUST be TP=2 across BOTH 3090s so its weights split per-card
+  # and fit alongside the 35B rank (a TP=1 build puts all weights on one card → OOM).
+  # util 0.40 → each 3090 holds 35B-half (~13.8 GB @0.58) + gemma-half (~7.8 GB @0.40) < 24 GB.
+  # See the `coload` group + ARCHITECTURE "GPU / VRAM placement" for the sizing math.
   "gemma-4-E4B-it-qat-AWQ-INT4-shortkv":
-    name: "Gemma 4 E4B — 16k co-load (QAT AWQ INT4)"
+    name: "Gemma 4 E4B — 16k co-load (QAT AWQ INT4, TP2)"
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.30
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.40
       --max-model-len 16384 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -353,9 +356,11 @@ models:
 # Concurrency ----------------------------------------------------------------
 # `groups` is a TOP-LEVEL key. Any model NOT in a group is on-demand and swaps normally
 # (one at a time): loading a model unloads the current one, so each solo model owns its
-# card(s). The `coload` group keeps the 35B (16k profile) + a small Gemma resident TOGETHER
-# on the two 3090s. Requesting either member loads both. On shared 3090 #0 the utils sum to
-# 0.58 (35B rank) + 0.30 (Gemma) = 0.88 < ~0.90.
+# card(s). The `coload` group keeps the 35B (16k profile) + the small Gemma resident TOGETHER
+# on the two 3090s. BOTH are TP=2 across both 3090s → per card: 35B-half (~13.8 GB @ 0.58) +
+# gemma-half (~7.8 GB @ 0.40) ≈ 21.6 GB < 24 GB (measured footprints). Requesting either member
+# loads it; the other loads on its next request and stays (swap:false). Retune the utils if you
+# change ctx/seqs. Two hot TP=2 models all-reduce over PCIe (no NVLink) → lower concurrent tok/s.
 groups:
   coload:
     swap: false          # members stay co-resident (no swapping among them)
