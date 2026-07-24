@@ -5,13 +5,22 @@
 #   HF_TOKEN=hf_... bash /tmp/smoke.sh
 set -u
 
-CARD0=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1
+CARD_A=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1   # 3090 #0
+CARD_B=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb   # 3090 #2 (A2000 is off-limits)
 IMG=ghcr.io/tkontu/bonsai-llama:latest
 PORT=8090
 : "${HF_TOKEN:?export HF_TOKEN=hf_... first (needed for gated/Xet repos)}"
 
-echo ">> freeing the 3090s (stopping any loaded llama-swap model)"
-docker stop Qwythos-9B-Claude-Mythos-5-1M >/dev/null 2>&1 || true
+# Auto-pick whichever 3090 has the most free VRAM (llama-swap may have a model
+# resident on the other one). The smoke bypasses llama-swap, so we just use a free card.
+free_of() { nvidia-smi --query-gpu=uuid,memory.free --format=csv,noheader,nounits | awk -F', ' -v u="$1" '$1==u{print $2}'; }
+FA=$(free_of "$CARD_A"); FB=$(free_of "$CARD_B")
+if [ "${FB:-0}" -ge "${FA:-0}" ]; then CARD0=$CARD_B; FREE=$FB; else CARD0=$CARD_A; FREE=$FA; fi
+echo ">> using GPU $CARD0 (${FREE} MiB free)"
+if [ "${FREE:-0}" -lt 12000 ]; then
+  echo "!! WARNING: only ${FREE} MiB free — both 3090s look busy. Free one (e.g. stop a"
+  echo "   leftover model container, or POST /unload to llama-swap) and re-run."
+fi
 
 smoke() {
   local label="$1" repo="$2" file="$3"
