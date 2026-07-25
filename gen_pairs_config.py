@@ -165,6 +165,12 @@ def main():
         out.append(member_entry(b, id_b, CARD2))
         groups.append((pair, id_a, id_b))
 
+    out.append("  # ===== Standalone entries (ungrouped): load one pooled model solo =====")
+    out.append("  # Callsign = the base token (no pairNN prefix). Requesting one loads it alone")
+    out.append("  # (exclusive swap unloads whatever else is resident). TP=1 on 3090 #0.")
+    for spec in POOL:
+        out.append(member_entry(spec, spec["tok"], CARD0))
+
     out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
     for (mid, repo, mml, seqs, util, think_off) in SOLO:
         out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, False, think_off, tp=2, util=util, ttl=3600))
