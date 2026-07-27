@@ -27,6 +27,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair01.phi-4":
     cmd: |
@@ -44,6 +45,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair02: gemma-26b (#0)  +  gemma-12b (#2) =====
   "pair02.gemma-26b":
@@ -62,6 +64,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair02.gemma-12b":
     cmd: |
@@ -79,6 +82,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair03: gemma-26b (#0)  +  gemma-e4b (#2) =====
   "pair03.gemma-26b":
@@ -97,6 +101,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair03.gemma-e4b":
     cmd: |
@@ -114,6 +119,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair04: gemma-26b (#0)  +  qwen3.5-9b (#2) =====
   "pair04.gemma-26b":
@@ -132,6 +138,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair04.qwen3.5-9b":
     cmd: |
@@ -149,6 +156,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair05: gemma-26b (#0)  +  qwen3.5-4b (#2) =====
   "pair05.gemma-26b":
@@ -167,6 +175,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair05.qwen3.5-4b":
     cmd: |
@@ -185,6 +194,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -207,6 +217,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair06.mellum2-12b":
     cmd: |
@@ -224,6 +235,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair07: gemma-26b (#0)  +  ternary (#2) =====
   "pair07.gemma-26b":
@@ -242,6 +254,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair07.ternary":
     cmd: |
@@ -258,6 +271,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair08: gemma-26b (#0)  +  qwythos-v2 (#2) =====
   "pair08.gemma-26b":
@@ -276,6 +290,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair08.qwythos-v2":
     cmd: |
@@ -297,6 +312,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair09: gemma-26b (#0)  +  fablevibes (#2) =====
   "pair09.gemma-26b":
@@ -315,6 +331,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair09.fablevibes":
     cmd: |
@@ -336,6 +353,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair10: phi-4 (#0)  +  gemma-12b (#2) =====
   "pair10.phi-4":
@@ -354,6 +372,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair10.gemma-12b":
     cmd: |
@@ -371,6 +390,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair11: phi-4 (#0)  +  gemma-e4b (#2) =====
   "pair11.phi-4":
@@ -389,6 +409,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair11.gemma-e4b":
     cmd: |
@@ -406,6 +427,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair12: phi-4 (#0)  +  qwen3.5-9b (#2) =====
   "pair12.phi-4":
@@ -424,6 +446,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair12.qwen3.5-9b":
     cmd: |
@@ -441,6 +464,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair13: phi-4 (#0)  +  qwen3.5-4b (#2) =====
   "pair13.phi-4":
@@ -459,6 +483,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair13.qwen3.5-4b":
     cmd: |
@@ -477,6 +502,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -499,6 +525,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair14.mellum2-12b":
     cmd: |
@@ -516,6 +543,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair15: phi-4 (#0)  +  ternary (#2) =====
   "pair15.phi-4":
@@ -534,6 +562,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair15.ternary":
     cmd: |
@@ -550,6 +579,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair16: phi-4 (#0)  +  qwythos-v2 (#2) =====
   "pair16.phi-4":
@@ -568,6 +598,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair16.qwythos-v2":
     cmd: |
@@ -589,6 +620,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair17: phi-4 (#0)  +  fablevibes (#2) =====
   "pair17.phi-4":
@@ -607,6 +639,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair17.fablevibes":
     cmd: |
@@ -628,6 +661,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair18: gemma-12b (#0)  +  gemma-e4b (#2) =====
   "pair18.gemma-12b":
@@ -646,6 +680,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair18.gemma-e4b":
     cmd: |
@@ -663,6 +698,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair19: gemma-12b (#0)  +  qwen3.5-9b (#2) =====
   "pair19.gemma-12b":
@@ -681,6 +717,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair19.qwen3.5-9b":
     cmd: |
@@ -698,6 +735,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair20: gemma-12b (#0)  +  qwen3.5-4b (#2) =====
   "pair20.gemma-12b":
@@ -716,6 +754,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair20.qwen3.5-4b":
     cmd: |
@@ -734,6 +773,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -756,6 +796,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair21.mellum2-12b":
     cmd: |
@@ -773,6 +814,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair22: gemma-12b (#0)  +  ternary (#2) =====
   "pair22.gemma-12b":
@@ -791,6 +833,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair22.ternary":
     cmd: |
@@ -807,6 +850,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair23: gemma-12b (#0)  +  qwythos-v2 (#2) =====
   "pair23.gemma-12b":
@@ -825,6 +869,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair23.qwythos-v2":
     cmd: |
@@ -846,6 +891,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair24: gemma-12b (#0)  +  fablevibes (#2) =====
   "pair24.gemma-12b":
@@ -864,6 +910,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair24.fablevibes":
     cmd: |
@@ -885,6 +932,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair25: gemma-e4b (#0)  +  qwen3.5-9b (#2) =====
   "pair25.gemma-e4b":
@@ -903,6 +951,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair25.qwen3.5-9b":
     cmd: |
@@ -920,6 +969,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair26: gemma-e4b (#0)  +  qwen3.5-4b (#2) =====
   "pair26.gemma-e4b":
@@ -938,6 +988,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair26.qwen3.5-4b":
     cmd: |
@@ -956,6 +1007,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -978,6 +1030,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair27.mellum2-12b":
     cmd: |
@@ -995,6 +1048,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair28: gemma-e4b (#0)  +  ternary (#2) =====
   "pair28.gemma-e4b":
@@ -1013,6 +1067,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair28.ternary":
     cmd: |
@@ -1029,6 +1084,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair29: gemma-e4b (#0)  +  qwythos-v2 (#2) =====
   "pair29.gemma-e4b":
@@ -1047,6 +1103,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair29.qwythos-v2":
     cmd: |
@@ -1068,6 +1125,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair30: gemma-e4b (#0)  +  fablevibes (#2) =====
   "pair30.gemma-e4b":
@@ -1086,6 +1144,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair30.fablevibes":
     cmd: |
@@ -1107,6 +1166,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair31: qwen3.5-9b (#0)  +  qwen3.5-4b (#2) =====
   "pair31.qwen3.5-9b":
@@ -1125,6 +1185,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair31.qwen3.5-4b":
     cmd: |
@@ -1143,6 +1204,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1165,6 +1227,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair32.mellum2-12b":
     cmd: |
@@ -1182,6 +1245,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair33: qwen3.5-9b (#0)  +  ternary (#2) =====
   "pair33.qwen3.5-9b":
@@ -1200,6 +1264,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair33.ternary":
     cmd: |
@@ -1216,6 +1281,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair34: qwen3.5-9b (#0)  +  qwythos-v2 (#2) =====
   "pair34.qwen3.5-9b":
@@ -1234,6 +1300,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair34.qwythos-v2":
     cmd: |
@@ -1255,6 +1322,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair35: qwen3.5-9b (#0)  +  fablevibes (#2) =====
   "pair35.qwen3.5-9b":
@@ -1273,6 +1341,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair35.fablevibes":
     cmd: |
@@ -1294,6 +1363,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair36: qwen3.5-4b (#0)  +  mellum2-12b (#2) =====
   "pair36.qwen3.5-4b":
@@ -1313,6 +1383,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1334,6 +1405,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   # ===== pair37: qwen3.5-4b (#0)  +  ternary (#2) =====
   "pair37.qwen3.5-4b":
@@ -1353,6 +1425,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1373,6 +1446,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair38: qwen3.5-4b (#0)  +  qwythos-v2 (#2) =====
   "pair38.qwen3.5-4b":
@@ -1392,6 +1466,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1417,6 +1492,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair39: qwen3.5-4b (#0)  +  fablevibes (#2) =====
   "pair39.qwen3.5-4b":
@@ -1436,6 +1512,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1461,6 +1538,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair40: mellum2-12b (#0)  +  ternary (#2) =====
   "pair40.mellum2-12b":
@@ -1479,6 +1557,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair40.ternary":
     cmd: |
@@ -1495,6 +1574,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   # ===== pair41: mellum2-12b (#0)  +  qwythos-v2 (#2) =====
   "pair41.mellum2-12b":
@@ -1513,6 +1593,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair41.qwythos-v2":
     cmd: |
@@ -1534,6 +1615,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair42: mellum2-12b (#0)  +  fablevibes (#2) =====
   "pair42.mellum2-12b":
@@ -1552,6 +1634,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "pair42.fablevibes":
     cmd: |
@@ -1573,6 +1656,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair43: ternary (#0)  +  qwythos-v2 (#2) =====
   "pair43.ternary":
@@ -1590,6 +1674,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   "pair43.qwythos-v2":
     cmd: |
@@ -1611,6 +1696,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   # ===== pair44: ternary (#0)  +  fablevibes (#2) =====
   "pair44.ternary":
@@ -1628,6 +1714,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   "pair44.fablevibes":
     cmd: |
@@ -1649,6 +1736,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== pair45: qwythos-v2 (#0)  +  fablevibes (#2) =====
   "pair45.qwythos-v2":
@@ -1671,6 +1759,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   "pair45.fablevibes":
     cmd: |
@@ -1692,6 +1781,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== Standalone entries (ungrouped): load one pooled model solo =====
   # Callsign = the base token (no pairNN prefix). Requesting one loads it alone
@@ -1712,6 +1802,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "phi-4":
     cmd: |
@@ -1729,6 +1820,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "gemma-12b":
     cmd: |
@@ -1746,6 +1838,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "gemma-e4b":
     cmd: |
@@ -1763,6 +1856,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "qwen3.5-9b":
     cmd: |
@@ -1780,6 +1874,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "qwen3.5-4b":
     cmd: |
@@ -1798,6 +1893,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1819,6 +1915,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
+    concurrencyLimit: 128
 
   "ternary":
     cmd: |
@@ -1835,6 +1932,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 8
 
   "qwythos-v2":
     cmd: |
@@ -1856,6 +1954,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 32
 
   "fablevibes":
     cmd: |
@@ -1877,6 +1976,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 1800
+    concurrencyLimit: 16
 
   # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====
   "Qwen3.6-35B-A3B-AWQ-4bit":
@@ -1895,6 +1995,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
+    concurrencyLimit: 128
     filters:
       setParams:
         chat_template_kwargs:
@@ -1916,6 +2017,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
+    concurrencyLimit: 128
 
   "gemma4-26B-A4B-it-INT4-max":
     cmd: |
@@ -1933,6 +2035,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
+    concurrencyLimit: 128
 
   "Qwythos-9B-Claude-Mythos-5-1M":
     cmd: |
@@ -1950,6 +2053,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
+    concurrencyLimit: 128
 
 
 # Each pair is its own group: members co-load and stay together (swap:false);
