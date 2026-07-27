@@ -16,23 +16,47 @@ CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 #2
 IMAGE = "vllm/vllm-openai:v0.25.1"
 BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 
+# Uniform concurrency across the whole pool: a pair is only as fast as its slower
+# member, so per-model admission limits just create bottlenecks. For vLLM this is
+# FREE — the KV pool is preallocated by --gpu-memory-utilization and max-num-seqs
+# only governs how much of that (already-bought) pool may be used at once.
+CONCURRENCY = 32
+
+# Cards are single-tenant (each model is pinned to one GPU by UUID), so there is no
+# competing process to leave room for. The extra 0.05 is ~1.2 GiB that lands entirely
+# in the KV pool — a large relative gain on weight-heavy models like gemma-26b, whose
+# 16.63 GiB of INT4 weights leave only ~5 GiB of the util-0.90 budget for KV.
+UTIL = 0.95
+
+# llama.cpp is NOT free: -c is a flat preallocated KV cache split evenly across
+# --parallel slots, with no paging, prefix sharing, or preemption. Matching 32
+# would mean either 32x the KV VRAM or 1k of context per slot, so the GGUF members
+# carry their own (lower) parallelism. See gguf_entry(); GGUF_CTX is PER SLOT.
+GGUF_PARALLEL = 8
+
 # Single-card pool. Each entry is a dict keyed by "backend":
-#   vllm: repo, mml, seqs, eager, think            (vLLM container, TP=1 @ util 0.90)
+#   vllm: repo, mml, eager, think                  (vLLM container, TP=1 @ util 0.90)
 #   fork: (none)                                   (Ternary via the PrismML bonsai image entrypoint)
-#   gguf: repo, hf_file, ctx                       (standard GGUF via the bonsai image's llama-server)
+#   gguf: repo, hf_file, ctx, par                  (standard GGUF via the bonsai image's llama-server)
+# Concurrency is NOT per-model: vLLM members all use CONCURRENCY, GGUF members all
+# use GGUF_PARALLEL. Only override `par` when a model genuinely can't hold the KV.
 POOL = [
-    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=16800,  seqs=1),
-    dict(tok="phi-4",       backend="vllm", repo="stelterlab/phi-4-AWQ",                          mml=16384,  seqs=4),
-    dict(tok="gemma-12b",   backend="vllm", repo="cyankiwi/gemma-4-12B-it-qat-AWQ-INT4",          mml=32000,  seqs=4),
-    dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000, seqs=8),
-    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-4bit",                  mml=16384,  seqs=2),
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=16384,  seqs=32, eager=True, think=True),
-    dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000, seqs=12),
+    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=16800),
+    dict(tok="phi-4",       backend="vllm", repo="stelterlab/phi-4-AWQ",                          mml=16384),
+    dict(tok="gemma-12b",   backend="vllm", repo="cyankiwi/gemma-4-12B-it-qat-AWQ-INT4",          mml=32000),
+    dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
+    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-4bit",                  mml=16384),
+    # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
+    # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
+    # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, eager=True, think=True),
+    dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
     dict(tok="ternary",     backend="fork"),
-    dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=32768),
+    dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Xet-backed repo (~11.3 GB Q6_K). llama-server -hf downloads via HTTP; if Xet blocks
     # that, we pre-download with the `hf` CLI (+hf_xet) instead. See README.
-    dict(tok="fablevibes",  backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=32768),
+    # Q6_K weights are ~11.3 GB of the 24 GB card, so it gets fewer slots than qwythos.
+    dict(tok="fablevibes",  backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
@@ -53,7 +77,10 @@ THINK_FILTER = (
 )
 
 
-def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=0.90, ttl=1800):
+def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=1800):
+    # NOTE: seqs (--max-num-seqs) costs no VRAM. The KV pool is sized once at startup
+    # from util; this only caps how many sequences may share it. Oversubscribing
+    # degrades via preemption/recompute, never OOM.
     eager_line = "      --enforce-eager\n" if eager else ""
     e = (
         f'  "{model_id}":\n'
@@ -101,10 +128,12 @@ def fork_entry(model_id, gpus, ttl=1800):
     )
 
 
-def gguf_entry(model_id, gpus, repo, hf_file, ctx, ttl=1800):
+def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=1800):
     # Standard GGUF via the bonsai image's gguf-serve.sh entrypoint: it downloads the
     # file with the `hf` CLI (HTTPS + gated + Xet) into the mounted cache, then serves
     # the local file with llama-server (this build's llama-server has no HTTPS itself).
+    # GGUF_CTX is PER SLOT; gguf-serve.sh multiplies it by GGUF_PARALLEL for -c, so
+    # KV VRAM here scales linearly with parallelism (unlike vLLM).
     return (
         f'  "{model_id}":\n'
         f"    cmd: |\n"
@@ -117,6 +146,7 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, ttl=1800):
         f"      -e GGUF_REPO={repo}\n"
         f"      -e GGUF_FILE={hf_file}\n"
         f"      -e GGUF_CTX={ctx}\n"
+        f"      -e GGUF_PARALLEL={par}\n"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
         f"      -p ${{PORT}}:8080\n"
         f"      {BONSAI}\n"
@@ -133,8 +163,9 @@ def member_entry(spec, model_id, card):
     if b == "fork":
         return fork_entry(model_id, card)
     if b == "gguf":
-        return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"])
-    return vllm_entry(model_id, spec["repo"], card, spec["mml"], spec["seqs"],
+        return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"],
+                          spec.get("par", GGUF_PARALLEL))
+    return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think", False))
 
 
