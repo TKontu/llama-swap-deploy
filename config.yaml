@@ -22,7 +22,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -39,7 +39,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -57,7 +57,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -74,7 +74,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -92,7 +92,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -109,7 +109,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -127,7 +127,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -144,7 +144,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -162,7 +162,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -202,7 +202,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -219,7 +219,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -237,7 +237,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -271,7 +271,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -287,7 +287,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -309,7 +310,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -325,7 +326,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -347,7 +349,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -364,7 +366,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -382,7 +384,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -399,7 +401,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -417,7 +419,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -434,7 +436,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -452,7 +454,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -492,7 +494,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -509,7 +511,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -527,7 +529,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -561,7 +563,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -577,7 +579,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -599,7 +602,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -615,7 +618,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -637,7 +641,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -654,7 +658,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -672,7 +676,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -689,7 +693,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -707,7 +711,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -747,7 +751,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -764,7 +768,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -782,7 +786,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -816,7 +820,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -832,7 +836,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -854,7 +859,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -870,7 +875,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -892,7 +898,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -909,7 +915,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -927,7 +933,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -967,7 +973,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -984,7 +990,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1002,7 +1008,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1036,7 +1042,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1052,7 +1058,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1074,7 +1081,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1090,7 +1097,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1112,7 +1120,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1152,7 +1160,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1169,7 +1177,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1187,7 +1195,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1221,7 +1229,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1237,7 +1245,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1259,7 +1268,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1275,7 +1284,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1319,7 +1329,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1397,7 +1407,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1440,7 +1451,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1462,7 +1474,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1496,7 +1508,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1512,7 +1524,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1534,7 +1547,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1550,7 +1563,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1587,7 +1601,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1624,7 +1639,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1645,7 +1661,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1665,7 +1682,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1689,7 +1707,7 @@ models:
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16800 --max-num-seqs 1
+      --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1706,7 +1724,7 @@ models:
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 4
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1723,7 +1741,7 @@ models:
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 32000 --max-num-seqs 4
+      --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1740,7 +1758,7 @@ models:
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 8
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1757,7 +1775,7 @@ models:
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 2
+      --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1796,7 +1814,7 @@ models:
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 128000 --max-num-seqs 12
+      --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1828,7 +1846,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1848,7 +1867,8 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=32768
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
