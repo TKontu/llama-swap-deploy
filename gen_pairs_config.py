@@ -28,6 +28,16 @@ CONCURRENCY = 32
 # 16.63 GiB of INT4 weights leave only ~5 GiB of the util-0.90 budget for KV.
 UTIL = 0.95
 
+# llama-swap's OWN per-model request cap, in front of the backend. Omitting it (or
+# setting 0) uses its internal default of 10, which silently ceilings every model at
+# 10 concurrent requests and 429s the rest instantly — regardless of how many slots
+# vLLM or llama-server actually has. Set it well above the backend's capacity so the
+# backend's scheduler does admission (vLLM queues as 'Waiting'; llama-server queues
+# past its -np slots) instead of the proxy rejecting at the door.
+REQUEST_LIMIT = 128        # vLLM: 4x max-num-seqs
+GGUF_LIMIT_MULT = 4        # llama.cpp: 4x its -np slots
+FORK_LIMIT = 8             # ternary is -np 1 (DSpark); keep the queue shallow
+
 # llama.cpp is NOT free: -c is a flat preallocated KV cache split evenly across
 # --parallel slots, with no paging, prefix sharing, or preemption. Matching 32
 # would mean either 32x the KV VRAM or 1k of context per slot, so the GGUF members
@@ -77,7 +87,8 @@ THINK_FILTER = (
 )
 
 
-def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=1800):
+def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=1800,
+               climit=REQUEST_LIMIT):
     # NOTE: seqs (--max-num-seqs) costs no VRAM. The KV pool is sized once at startup
     # from util; this only caps how many sequences may share it. Oversubscribing
     # degrades via preemption/recompute, never OOM.
@@ -100,6 +111,7 @@ def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTI
         f"    cmdStop: docker stop ${{MODEL_ID}}\n"
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
         f"    ttl: {ttl}\n"
+        f"    concurrencyLimit: {climit}\n"
     )
     if think_off:
         e += THINK_FILTER
@@ -125,6 +137,7 @@ def fork_entry(model_id, gpus, ttl=1800):
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
         f"    checkEndpoint: /health\n"
         f"    ttl: {ttl}\n"
+        f"    concurrencyLimit: {FORK_LIMIT}\n"
     )
 
 
@@ -155,6 +168,7 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=1800):
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
         f"    checkEndpoint: /health\n"
         f"    ttl: {ttl}\n"
+        f"    concurrencyLimit: {par * GGUF_LIMIT_MULT}\n"
     )
 
 
