@@ -40,7 +40,10 @@ POOL = [
     dict(tok="gemma-12b",   backend="vllm", repo="cyankiwi/gemma-4-12B-it-qat-AWQ-INT4",          mml=32000),
     dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
     dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-4bit",                  mml=16384),
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=16384, eager=True, think=True),
+    # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
+    # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
+    # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, eager=True, think=True),
     dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
     dict(tok="ternary",     backend="fork"),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),

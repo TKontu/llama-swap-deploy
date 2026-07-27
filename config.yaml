@@ -179,7 +179,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -471,7 +471,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -728,7 +728,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -950,7 +950,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1137,7 +1137,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1307,7 +1307,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1347,7 +1347,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1386,7 +1386,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1430,7 +1430,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1792,7 +1792,7 @@ models:
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.9
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
