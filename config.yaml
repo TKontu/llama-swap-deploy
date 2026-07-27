@@ -21,7 +21,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -38,7 +38,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -56,7 +56,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -73,7 +73,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -91,7 +91,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -108,7 +108,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -126,7 +126,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -143,7 +143,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -161,7 +161,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -178,7 +178,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -201,7 +201,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -218,7 +218,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -236,7 +236,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -270,7 +270,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -309,7 +309,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -348,7 +348,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -365,7 +365,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -383,7 +383,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -400,7 +400,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -418,7 +418,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -435,7 +435,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -453,7 +453,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -470,7 +470,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -493,7 +493,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -510,7 +510,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -528,7 +528,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -562,7 +562,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -601,7 +601,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -640,7 +640,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -657,7 +657,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -675,7 +675,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -692,7 +692,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -710,7 +710,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -727,7 +727,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -750,7 +750,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -767,7 +767,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -785,7 +785,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -819,7 +819,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -858,7 +858,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -897,7 +897,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -914,7 +914,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -932,7 +932,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -949,7 +949,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -972,7 +972,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -989,7 +989,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1007,7 +1007,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1041,7 +1041,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1080,7 +1080,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1119,7 +1119,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1136,7 +1136,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -1159,7 +1159,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1176,7 +1176,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1194,7 +1194,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1228,7 +1228,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1267,7 +1267,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1306,7 +1306,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -1328,7 +1328,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1346,7 +1346,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -1385,7 +1385,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -1429,7 +1429,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -1473,7 +1473,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1507,7 +1507,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1546,7 +1546,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1706,7 +1706,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16800 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1723,7 +1723,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1740,7 +1740,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1757,7 +1757,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1774,7 +1774,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-9B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 16384 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
@@ -1791,7 +1791,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
       --enforce-eager
       --port 8000
@@ -1813,7 +1813,7 @@ models:
       vllm/vllm-openai:v0.25.1
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.9
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 32
       --port 8000
     cmdStop: docker stop ${MODEL_ID}

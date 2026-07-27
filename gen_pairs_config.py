@@ -22,6 +22,12 @@ BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 # only governs how much of that (already-bought) pool may be used at once.
 CONCURRENCY = 32
 
+# Cards are single-tenant (each model is pinned to one GPU by UUID), so there is no
+# competing process to leave room for. The extra 0.05 is ~1.2 GiB that lands entirely
+# in the KV pool — a large relative gain on weight-heavy models like gemma-26b, whose
+# 16.63 GiB of INT4 weights leave only ~5 GiB of the util-0.90 budget for KV.
+UTIL = 0.95
+
 # llama.cpp is NOT free: -c is a flat preallocated KV cache split evenly across
 # --parallel slots, with no paging, prefix sharing, or preemption. Matching 32
 # would mean either 32x the KV VRAM or 1k of context per slot, so the GGUF members
@@ -71,7 +77,7 @@ THINK_FILTER = (
 )
 
 
-def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=0.90, ttl=1800):
+def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=1800):
     # NOTE: seqs (--max-num-seqs) costs no VRAM. The KV pool is sized once at startup
     # from util; this only caps how many sequences may share it. Oversubscribing
     # degrades via preemption/recompute, never OOM.
