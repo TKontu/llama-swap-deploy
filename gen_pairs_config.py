@@ -59,7 +59,11 @@ POOL = [
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, eager=True, think=True),
+    # No --enforce-eager: it was inherited from the old Qwen3.5-4B-AWQ-4bit-shortkv entry,
+    # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
+    # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
+    # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think=True),
     dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
     dict(tok="ternary",     backend="fork"),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
