@@ -75,12 +75,17 @@ POOL = [
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
 
-# Solo big models (need both 3090s → TP=2 → no partner). (id, repo, mml, seqs, util, think_off)
+# Solo big models (need both 3090s → TP=2 → no partner).
+# (id, repo, mml, seqs, util, think_off, eager)
+# eager=True emits --enforce-eager. Only 35B-A3B needs it: vLLM's AWQ-MoE kernels
+# fault with Xid 31 mid-inference and CUDA graphs are the likely trigger — see
+# ARCHITECTURE.md "Known issues" and README.md "Operational notes". Keep it until
+# TODO.md's dmesg check confirms the crash is resolved.
 SOLO = [
-    ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True),
-    ("Qwen3.6-27B-AWQ-INT4",       "cyankiwi/Qwen3.6-27B-AWQ-INT4",             262144, 1, 0.92, False),
-    ("gemma4-26B-A4B-it-INT4-max", "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",  131072, 1, 0.90, False),
-    ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False),
+    ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True,  True),
+    ("Qwen3.6-27B-AWQ-INT4",       "cyankiwi/Qwen3.6-27B-AWQ-INT4",             262144, 1, 0.92, False, False),
+    ("gemma4-26B-A4B-it-INT4-max", "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",  131072, 1, 0.90, False, False),
+    ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False, False),
 ]
 
 THINK_FILTER = (
@@ -221,8 +226,8 @@ def main():
         out.append(member_entry(spec, spec["tok"], CARD0))
 
     out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
-    for (mid, repo, mml, seqs, util, think_off) in SOLO:
-        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, False, think_off, tp=2, util=util, ttl=3600))
+    for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:
+        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=3600))
 
     out.append("")
     out.append("# Each pair is its own group: members co-load and stay together (swap:false);")

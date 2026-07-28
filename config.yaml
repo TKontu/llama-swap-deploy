@@ -1981,6 +1981,7 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 2 --gpu-memory-utilization 0.9
       --max-model-len 131072 --max-num-seqs 1
+      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
