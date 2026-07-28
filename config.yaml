@@ -189,7 +189,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -497,7 +496,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -768,7 +766,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1002,7 +999,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1199,7 +1195,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1378,7 +1373,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1420,7 +1414,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1461,7 +1454,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1507,7 +1499,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1888,7 +1879,6 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 32768 --max-num-seqs 32
-      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1991,6 +1981,7 @@ models:
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 2 --gpu-memory-utilization 0.9
       --max-model-len 131072 --max-num-seqs 1
+      --enforce-eager
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}

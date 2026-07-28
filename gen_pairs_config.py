@@ -59,7 +59,11 @@ POOL = [
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, eager=True, think=True),
+    # No --enforce-eager: it was inherited from the old Qwen3.5-4B-AWQ-4bit-shortkv entry,
+    # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
+    # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
+    # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think=True),
     dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
     dict(tok="ternary",     backend="fork"),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
@@ -71,12 +75,17 @@ POOL = [
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
 
-# Solo big models (need both 3090s → TP=2 → no partner). (id, repo, mml, seqs, util, think_off)
+# Solo big models (need both 3090s → TP=2 → no partner).
+# (id, repo, mml, seqs, util, think_off, eager)
+# eager=True emits --enforce-eager. Only 35B-A3B needs it: vLLM's AWQ-MoE kernels
+# fault with Xid 31 mid-inference and CUDA graphs are the likely trigger — see
+# ARCHITECTURE.md "Known issues" and README.md "Operational notes". Keep it until
+# TODO.md's dmesg check confirms the crash is resolved.
 SOLO = [
-    ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True),
-    ("Qwen3.6-27B-AWQ-INT4",       "cyankiwi/Qwen3.6-27B-AWQ-INT4",             262144, 1, 0.92, False),
-    ("gemma4-26B-A4B-it-INT4-max", "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",  131072, 1, 0.90, False),
-    ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False),
+    ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True,  True),
+    ("Qwen3.6-27B-AWQ-INT4",       "cyankiwi/Qwen3.6-27B-AWQ-INT4",             262144, 1, 0.92, False, False),
+    ("gemma4-26B-A4B-it-INT4-max", "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",  131072, 1, 0.90, False, False),
+    ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False, False),
 ]
 
 THINK_FILTER = (
@@ -217,8 +226,8 @@ def main():
         out.append(member_entry(spec, spec["tok"], CARD0))
 
     out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
-    for (mid, repo, mml, seqs, util, think_off) in SOLO:
-        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, False, think_off, tp=2, util=util, ttl=3600))
+    for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:
+        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=3600))
 
     out.append("")
     out.append("# Each pair is its own group: members co-load and stay together (swap:false);")
