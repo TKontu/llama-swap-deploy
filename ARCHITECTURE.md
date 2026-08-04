@@ -135,7 +135,7 @@ cache blocks" failure.
 
 | Model class | Backend | How llama-swap runs it |
 |-------------|---------|------------------------|
-| AWQ / safetensors (most models) | **vLLM** `v0.25.1` | `cmd: docker run … vllm/vllm-openai …` (DooD) |
+| AWQ / safetensors (most models) | **vLLM** `v0.26.0` | `cmd: docker run … vllm/vllm-openai …` (DooD) |
 | GGUF, mainstream arch | llama.cpp | bundled `llama-server` child process |
 | GGUF, exotic (e.g. `Ternary-Bonsai-27B`) | **PrismML llama.cpp fork** | `cmd: docker run …` of a fork image (custom kernels) |
 
