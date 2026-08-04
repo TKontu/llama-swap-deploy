@@ -159,6 +159,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   # ===== pair05: gemma-26b (#0)  +  qwen3.5-4b (#2) =====
   "pair05.gemma-26b":
@@ -470,6 +474,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   # ===== pair13: phi-4 (#0)  +  qwen3.5-4b (#2) =====
   "pair13.phi-4":
@@ -744,6 +752,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   # ===== pair20: gemma-12b (#0)  +  qwen3.5-4b (#2) =====
   "pair20.gemma-12b":
@@ -981,6 +993,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   # ===== pair26: gemma-e4b (#0)  +  qwen3.5-4b (#2) =====
   "pair26.gemma-e4b":
@@ -1200,6 +1216,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair31.qwen3.5-4b":
     cmd: |
@@ -1245,6 +1265,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair32.mellum2-12b":
     cmd: |
@@ -1284,6 +1308,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair33.ternary":
     cmd: |
@@ -1322,6 +1350,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair34.qwythos-v2":
     cmd: |
@@ -1365,6 +1397,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair35.fablevibes":
     cmd: |
@@ -1904,6 +1940,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "qwen3.5-4b":
     cmd: |
