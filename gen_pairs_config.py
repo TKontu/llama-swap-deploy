@@ -79,7 +79,10 @@ POOL = [
     # names, and no linear_attn.*weight_scale exists → the ignore list matches; a
     # mismatch would make vLLM skip-load those layers and serve incoherent output).
     # Still run a coherence prompt on first load rather than trusting a clean start.
-    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, extra=APC_ALIGN),
+    # think=True: without the filter the 9B burns hundreds of output tokens in its
+    # thinking phase even at temperature 0 (verified on first load, 2026-08-04) —
+    # short-max_tokens requests never reach an answer.
+    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think=True, extra=APC_ALIGN),
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
