@@ -35,7 +35,7 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 ## Prerequisites (on the `inference` host)
 
 - Docker + NVIDIA Container Toolkit (`--runtime nvidia` works).
-- The vLLM image already in use: `vllm/vllm-openai:v0.25.1`.
+- The vLLM image already in use: `vllm/vllm-openai:v0.26.0`.
 - Model cache dir on host: `/models/hf-cache` (mounted into every container at
   `/root/.cache/huggingface`).
 - Portainer installed and pointed at this host's Docker.
@@ -133,7 +133,7 @@ models:
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model org/My-Model-AWQ --quantization awq
       --tensor-parallel-size 1 --gpu-memory-utilization 0.90
       --max-model-len 16384 --port 8000

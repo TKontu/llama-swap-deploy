@@ -13,14 +13,14 @@ import itertools
 
 CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 #0
 CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 #2
-IMAGE = "vllm/vllm-openai:v0.25.1"
+IMAGE = "vllm/vllm-openai:v0.26.0"
 BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 
 # Uniform concurrency across the whole pool: a pair is only as fast as its slower
 # member, so per-model admission limits just create bottlenecks. For vLLM this is
 # FREE — the KV pool is preallocated by --gpu-memory-utilization and max-num-seqs
 # only governs how much of that (already-bought) pool may be used at once.
-CONCURRENCY = 32
+CONCURRENCY = 64
 
 # Cards are single-tenant (each model is pinned to one GPU by UUID), so there is no
 # competing process to leave room for. The extra 0.05 is ~1.2 GiB that lands entirely
@@ -34,7 +34,7 @@ UTIL = 0.95
 # vLLM or llama-server actually has. Set it well above the backend's capacity so the
 # backend's scheduler does admission (vLLM queues as 'Waiting'; llama-server queues
 # past its -np slots) instead of the proxy rejecting at the door.
-REQUEST_LIMIT = 128        # vLLM: 4x max-num-seqs
+REQUEST_LIMIT = 256        # vLLM: 4x max-num-seqs
 GGUF_LIMIT_MULT = 4        # llama.cpp: 4x its -np slots
 FORK_LIMIT = 8             # ternary is -np 1 (DSpark); keep the queue shallow
 
@@ -50,12 +50,36 @@ GGUF_PARALLEL = 8
 #   gguf: repo, hf_file, ctx, par                  (standard GGUF via the bonsai image's llama-server)
 # Concurrency is NOT per-model: vLLM members all use CONCURRENCY, GGUF members all
 # use GGUF_PARALLEL. Only override `par` when a model genuinely can't hold the KV.
+# Prefix caching on the Qwen3.5 GDN hybrids: vLLM auto-disables APC for hybrid
+# attention+Mamba models unless asked (verified live: cache_config_info showed
+# enable_prefix_caching=False, prefix_cache_queries_total stuck at 0). align is the
+# only mamba cache mode the Qwen3.5 family supports, and it is EXPERIMENTAL:
+#  - hits are per completed block and the attention block is padded to 528 tokens,
+#    so shared prefixes under 528 tokens hit 0% — short system prompts gain nothing;
+#  - align keeps only the Mamba checkpoint at the last block boundary; if that lands
+#    in request-unique tokens the per-group intersection zeroes ALL reuse;
+#  - do NOT combine with MTP (--speculative-config) until tested separately: the
+#    combo has crashed during cudagraph profiling on hybrid Mamba models.
+# Verify after each deploy: cache_config shows enable_prefix_caching=True and
+# vllm:prefix_cache_hits_total moves under a repeated-prefix workload.
+APC_ALIGN = ("--enable-prefix-caching", "--mamba-cache-mode align")
+
 POOL = [
-    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=16800),
+    # 65536: measured 19882 MiB @ 16800 and 20552 MiB @ 32768 (TP=1, kv_seqs 1,
+    # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
+    # ~21.9 GiB against the util-0.95 budget of ~23.3 GiB on a 3090 (~1.4 GiB slack).
+    # ~98k is the theoretical fp16-KV ceiling — do not raise further without fp8 KV.
+    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536),
     dict(tok="phi-4",       backend="vllm", repo="stelterlab/phi-4-AWQ",                          mml=16384),
     dict(tok="gemma-12b",   backend="vllm", repo="cyankiwi/gemma-4-12B-it-qat-AWQ-INT4",          mml=32000),
     dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
-    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-4bit",                  mml=16384),
+    # BF16-INT4 replaces AWQ-4bit: linear_attn (GDN) layers stay unquantized BF16 —
+    # safer for this family. Shard naming verified 2026-08-04 against the known
+    # silent-failure mode (ignore list vs shards BOTH use the split in_proj_qkv/z/b/a
+    # names, and no linear_attn.*weight_scale exists → the ignore list matches; a
+    # mismatch would make vLLM skip-load those layers and serve incoherent output).
+    # Still run a coherence prompt on first load rather than trusting a clean start.
+    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, extra=APC_ALIGN),
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
@@ -63,7 +87,7 @@ POOL = [
     # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
     # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
     # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think=True),
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think=True, extra=APC_ALIGN),
     dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
     dict(tok="ternary",     backend="fork"),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
@@ -97,11 +121,12 @@ THINK_FILTER = (
 
 
 def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=1800,
-               climit=REQUEST_LIMIT):
+               climit=REQUEST_LIMIT, extra=()):
     # NOTE: seqs (--max-num-seqs) costs no VRAM. The KV pool is sized once at startup
     # from util; this only caps how many sequences may share it. Oversubscribing
     # degrades via preemption/recompute, never OOM.
     eager_line = "      --enforce-eager\n" if eager else ""
+    extra_lines = "".join(f"      {flag}\n" for flag in extra)
     e = (
         f'  "{model_id}":\n'
         f"    cmd: |\n"
@@ -116,6 +141,7 @@ def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTI
         f"      --tensor-parallel-size {tp} --gpu-memory-utilization {util}\n"
         f"      --max-model-len {mml} --max-num-seqs {seqs}\n"
         f"{eager_line}"
+        f"{extra_lines}"
         f"      --port 8000\n"
         f"    cmdStop: docker stop ${{MODEL_ID}}\n"
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
@@ -189,7 +215,8 @@ def member_entry(spec, model_id, card):
         return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"],
                           spec.get("par", GGUF_PARALLEL))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
-                      spec.get("eager", False), spec.get("think", False))
+                      spec.get("eager", False), spec.get("think", False),
+                      extra=spec.get("extra", ()))
 
 
 def main():

@@ -37,7 +37,26 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
     A2000 can't hold the models you want co-resident._
 - [ ] **NVLink bridge?** If concurrent TP throughput matters long-term, price a 3/4-slot
   NVLink bridge for the two 3090s. Single highest-impact upgrade; llama-swap can't fix PCIe.
-- [ ] Confirm cache dir (`/models/hf-cache`) and vLLM image tag (`vllm/vllm-openai:v0.25.1`).
+- [ ] Confirm cache dir (`/models/hf-cache`) and vLLM image tag (`vllm/vllm-openai:v0.26.0`).
+
+## Post-deploy verification (v0.26.0 + Qwen3.5 APC + gemma 64k branch)
+
+- [ ] `qwen3.5-9b` (now `cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4`): run a coherence prompt on
+  first load — the family's silent-failure mode (ignore-list vs shard tensor-name
+  mismatch) produces incoherent output with a CLEAN startup log. Shard naming was
+  verified compatible 2026-08-04, but trust the output, not the boot.
+- [ ] APC on the Qwen3.5 hybrids: confirm `cache_config_info` shows
+  `enable_prefix_caching=True` via `/upstream/<model>/metrics`, look for the
+  experimental align-mode warning in startup logs, then watch
+  `vllm:prefix_cache_hits_total` / `vllm:prefix_cache_queries_total` move under the
+  repeated-instruction workload. Hits need a token-identical prefix ≥ 528 tokens.
+- [ ] `gemma-26b` @ 65536: needle-in-haystack near the limit (×3), an over-limit probe
+  (expect clean 400), and a co-load stress round with its pair partner busy — watch
+  for prefill-activation OOM at util 0.95. Fallback ladder: 49152 → fp8 KV cache →
+  cap `--max-num-batched-tokens`.
+- [ ] MTP on `qwen3.5-9b` (`--speculative-config qwen3_next_mtp`, `mtp.fc` was left
+  unquantized for this): test SEPARATELY from prefix caching first — the combo has
+  crashed during cudagraph profiling on hybrid Mamba models — then together.
 
 ## 1. Build the custom image
 

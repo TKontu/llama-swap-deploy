@@ -18,16 +18,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair01.phi-4":
     cmd: |
@@ -36,16 +36,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair02: gemma-26b (#0)  +  gemma-12b (#2) =====
   "pair02.gemma-26b":
@@ -55,16 +55,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair02.gemma-12b":
     cmd: |
@@ -73,16 +73,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair03: gemma-26b (#0)  +  gemma-e4b (#2) =====
   "pair03.gemma-26b":
@@ -92,16 +92,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair03.gemma-e4b":
     cmd: |
@@ -110,16 +110,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair04: gemma-26b (#0)  +  qwen3.5-9b (#2) =====
   "pair04.gemma-26b":
@@ -129,16 +129,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair04.qwen3.5-9b":
     cmd: |
@@ -147,16 +147,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair05: gemma-26b (#0)  +  qwen3.5-4b (#2) =====
   "pair05.gemma-26b":
@@ -166,16 +168,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair05.qwen3.5-4b":
     cmd: |
@@ -184,16 +186,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -207,16 +211,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair06.mellum2-12b":
     cmd: |
@@ -225,16 +229,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair07: gemma-26b (#0)  +  ternary (#2) =====
   "pair07.gemma-26b":
@@ -244,16 +248,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair07.ternary":
     cmd: |
@@ -280,16 +284,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair08.qwythos-v2":
     cmd: |
@@ -321,16 +325,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair09.fablevibes":
     cmd: |
@@ -362,16 +366,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair10.gemma-12b":
     cmd: |
@@ -380,16 +384,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair11: phi-4 (#0)  +  gemma-e4b (#2) =====
   "pair11.phi-4":
@@ -399,16 +403,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair11.gemma-e4b":
     cmd: |
@@ -417,16 +421,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair12: phi-4 (#0)  +  qwen3.5-9b (#2) =====
   "pair12.phi-4":
@@ -436,16 +440,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair12.qwen3.5-9b":
     cmd: |
@@ -454,16 +458,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair13: phi-4 (#0)  +  qwen3.5-4b (#2) =====
   "pair13.phi-4":
@@ -473,16 +479,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair13.qwen3.5-4b":
     cmd: |
@@ -491,16 +497,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -514,16 +522,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair14.mellum2-12b":
     cmd: |
@@ -532,16 +540,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair15: phi-4 (#0)  +  ternary (#2) =====
   "pair15.phi-4":
@@ -551,16 +559,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair15.ternary":
     cmd: |
@@ -587,16 +595,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair16.qwythos-v2":
     cmd: |
@@ -628,16 +636,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair17.fablevibes":
     cmd: |
@@ -669,16 +677,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair18.gemma-e4b":
     cmd: |
@@ -687,16 +695,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair19: gemma-12b (#0)  +  qwen3.5-9b (#2) =====
   "pair19.gemma-12b":
@@ -706,16 +714,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair19.qwen3.5-9b":
     cmd: |
@@ -724,16 +732,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair20: gemma-12b (#0)  +  qwen3.5-4b (#2) =====
   "pair20.gemma-12b":
@@ -743,16 +753,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair20.qwen3.5-4b":
     cmd: |
@@ -761,16 +771,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -784,16 +796,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair21.mellum2-12b":
     cmd: |
@@ -802,16 +814,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair22: gemma-12b (#0)  +  ternary (#2) =====
   "pair22.gemma-12b":
@@ -821,16 +833,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair22.ternary":
     cmd: |
@@ -857,16 +869,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair23.qwythos-v2":
     cmd: |
@@ -898,16 +910,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair24.fablevibes":
     cmd: |
@@ -939,16 +951,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair25.qwen3.5-9b":
     cmd: |
@@ -957,16 +969,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair26: gemma-e4b (#0)  +  qwen3.5-4b (#2) =====
   "pair26.gemma-e4b":
@@ -976,16 +990,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair26.qwen3.5-4b":
     cmd: |
@@ -994,16 +1008,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1017,16 +1033,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair27.mellum2-12b":
     cmd: |
@@ -1035,16 +1051,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair28: gemma-e4b (#0)  +  ternary (#2) =====
   "pair28.gemma-e4b":
@@ -1054,16 +1070,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair28.ternary":
     cmd: |
@@ -1090,16 +1106,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair29.qwythos-v2":
     cmd: |
@@ -1131,16 +1147,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair30.fablevibes":
     cmd: |
@@ -1172,16 +1188,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair31.qwen3.5-4b":
     cmd: |
@@ -1190,16 +1208,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1213,16 +1233,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair32.mellum2-12b":
     cmd: |
@@ -1231,16 +1253,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair33: qwen3.5-9b (#0)  +  ternary (#2) =====
   "pair33.qwen3.5-9b":
@@ -1250,16 +1272,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair33.ternary":
     cmd: |
@@ -1286,16 +1310,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair34.qwythos-v2":
     cmd: |
@@ -1327,16 +1353,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair35.fablevibes":
     cmd: |
@@ -1368,16 +1396,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1390,16 +1420,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   # ===== pair37: qwen3.5-4b (#0)  +  ternary (#2) =====
   "pair37.qwen3.5-4b":
@@ -1409,16 +1439,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1449,16 +1481,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1494,16 +1528,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1539,16 +1575,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair40.ternary":
     cmd: |
@@ -1575,16 +1611,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair41.qwythos-v2":
     cmd: |
@@ -1616,16 +1652,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "pair42.fablevibes":
     cmd: |
@@ -1784,16 +1820,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16800 --max-num-seqs 32
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "phi-4":
     cmd: |
@@ -1802,16 +1838,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "gemma-12b":
     cmd: |
@@ -1820,16 +1856,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 32
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "gemma-e4b":
     cmd: |
@@ -1838,16 +1874,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "qwen3.5-9b":
     cmd: |
@@ -1856,16 +1892,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
-      --model cyankiwi/Qwen3.5-9B-AWQ-4bit
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 32
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "qwen3.5-4b":
     cmd: |
@@ -1874,16 +1912,18 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 32
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1896,16 +1936,16 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 32
+      --max-model-len 128000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 1800
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "ternary":
     cmd: |
@@ -1976,7 +2016,7 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 2 --gpu-memory-utilization 0.9
@@ -1986,7 +2026,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
-    concurrencyLimit: 128
+    concurrencyLimit: 256
     filters:
       setParams:
         chat_template_kwargs:
@@ -1999,7 +2039,7 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.6-27B-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 2 --gpu-memory-utilization 0.92
@@ -2008,7 +2048,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "gemma4-26B-A4B-it-INT4-max":
     cmd: |
@@ -2017,7 +2057,7 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 2 --gpu-memory-utilization 0.9
@@ -2026,7 +2066,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
   "Qwythos-9B-Claude-Mythos-5-1M":
     cmd: |
@@ -2035,7 +2075,7 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.25.1
+      vllm/vllm-openai:v0.26.0
       --model empero-ai/Qwythos-9B-Claude-Mythos-5-1M
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 2 --gpu-memory-utilization 0.9
@@ -2044,7 +2084,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 3600
-    concurrencyLimit: 128
+    concurrencyLimit: 256
 
 
 # Each pair is its own group: members co-load and stay together (swap:false);
