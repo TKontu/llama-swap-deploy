@@ -45,7 +45,9 @@ FORK_LIMIT = 8             # ternary is -np 1 (DSpark); keep the queue shallow
 GGUF_PARALLEL = 8
 
 # Single-card pool. Each entry is a dict keyed by "backend":
-#   vllm: repo, mml, eager, think                  (vLLM container, TP=1 @ util 0.90)
+#   vllm: repo, mml, eager, think_off              (vLLM container, TP=1 @ util 0.90;
+#                                                   think_off=True emits the
+#                                                   enable_thinking:false filter)
 #   fork: (none)                                   (Ternary via the PrismML bonsai image entrypoint)
 #   gguf: repo, hf_file, ctx, par                  (standard GGUF via the bonsai image's llama-server)
 # Concurrency is NOT per-model: vLLM members all use CONCURRENCY, GGUF members all
@@ -69,7 +71,7 @@ POOL = [
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
     # ~21.9 GiB against the util-0.95 budget of ~23.3 GiB on a 3090 (~1.4 GiB slack).
     # ~98k is the theoretical fp16-KV ceiling — do not raise further without fp8 KV.
-    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536),
+    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
     dict(tok="phi-4",       backend="vllm", repo="stelterlab/phi-4-AWQ",                          mml=16384),
     dict(tok="gemma-12b",   backend="vllm", repo="cyankiwi/gemma-4-12B-it-qat-AWQ-INT4",          mml=32000),
     dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
@@ -82,7 +84,7 @@ POOL = [
     # think=True: without the filter the 9B burns hundreds of output tokens in its
     # thinking phase even at temperature 0 (verified on first load, 2026-08-04) —
     # short-max_tokens requests never reach an answer.
-    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think=True, extra=APC_ALIGN),
+    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think_off=True, extra=APC_ALIGN),
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
@@ -90,7 +92,7 @@ POOL = [
     # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
     # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
     # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think=True, extra=APC_ALIGN),
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
     dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
     dict(tok="ternary",     backend="fork"),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
@@ -218,7 +220,7 @@ def member_entry(spec, model_id, card):
         return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"],
                           spec.get("par", GGUF_PARALLEL))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
-                      spec.get("eager", False), spec.get("think", False),
+                      spec.get("eager", False), spec.get("think_off", False),
                       extra=spec.get("extra", ()))
 
 
