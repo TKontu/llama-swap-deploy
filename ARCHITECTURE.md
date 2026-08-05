@@ -149,7 +149,11 @@ the backend-agnostic design matters.
 2. llama-swap checks if `<id>`'s upstream is running; if not (and the group allows), it
    runs the model's `cmd`, waits for `checkEndpoint` (`/health`) to return 200.
 3. Request is proxied to `proxy` (`http://127.0.0.1:<PORT>`), response streamed back.
-4. `ttl` unloads idle models; `cmdStop` (`docker stop ${MODEL_ID}`) tears down cleanly.
+4. `ttl` unloads idle models — seconds since the last request finished, per model:
+   5 h for pool/pair members, 10 h for the TP=2 solos (`TTL`/`TTL_SOLO` in
+   `gen_pairs_config.py`). Long on purpose: cold starts run minutes, and because every
+   group is `exclusive`, requesting another pair evicts the resident one immediately
+   regardless of TTL. `cmdStop` (`docker stop ${MODEL_ID}`) tears down cleanly.
 
 ## Known issues llama-swap does NOT fix (set expectations)
 
