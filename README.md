@@ -139,7 +139,7 @@ models:
       --max-model-len 16384 --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 600
+    ttl: 18000
 ```
 
 Key rules:

@@ -26,7 +26,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -48,7 +48,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair02: gemma-26b (#0)  +  gemma-12b (#2) =====
@@ -67,7 +67,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -89,7 +89,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair03: gemma-26b (#0)  +  gemma-e4b (#2) =====
@@ -108,7 +108,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -130,7 +130,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair04: gemma-26b (#0)  +  qwen3.5-9b (#2) =====
@@ -149,7 +149,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -173,7 +173,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -196,7 +196,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -220,7 +220,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -243,7 +243,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -265,7 +265,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair07: gemma-26b (#0)  +  ternary (#2) =====
@@ -284,7 +284,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -305,7 +305,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair08: gemma-26b (#0)  +  qwythos-v2 (#2) =====
@@ -324,7 +324,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -350,7 +350,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair09: gemma-26b (#0)  +  fablevibes (#2) =====
@@ -369,7 +369,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -395,7 +395,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair10: phi-4 (#0)  +  gemma-12b (#2) =====
@@ -414,7 +414,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair10.gemma-12b":
@@ -432,7 +432,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair11: phi-4 (#0)  +  gemma-e4b (#2) =====
@@ -451,7 +451,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair11.gemma-e4b":
@@ -469,7 +469,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair12: phi-4 (#0)  +  qwen3.5-9b (#2) =====
@@ -488,7 +488,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair12.qwen3.5-9b":
@@ -508,7 +508,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -531,7 +531,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair13.qwen3.5-4b":
@@ -551,7 +551,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -574,7 +574,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair14.mellum2-12b":
@@ -592,7 +592,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair15: phi-4 (#0)  +  ternary (#2) =====
@@ -611,7 +611,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair15.ternary":
@@ -628,7 +628,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair16: phi-4 (#0)  +  qwythos-v2 (#2) =====
@@ -647,7 +647,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair16.qwythos-v2":
@@ -669,7 +669,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair17: phi-4 (#0)  +  fablevibes (#2) =====
@@ -688,7 +688,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair17.fablevibes":
@@ -710,7 +710,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair18: gemma-12b (#0)  +  gemma-e4b (#2) =====
@@ -729,7 +729,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair18.gemma-e4b":
@@ -747,7 +747,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair19: gemma-12b (#0)  +  qwen3.5-9b (#2) =====
@@ -766,7 +766,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair19.qwen3.5-9b":
@@ -786,7 +786,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -809,7 +809,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair20.qwen3.5-4b":
@@ -829,7 +829,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -852,7 +852,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair21.mellum2-12b":
@@ -870,7 +870,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair22: gemma-12b (#0)  +  ternary (#2) =====
@@ -889,7 +889,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair22.ternary":
@@ -906,7 +906,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair23: gemma-12b (#0)  +  qwythos-v2 (#2) =====
@@ -925,7 +925,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair23.qwythos-v2":
@@ -947,7 +947,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair24: gemma-12b (#0)  +  fablevibes (#2) =====
@@ -966,7 +966,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair24.fablevibes":
@@ -988,7 +988,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair25: gemma-e4b (#0)  +  qwen3.5-9b (#2) =====
@@ -1007,7 +1007,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair25.qwen3.5-9b":
@@ -1027,7 +1027,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1050,7 +1050,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair26.qwen3.5-4b":
@@ -1070,7 +1070,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1093,7 +1093,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair27.mellum2-12b":
@@ -1111,7 +1111,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair28: gemma-e4b (#0)  +  ternary (#2) =====
@@ -1130,7 +1130,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair28.ternary":
@@ -1147,7 +1147,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair29: gemma-e4b (#0)  +  qwythos-v2 (#2) =====
@@ -1166,7 +1166,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair29.qwythos-v2":
@@ -1188,7 +1188,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair30: gemma-e4b (#0)  +  fablevibes (#2) =====
@@ -1207,7 +1207,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair30.fablevibes":
@@ -1229,7 +1229,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair31: qwen3.5-9b (#0)  +  qwen3.5-4b (#2) =====
@@ -1250,7 +1250,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1274,7 +1274,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1299,7 +1299,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1321,7 +1321,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair33: qwen3.5-9b (#0)  +  ternary (#2) =====
@@ -1342,7 +1342,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1363,7 +1363,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair34: qwen3.5-9b (#0)  +  qwythos-v2 (#2) =====
@@ -1384,7 +1384,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1410,7 +1410,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair35: qwen3.5-9b (#0)  +  fablevibes (#2) =====
@@ -1431,7 +1431,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1457,7 +1457,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair36: qwen3.5-4b (#0)  +  mellum2-12b (#2) =====
@@ -1478,7 +1478,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1500,7 +1500,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   # ===== pair37: qwen3.5-4b (#0)  +  ternary (#2) =====
@@ -1521,7 +1521,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1542,7 +1542,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair38: qwen3.5-4b (#0)  +  qwythos-v2 (#2) =====
@@ -1563,7 +1563,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1589,7 +1589,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair39: qwen3.5-4b (#0)  +  fablevibes (#2) =====
@@ -1610,7 +1610,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1636,7 +1636,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair40: mellum2-12b (#0)  +  ternary (#2) =====
@@ -1655,7 +1655,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair40.ternary":
@@ -1672,7 +1672,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   # ===== pair41: mellum2-12b (#0)  +  qwythos-v2 (#2) =====
@@ -1691,7 +1691,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair41.qwythos-v2":
@@ -1713,7 +1713,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair42: mellum2-12b (#0)  +  fablevibes (#2) =====
@@ -1732,7 +1732,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "pair42.fablevibes":
@@ -1754,7 +1754,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair43: ternary (#0)  +  qwythos-v2 (#2) =====
@@ -1772,7 +1772,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   "pair43.qwythos-v2":
@@ -1794,7 +1794,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   # ===== pair44: ternary (#0)  +  fablevibes (#2) =====
@@ -1812,7 +1812,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   "pair44.fablevibes":
@@ -1834,7 +1834,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== pair45: qwythos-v2 (#0)  +  fablevibes (#2) =====
@@ -1857,7 +1857,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   "pair45.fablevibes":
@@ -1879,7 +1879,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== Standalone entries (ungrouped): load one pooled model solo =====
@@ -1900,7 +1900,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -1922,7 +1922,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "gemma-12b":
@@ -1940,7 +1940,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "gemma-e4b":
@@ -1958,7 +1958,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "qwen3.5-9b":
@@ -1978,7 +1978,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -2002,7 +2002,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -2024,7 +2024,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 256
 
   "ternary":
@@ -2041,7 +2041,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 8
 
   "qwythos-v2":
@@ -2063,7 +2063,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 32
 
   "fablevibes":
@@ -2085,7 +2085,7 @@ models:
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
-    ttl: 1800
+    ttl: 18000
     concurrencyLimit: 16
 
   # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====
@@ -2105,7 +2105,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 3600
+    ttl: 36000
     concurrencyLimit: 256
     filters:
       setParams:
@@ -2127,7 +2127,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 3600
+    ttl: 36000
     concurrencyLimit: 256
 
   "gemma4-26B-A4B-it-INT4-max":
@@ -2145,7 +2145,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 3600
+    ttl: 36000
     concurrencyLimit: 256
 
   "Qwythos-9B-Claude-Mythos-5-1M":
@@ -2163,7 +2163,7 @@ models:
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    ttl: 3600
+    ttl: 36000
     concurrencyLimit: 256
 
 

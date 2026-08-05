@@ -44,6 +44,18 @@ FORK_LIMIT = 8             # ternary is -np 1 (DSpark); keep the queue shallow
 # carry their own (lower) parallelism. See gguf_entry(); GGUF_CTX is PER SLOT.
 GGUF_PARALLEL = 8
 
+# Idle unload timeout, in seconds since a model's last request finished. 10x the old
+# 1800/3600: a cold start is expensive (gemma-26b @ 65k took ~7 min to ready on
+# 2026-08-04) and holding idle weights costs almost nothing here, because every group
+# is exclusive — requesting any other pair/solo evicts the resident one immediately
+# regardless of TTL. So TTL only decides how long a card stays occupied when NOTHING
+# is being served, and the cards are single-tenant.
+# The tradeoff it does buy: TTL expiry is the de-facto recycle for a wedged backend
+# (see the Xid 31 note in TODO.md), and that now takes 5h instead of 30 min — unload
+# by hand (POST /api/models/unload) if a model misbehaves.
+TTL = 18000        # 5 h  — pool + pair members
+TTL_SOLO = 36000   # 10 h — TP=2 solo models (slowest to reload, own both cards)
+
 # Single-card pool. Each entry is a dict keyed by "backend":
 #   vllm: repo, mml, eager, think_off              (vLLM container, TP=1 @ util 0.90;
 #                                                   think_off=True emits the
@@ -125,7 +137,7 @@ THINK_FILTER = (
 )
 
 
-def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=1800,
+def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=TTL,
                climit=REQUEST_LIMIT, extra=()):
     # NOTE: seqs (--max-num-seqs) costs no VRAM. The KV pool is sized once at startup
     # from util; this only caps how many sequences may share it. Oversubscribing
@@ -158,7 +170,7 @@ def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTI
     return e
 
 
-def fork_entry(model_id, gpus, ttl=1800):
+def fork_entry(model_id, gpus, ttl=TTL):
     # Ternary-Bonsai via the PrismML llama.cpp fork image (see Dockerfile.bonsai).
     # The entrypoint discovers weights + applies vision/DSpark/tool flags; listens on 8080.
     return (
@@ -181,7 +193,7 @@ def fork_entry(model_id, gpus, ttl=1800):
     )
 
 
-def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=1800):
+def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL):
     # Standard GGUF via the bonsai image's gguf-serve.sh entrypoint: it downloads the
     # file with the `hf` CLI (HTTPS + gated + Xet) into the mounted cache, then serves
     # the local file with llama-server (this build's llama-server has no HTTPS itself).
@@ -259,7 +271,7 @@ def main():
 
     out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
     for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:
-        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=3600))
+        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=TTL_SOLO))
 
     out.append("")
     out.append("# Each pair is its own group: members co-load and stay together (swap:false);")
