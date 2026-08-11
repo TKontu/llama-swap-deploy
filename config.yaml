@@ -2166,6 +2166,56 @@ models:
     ttl: 36000
     concurrencyLimit: 256
 
+  # ===== Ungrouped GGUF entries (no pairNN membership; see UNGROUPED_GGUF) =====
+  "muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 0
+    concurrencyLimit: 4
+
+  "Muse-Glimmer-30B-split":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-dynamic.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPLIT_MODE=layer
+      -e GGUF_TENSOR_SPLIT=1,1
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 36000
+    concurrencyLimit: 4
+
 
 # Each pair is its own group: members co-load and stay together (swap:false);
 # loading a pair/solo unloads the others (exclusive).

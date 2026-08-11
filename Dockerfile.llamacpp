@@ -1,0 +1,69 @@
+# Mainline llama.cpp image (pinned build) for GGUF models the PrismML fork can't load.
+#
+# Why this exists ALONGSIDE Dockerfile.bonsai: the bonsai image builds PrismML's `prism`
+# fork, which carries the Q2_0_g128 ternary kernels Ternary-Bonsai-27B needs but that
+# mainline does not have. The fork's branch head is 2026-07-31, so it predates newer
+# architectures — Muse-Glimmer-30B landed in mainline on 2026-08-10 (ggml-org/llama.cpp
+# #26841) and needs build b10353+. Neither image can serve both models, hence two.
+#
+# Pin LLAMACPP_TAG to a build tag, never a rolling one — same policy as the vLLM image
+# (vllm/vllm-openai:v0.26.0). The official ghcr.io/ggml-org/llama.cpp:server-cuda package
+# only publishes a rolling tag for recent builds, which is why we compile instead.
+#
+# Built & pushed to GHCR by .github/workflows/llamacpp-image.yml.
+# NOTE: Dockerfile inline comments are only valid on their own line (never after an
+# instruction like ARG/ENV), so all comments here stand alone.
+
+# ---- build stage -----------------------------------------------------------
+FROM nvidia/cuda:12.6.2-devel-ubuntu22.04 AS build
+# RTX 3090 = sm_86 (this box's two LLM cards).
+ARG CUDA_ARCHS=86
+# b10362: 9 builds after Muse Glimmer support (b10353), to pick up immediate fixes.
+ARG LLAMACPP_TAG=b10362
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git cmake ninja-build build-essential ca-certificates libcurl4-openssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 -b ${LLAMACPP_TAG} https://github.com/ggml-org/llama.cpp.git /src
+WORKDIR /src
+
+# The build box has no GPU/driver, so executables can't resolve CUDA driver-API
+# symbols (cuMemCreate, cuDeviceGet, ...). Link against the CUDA driver STUB the
+# devel image ships, exposed as libcuda.so.1 via LIBRARY_PATH. Build ONLY the
+# server target. Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
+RUN export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
+ && cmake -B build -G Ninja \
+      -DGGML_CUDA=ON \
+      -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHS} \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLAMA_BUILD_TESTS=OFF \
+      -DCMAKE_SHARED_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs -lcuda" \
+      -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/cuda/lib64/stubs -lcuda" \
+ && MEM_GB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1048576 )) \
+ && JOBS=$([ "${MEM_GB:-0}" -lt 16 ] && echo 2 || echo 4) \
+ && echo "building llama.cpp ${LLAMACPP_TAG} with -j${JOBS} (host ~${MEM_GB} GB RAM)" \
+ && cmake --build build --target llama-server -j "${JOBS}"
+
+# ---- runtime stage ---------------------------------------------------------
+FROM nvidia/cuda:12.6.2-runtime-ubuntu22.04
+ENV DEBIAN_FRONTEND=noninteractive
+# hf CLI: gguf-serve.sh downloads weights with it (this build's llama-server has no
+# HTTPS). libcurl4/libgomp1: runtime deps of llama-server. curl: container health tooling.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      python3 python3-pip libgomp1 libcurl4 ca-certificates curl \
+ && pip3 install --no-cache-dir gguf "huggingface_hub[cli]" hf_xet \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy the whole build output dir so the versioned .so SONAME symlinks
+# (libggml-cuda.so -> .so.0 -> .so.0.13.1) are preserved for the runtime linker.
+COPY --from=build /src/build/bin/ /opt/llamacpp/bin/
+ENV PATH="/opt/llamacpp/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/opt/llamacpp/bin"
+
+# Same entrypoint the bonsai image uses for its non-ternary GGUF models, so a model
+# moves between the two images by changing only the `image:` in config.yaml.
+COPY docker/gguf-serve.sh /usr/local/bin/gguf-serve.sh
+RUN chmod +x /usr/local/bin/gguf-serve.sh
+
+ENTRYPOINT ["/usr/local/bin/gguf-serve.sh"]
