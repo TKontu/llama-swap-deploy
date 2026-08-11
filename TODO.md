@@ -58,6 +58,47 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   unquantized for this): test SEPARATELY from prefix caching first — the combo has
   crashed during cudagraph profiling on hybrid Mamba models — then together.
 
+## Post-deploy verification (Muse-Glimmer-30B + on-call standby)
+
+Config-side checks already pass locally: 106 models / 45 groups, with all 104 pre-existing
+entries byte-identical and the two Muse-Glimmer entries purely additive. The rest needs the host.
+
+- [ ] Make the `llamacpp-mainline` GHCR package **public** (or add registry creds in Portainer).
+- [ ] Rebuild the **bonsai** image too — both images share `docker/gguf-serve.sh`, which
+  changed. Without it, `qwythos-v2` / `fablevibes` run an older script than config assumes.
+- [ ] Pre-download the ~38 GB of GGUFs (README → Muse-Glimmer) so the first cold start
+  isn't a multi-GB stall.
+- [ ] **Restart llama-swap** — config is read at startup only. `/v1/models` going 104 → 106
+  confirms the new config was actually picked up.
+- [ ] `muse-glimmer` cold start: watch `nvidia-smi` against the budget (16.76 weights +
+  1.40 mmproj + ~1.2 compute + ~1.82 KV ≈ 21.2 GiB, **~2.1 GiB spare**). This is the
+  thinnest number in the whole change. It assumes llama.cpp allocates SWA layers windowed,
+  not full — if it allocates full, KV jumps to ~6.5 GiB and it OOMs. Fallback ladder:
+  drop `ctx` 131072 → 65536, then `cache_type="q8_0"`.
+- [ ] **Coherence prompt** on first load — per the `qwen3.5-9b` precedent above, trust the
+  output, not a clean startup log.
+- [ ] **Vision probe**: send an image part and confirm a grounded description, proving
+  `--mmproj` actually attached rather than being silently ignored.
+- [ ] Context probe near 131k, plus an over-limit request (expect a clean 400).
+- [ ] **Stop tokens**: the model card warns never to stop on `<|eom|>` (only
+  `<|end_of_text|>` / `<|eot|>`). Confirm generations end cleanly and aren't truncated
+  mid-reasoning; if they are, add explicit EOG handling in `gguf-serve.sh`.
+- [ ] Confirm `-np 1` behaviour under load: a second concurrent request should QUEUE behind
+  the first (llama-server has one slot; `concurrencyLimit: 4` lets llama-swap admit 4), not
+  429 or share context. If queueing hurts in practice, that is the argument for raising
+  `par` — at the cost of KV, since each extra slot adds its own 2048 sliding window.
+- [ ] `Muse-Glimmer-30B-split`: confirm `-sm layer` spreads across both 3090s, and measure
+  decode speed — expect ~single-card, since layer-split is pipeline, not tensor, parallel.
+  If it's *slower* than the single-card entry, the split entry isn't earning its disk.
+- [ ] On-call: set `IDLE_SECONDS=120` on the `oncall-wakeup` service, confirm exactly one
+  wakeup fires and `/running` then shows `muse-glimmer`. Restore `3600`.
+- [ ] On-call **yield test**: with `muse-glimmer` resident, request `gemma-26b` and confirm
+  a clean swap. This is what `persistent: true` would have broken.
+- [ ] On-call **no-interrupt test**: start a long generation on another model, confirm the
+  poller doesn't fire mid-stream (GPU util stays above `IDLE_PCT`, resetting the counter).
+- [ ] Decide whether the ~1 h replacement delay is right in practice — it now supersedes
+  the 5 h TTL for *replacement* (TTLs still govern unloading).
+
 ## 1. Build the custom image
 
 - [ ] `Dockerfile` = `FROM ghcr.io/mostlygeek/llama-swap:unified-cuda` + `docker.io`.

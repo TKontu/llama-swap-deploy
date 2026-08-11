@@ -10,11 +10,16 @@ models that need both cards are emitted as ungrouped solo entries.
 Regenerate:  python3 gen_pairs_config.py > config.pairs.yaml
 """
 import itertools
+import json
 
 CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 #0
 CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 #2
 IMAGE = "vllm/vllm-openai:v0.26.0"
 BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
+# Mainline llama.cpp at a pinned build (Dockerfile.llamacpp). Separate from BONSAI because
+# the PrismML fork carries ternary kernels mainline lacks, but its branch head (2026-07-31)
+# predates newer architectures — Muse-Glimmer needs b10353+. Neither image serves both.
+LLAMACPP = "ghcr.io/tkontu/llamacpp-mainline:latest"
 
 # Uniform concurrency across the whole pool: a pair is only as fast as its slower
 # member, so per-model admission limits just create bottlenecks. For vLLM this is
@@ -129,12 +134,56 @@ SOLO = [
     ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False, False),
 ]
 
-THINK_FILTER = (
-    "    filters:\n"
-    "      setParams:\n"
-    "        chat_template_kwargs:\n"
-    "          enable_thinking: false\n"
-)
+# Ungrouped GGUF entries — NOT in POOL, so they get no pairNN membership. Muse-Glimmer is
+# excluded from POOL deliberately: it is on-call standby, not a co-load partner, and adding
+# it there would have generated 10 extra pairs (45 -> 55) that nothing would ever request.
+#
+# Both run -np 1 (no parallelism) with the full native 131072 context in a single slot, and
+# f16 KV (no cache quant). That is affordable because KV is unusually cheap on this model:
+# 52 layers, num_key_value_heads=2, head_dim=128, and a 3:1 sliding/full split (39 sliding
+# layers windowed at 2048, 13 full). The full layers cost 13 KiB/token -> 1.74 GiB at
+# 131072; the sliding layers a flat 78 MiB at -np 1. ~1.82 GiB for the whole context.
+# (-np 1 is also marginally cheaper than -np 4: llama.cpp gives each slot its own sliding
+# window, so parallelism multiplies that 78 MiB while leaving the full-layer cost fixed.)
+#
+# `cards`: one 3090 for the standby entry, both for the split one. -sm layer is PIPELINE
+# parallel — activations cross PCIe once per layer boundary, so the no-NVLink constraint
+# that hurts vLLM TP=2 does not bite. It buys CAPACITY, not speed: only one card computes
+# at a time, so decode is ~single-card. The point is to afford the 19.65 GB dynamic quant
+# plus vision plus the drafter, which will not fit on one 3090 (22.68 GB of weights against
+# a ~23.3 GB budget).
+UNGROUPED_GGUF = [
+    # On-call standby (see scripts/oncall-wakeup.sh). ttl 0 = never idle-unload; it is still
+    # evicted by any exclusive group, which is exactly what we want — hence NOT persistent.
+    # Budget on one 3090: 16.76 (weights) + 1.40 (mmproj) + ~1.2 (compute) + ~1.82 (KV)
+    # ~= 21.2 GiB, leaving ~2.1 GiB. The dflash drafter is deliberately OFF here: at 1.63 GB
+    # it would cut that to ~0.5 GiB. The split entry below runs it instead.
+    dict(tok="muse-glimmer", image=LLAMACPP, cards=[CARD0], ttl=0, oncall=True,
+         repo="meta-models/Muse-Glimmer-30B-GGUF",
+         hf_file="muse-glimmer-30B-kquant-17gb.gguf",
+         mmproj="mmproj-kquant.gguf", ctx=131072, par=1),
+    dict(tok="Muse-Glimmer-30B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
+         repo="meta-models/Muse-Glimmer-30B-GGUF",
+         hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
+         mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
+         ctx=131072, par=1, split_mode="layer", tensor_split="1,1"),
+]
+
+def setparams_filter(**kwargs):
+    """Render a llama-swap `filters.setParams.chat_template_kwargs` block.
+
+    Backend-agnostic — it rewrites the request before the proxy forwards it, so it works
+    for llama.cpp (--jinja applies the template) as well as vLLM. Used for
+    enable_thinking:false on the Qwen/gemma entries, and available for Muse-Glimmer's
+    reasoning_strength (low|medium|high|xhigh).
+    """
+    if not kwargs:
+        return ""
+    out = "    filters:\n      setParams:\n        chat_template_kwargs:\n"
+    return out + "".join(f"          {k}: {json.dumps(v)}\n" for k, v in kwargs.items())
+
+
+THINK_FILTER = setparams_filter(enable_thinking=False)
 
 
 def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=TTL,
@@ -193,13 +242,30 @@ def fork_entry(model_id, gpus, ttl=TTL):
     )
 
 
-def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL):
-    # Standard GGUF via the bonsai image's gguf-serve.sh entrypoint: it downloads the
-    # file with the `hf` CLI (HTTPS + gated + Xet) into the mounted cache, then serves
-    # the local file with llama-server (this build's llama-server has no HTTPS itself).
-    # GGUF_CTX is PER SLOT; gguf-serve.sh multiplies it by GGUF_PARALLEL for -c, so
-    # KV VRAM here scales linearly with parallelism (unlike vLLM).
-    return (
+def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
+               mmproj=None, draft=None, draft_max=None, split_mode=None,
+               tensor_split=None, cache_type=None, params=None):
+    # Standard GGUF via the gguf-serve.sh entrypoint (present in BOTH images): it
+    # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
+    # cache, then serves the local file with llama-server (this build's llama-server has
+    # no HTTPS itself). GGUF_CTX is PER SLOT; gguf-serve.sh multiplies it by
+    # GGUF_PARALLEL for -c, so KV VRAM here scales linearly with parallelism (unlike vLLM).
+    # The optional args map 1:1 onto gguf-serve.sh's GGUF_* env vars; omitting them all
+    # reproduces the original single-file, single-GPU command exactly.
+    opt = ""
+    if mmproj:
+        opt += f"      -e GGUF_MMPROJ={mmproj}\n"
+    if draft:
+        opt += f"      -e GGUF_DRAFT={draft}\n"
+    if draft_max:
+        opt += f"      -e GGUF_DRAFT_MAX={draft_max}\n"
+    if split_mode:
+        opt += f"      -e GGUF_SPLIT_MODE={split_mode}\n"
+    if tensor_split:
+        opt += f"      -e GGUF_TENSOR_SPLIT={tensor_split}\n"
+    if cache_type:
+        opt += f"      -e GGUF_CACHE_TYPE={cache_type}\n"
+    e = (
         f'  "{model_id}":\n'
         f"    cmd: |\n"
         f"      docker run --rm --name ${{MODEL_ID}}\n"
@@ -212,9 +278,10 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL):
         f"      -e GGUF_FILE={hf_file}\n"
         f"      -e GGUF_CTX={ctx}\n"
         f"      -e GGUF_PARALLEL={par}\n"
+        f"{opt}"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
         f"      -p ${{PORT}}:8080\n"
-        f"      {BONSAI}\n"
+        f"      {image}\n"
         f"      --alias ${{MODEL_ID}}\n"
         f"    cmdStop: docker stop ${{MODEL_ID}}\n"
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
@@ -222,6 +289,9 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL):
         f"    ttl: {ttl}\n"
         f"    concurrencyLimit: {par * GGUF_LIMIT_MULT}\n"
     )
+    if params:
+        e += setparams_filter(**params)
+    return e
 
 
 def member_entry(spec, model_id, card):
@@ -234,6 +304,18 @@ def member_entry(spec, model_id, card):
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
                       extra=spec.get("extra", ()))
+
+
+def ungrouped_gguf_entry(spec):
+    return gguf_entry(spec["tok"], ",".join(spec["cards"]), spec["repo"], spec["hf_file"],
+                      spec["ctx"], spec.get("par", 1), ttl=spec.get("ttl", TTL),
+                      image=spec.get("image", BONSAI),
+                      mmproj=spec.get("mmproj"), draft=spec.get("draft"),
+                      draft_max=spec.get("draft_max"),
+                      split_mode=spec.get("split_mode"),
+                      tensor_split=spec.get("tensor_split"),
+                      cache_type=spec.get("cache_type"),
+                      params=spec.get("params"))
 
 
 def main():
@@ -272,6 +354,10 @@ def main():
     out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
     for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:
         out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=TTL_SOLO))
+
+    out.append("  # ===== Ungrouped GGUF entries (no pairNN membership; see UNGROUPED_GGUF) =====")
+    for spec in UNGROUPED_GGUF:
+        out.append(ungrouped_gguf_entry(spec))
 
     out.append("")
     out.append("# Each pair is its own group: members co-load and stay together (swap:false);")

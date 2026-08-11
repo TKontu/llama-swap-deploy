@@ -21,5 +21,11 @@ RUN apt-get update \
 # models stays a git push (see .github/workflows/build-and-push.yml).
 COPY config.yaml /etc/llama-swap/config/config.yaml
 
+# On-call standby poller. Baked in for the same reason as config.yaml above — the
+# docker-compose `oncall-wakeup` service runs this image with an entrypoint override
+# rather than bind-mounting the script, so a Portainer Git stack can't mangle it.
+COPY scripts/oncall-wakeup.sh /usr/local/bin/oncall-wakeup.sh
+RUN chmod +x /usr/local/bin/oncall-wakeup.sh
+
 # Entrypoint/CMD are inherited from the base image; the compose file passes
 # --config and --listen.
