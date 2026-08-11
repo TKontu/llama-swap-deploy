@@ -138,10 +138,28 @@ cache blocks" failure.
 | AWQ / safetensors (most models) | **vLLM** `v0.26.0` | `cmd: docker run … vllm/vllm-openai …` (DooD) |
 | GGUF, mainstream arch | llama.cpp | bundled `llama-server` child process |
 | GGUF, exotic (e.g. `Ternary-Bonsai-27B`) | **PrismML llama.cpp fork** | `cmd: docker run …` of a fork image (custom kernels) |
+| GGUF, newer arch (e.g. `Muse-Glimmer-30B`) | **mainline llama.cpp, pinned build** | `cmd: docker run …` of `Dockerfile.llamacpp` |
 
 `Ternary-Bonsai-27B` is a hybrid-attention, multimodal, ternary-quantized model built for
 a **PrismML fork of llama.cpp** — vLLM 0.25.1 cannot serve it. This is a concrete reason
 the backend-agnostic design matters.
+
+### Why there are TWO llama.cpp images
+
+This is the non-obvious bit. They are not redundant and neither can replace the other:
+
+- `Dockerfile.bonsai` builds **PrismML's `prism` fork**, which carries the Q2_0_g128 ternary
+  and hybrid-attention CUDA kernels `Ternary-Bonsai-27B` needs. Mainline does not have them.
+- `Dockerfile.llamacpp` builds **mainline at a pinned build tag**. The fork's branch head is
+  2026-07-31, so it predates any architecture merged after that — `Muse-Glimmer-30B` landed
+  in mainline on 2026-08-10 (`ggml-org/llama.cpp#26841`, build `b10353`) and fails on the
+  fork with an unknown-architecture error.
+
+Both images share `docker/gguf-serve.sh` as their entrypoint, so moving a model between them
+means changing only `image:` in the generated config. Pin the mainline tag rather than
+tracking a rolling one, for the same reason the vLLM image is pinned to `v0.26.0`. When
+adding a GGUF model, the question to answer first is *which image can actually load it* —
+check when its architecture was merged against the fork's branch date.
 
 ## Request lifecycle
 

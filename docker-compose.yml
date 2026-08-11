@@ -41,3 +41,30 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # Keeps ONCALL_MODEL resident whenever the box has stopped working, without ever
+  # blocking another model — a request to anything else evicts it via the exclusive
+  # groups, and the wakeup request itself evicts whatever is squatting. See
+  # scripts/oncall-wakeup.sh and README → "On-call standby model".
+  #
+  # Reuses the llama-swap image (the script is baked in, and curl/awk are present) so
+  # there's no second image to build and no bind mount for Portainer to mangle. It needs
+  # neither GPUs nor the docker socket — only HTTP access to llama-swap, hence host
+  # networking and no `runtime: nvidia`.
+  oncall-wakeup:
+    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest}
+    container_name: oncall-wakeup
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - llama-swap
+    entrypoint: ["/usr/local/bin/oncall-wakeup.sh"]
+    environment:
+      - LLAMASWAP_URL=http://127.0.0.1:9292
+      - ONCALL_MODEL=muse-glimmer
+      # Both 3090s must sit below IDLE_PCT for this long before the model is woken.
+      # This becomes the effective replacement delay for an idle model, so it is
+      # deliberately long — the 5 h / 10 h TTLs still govern unloading.
+      - IDLE_SECONDS=3600
+      - IDLE_PCT=5
+      - POLL_SECONDS=60

@@ -1,24 +1,21 @@
-name: bonsai-image
+name: llamacpp-image
 
-# Builds the PrismML llama.cpp fork image (Ternary-Bonsai-27B runtime) and pushes
-# it to GHCR. This is a CUDA compile, so it only runs when its own files change or
-# on manual dispatch — NOT on every push.
+# Builds the pinned mainline llama.cpp image (Muse-Glimmer-30B and any future model the
+# PrismML fork can't load) and pushes it to GHCR. This is a CUDA compile, so it only runs
+# when its own files change or on manual dispatch — NOT on every push.
 
 on:
   push:
     branches: [main]
     paths:
-      - "Dockerfile.bonsai"
-      - "docker/bonsai-serve.sh"
-      # Dockerfile.bonsai COPYs this too — without it here, a gguf-serve.sh change
-      # rebuilds only the mainline image and leaves this one silently stale.
+      - "Dockerfile.llamacpp"
       - "docker/gguf-serve.sh"
-      - ".github/workflows/bonsai-image.yml"
+      - ".github/workflows/llamacpp-image.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/bonsai-llama   # separate package from the main image
+  IMAGE_NAME: ${{ github.repository_owner }}/llamacpp-mainline   # separate package from bonsai
 
 jobs:
   build:
@@ -30,7 +27,7 @@ jobs:
     steps:
       # The CUDA build produces GBs of object files; the runner's / is only ~14 GB.
       # Free extra space AND move Docker's storage to the large /mnt volume (~70 GB)
-      # so buildkit doesn't fill / mid-build (the earlier run got killed uncleanly).
+      # so buildkit doesn't fill / mid-build.
       - name: Maximize build disk
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
@@ -70,7 +67,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.bonsai
+          file: Dockerfile.llamacpp
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -79,7 +76,7 @@ jobs:
 
       - name: Summary
         run: |
-          echo "### Bonsai image pushed :evergreen_tree:" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Mainline llama.cpp image pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
