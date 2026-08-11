@@ -69,10 +69,13 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 
 1. **Push this folder to a GitHub repo** and let the workflow run (Actions tab →
    `build-and-push`; it also runs on `Dockerfile` changes and via *Run workflow*).
-2. **Make the GHCR package public** (repo → *Packages* → the image → *Package settings* →
-   change visibility → *Public*). The image contains no secrets — only llama-swap + the
-   `docker` CLI. (Keep it private instead if you prefer; then add GHCR registry credentials
-   in Portainer → *Registries*.)
+2. **Package visibility — nothing to do.** This repo is public and every image workflow
+   passes `docker/metadata-action`'s labels to the build, which sets
+   `org.opencontainers.image.source`. That links the package to the repo, so it inherits
+   public visibility on first push — verified for all three packages. The images contain
+   no secrets (llama-swap + the `docker` CLI, or llama-server). If you fork this into a
+   *private* repo, its packages will be private too: either flip visibility in *Package
+   settings* or add GHCR credentials in Portainer → *Registries*.
 3. Grab the image reference from the workflow's run summary, e.g.
    `ghcr.io/<owner>/llama-swap-deploy:latest` (all lowercase).
 
@@ -186,9 +189,9 @@ repo builds the fork into its own image and points the model at it:
 
 1. **Build the image** — the `bonsai-image` workflow (`Dockerfile.bonsai`) compiles the fork
    (`PrismML-Eng/llama.cpp`, branch `prism`, CUDA sm_86) and pushes
-   `ghcr.io/<owner>/bonsai-llama:latest`. It runs on changes to those files or via *Run
-   workflow* (it's a CUDA compile — several minutes). Then **make that GHCR package public**
-   too (same as the main image).
+   `ghcr.io/<owner>/bonsai-llama:latest`. It runs on changes to those files (including
+   `docker/gguf-serve.sh`, which it also ships) or via *Run workflow* — it's a CUDA compile,
+   several minutes. The package is public automatically; see "One-time setup" step 2.
 2. **Download the weights** on the host into the HF cache (the repos are gated → use your token):
 
    ```bash
@@ -226,7 +229,7 @@ co-load partner, and pairing it would have added 10 pairs nothing would request.
 
 1. **Build the image** — the `llamacpp-image` workflow (`Dockerfile.llamacpp`) compiles
    mainline at the pinned `LLAMACPP_TAG` and pushes `ghcr.io/<owner>/llamacpp-mainline:latest`.
-   Then **make that GHCR package public** (same as the other images).
+   The package is public automatically; see "One-time setup" step 2.
 2. **Download the weights** on the host (~38 GB, so don't let the first cold start do it):
 
    ```bash

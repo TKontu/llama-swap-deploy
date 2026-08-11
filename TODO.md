@@ -17,14 +17,16 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 **Remaining — needs the host (can't be done from the repo):**
 
 - [ ] **Rotate the HF token** that was pasted into `.env` (it's git-ignored, but was exposed).
-- [ ] Make the GHCR package public (or add registry creds in Portainer).
+- [x] GHCR package visibility — no action needed. The repo is public and the images carry
+  `org.opencontainers.image.source`, so packages inherit public visibility on first push
+  (verified 2026-08-11: all three pull anonymously).
 - [ ] Cold-start validation, especially the tight-fit contexts flagged `VALIDATE` in
   `config.yaml`: `Qwen3.6-27B-AWQ-INT4` (262k), `Qwythos-…-1M-AWQ` (1M — likely needs TP2 or
   less context), `Qwythos-…-256k` (bf16).
 - [~] `Ternary-Bonsai-27B`: PrismML fork image is now CI-built (`Dockerfile.bonsai` →
-  `ghcr.io/tkontu/bonsai-llama`) and the model is wired on a 3090. Remaining: make that GHCR
-  package public, download the GGUF weights (`prism-ml/Ternary-Bonsai-27B-gguf`: Q2_0 + mmproj
-  + dspark-Q4_1) into `/models/hf-cache`, then cold-start to validate the fork flags.
+  `ghcr.io/tkontu/bonsai-llama`) and the model is wired on a 3090. Remaining: download the
+  GGUF weights (`prism-ml/Ternary-Bonsai-27B-gguf`: Q2_0 + mmproj + dspark-Q4_1) into
+  `/models/hf-cache`, then cold-start to validate the fork flags.
 
 ## 0. Decisions to lock first
 
@@ -63,9 +65,9 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 Config-side checks already pass locally: 106 models / 45 groups, with all 104 pre-existing
 entries byte-identical and the two Muse-Glimmer entries purely additive. The rest needs the host.
 
-- [ ] Make the `llamacpp-mainline` GHCR package **public** (or add registry creds in Portainer).
-- [ ] Rebuild the **bonsai** image too — both images share `docker/gguf-serve.sh`, which
-  changed. Without it, `qwythos-v2` / `fablevibes` run an older script than config assumes.
+- [x] Images built and pushed (2026-08-11): `llamacpp-mainline` (new), `bonsai-llama`
+  (rebuilt via the fixed trigger, since `docker/gguf-serve.sh` changed), and the main image.
+  All three pull anonymously — no visibility step needed.
 - [ ] Pre-download the ~38 GB of GGUFs (README → Muse-Glimmer) so the first cold start
   isn't a multi-GB stall.
 - [ ] **Restart llama-swap** — config is read at startup only. `/v1/models` going 104 → 106
