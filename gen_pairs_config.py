@@ -174,12 +174,12 @@ UNGROUPED_GGUF = [
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-17gb.gguf",
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
-         ctx=131072, par=1),
+         spec_type="draft-dflash", ctx=131072, par=1),
     dict(tok="Muse-Glimmer-30B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
-         ctx=131072, par=1, split_mode="layer", tensor_split="1,1"),
+         spec_type="draft-dflash", ctx=131072, par=1, split_mode="layer", tensor_split="1,1"),
 ]
 
 def setparams_filter(**kwargs):
@@ -256,7 +256,7 @@ def fork_entry(model_id, gpus, ttl=TTL):
 
 
 def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
-               mmproj=None, draft=None, draft_max=None, split_mode=None,
+               mmproj=None, draft=None, spec_type=None, draft_max=None, split_mode=None,
                tensor_split=None, cache_type=None, params=None):
     # Standard GGUF via the gguf-serve.sh entrypoint (present in BOTH images): it
     # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
@@ -270,6 +270,8 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         opt += f"      -e GGUF_MMPROJ={mmproj}\n"
     if draft:
         opt += f"      -e GGUF_DRAFT={draft}\n"
+    if spec_type:
+        opt += f"      -e GGUF_SPEC_TYPE={spec_type}\n"
     if draft_max:
         opt += f"      -e GGUF_DRAFT_MAX={draft_max}\n"
     if split_mode:
@@ -324,7 +326,7 @@ def ungrouped_gguf_entry(spec):
                       spec["ctx"], spec.get("par", 1), ttl=spec.get("ttl", TTL),
                       image=spec.get("image", BONSAI),
                       mmproj=spec.get("mmproj"), draft=spec.get("draft"),
-                      draft_max=spec.get("draft_max"),
+                      spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
                       split_mode=spec.get("split_mode"),
                       tensor_split=spec.get("tensor_split"),
                       cache_type=spec.get("cache_type"),
