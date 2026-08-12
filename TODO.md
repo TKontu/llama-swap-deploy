@@ -97,9 +97,29 @@ entries byte-identical and the two Muse-Glimmer entries purely additive. The res
   DFlash path crashed, which looked like a model/flag bug. Fixed by `-DGGML_NATIVE=OFF` on
   BOTH Dockerfiles — bonsai had the same latent hazard, surviving only because the ternary
   path never reached those instructions.
-- [ ] Re-measure with the drafter actually loading (expected 20.31 GiB used / 3.69 GiB free)
-  and confirm the documented, harmless `[spec] failed to measure draft model memory` warning
-  at startup rather than a real failure.
+- [x] **VERIFIED END-TO-END 2026-08-12** (llama-swap v249, 106 models). `muse-glimmer`
+  loads in ~35 s cold / ~14 s warm and uses **20.82 GiB** on 3090 #0 (predicted 20.31), so
+  the drafter is genuinely resident — it was 18.79 GiB without it. GPU #2 stays free.
+- [x] **Drafter is measurably working**: 78.8 tok/s at -np 1 greedy on a 30B dense model.
+  A 3090's ~936 GB/s against 16.76 GB of weights caps plain autoregressive decode at
+  ~56 tok/s, so exceeding it is only possible with speculation — a **>=1.4x** floor on the
+  speedup without needing a no-drafter baseline.
+- [x] **Vision + speculative work TOGETHER** (the actual goal): a generated PNG of red/green/
+  blue horizontal stripes came back as "red, green, blue" with the drafter enabled. Stripe
+  order was arbitrary, so this is grounded, not a guess.
+- [x] **Reasoning is separated, not lost.** First probe returned empty `content` with
+  `finish_reason: length` — the model spent all 80 tokens reasoning. llama.cpp puts it in
+  `message.reasoning_content`; `content` is correct once the budget is adequate. Same class
+  of trap as `qwen3.5-9b` above. Consumers must budget for it, or set
+  `params=dict(reasoning_strength="low")` on the entry (mechanism already wired).
+- [x] **Split entry works but earns nothing on speed**: 13.00 + 12.16 GiB across both 3090s
+  (-sm layer distributes evenly), and **78.2 tok/s vs 78.8 for the single-card entry** —
+  identical within noise, exactly as predicted for pipeline parallelism. Its only benefit is
+  the higher-quality `dynamic` quant, paid for by owning BOTH cards and ~18 GiB of disk.
+  DECIDE whether that trade is worth keeping.
+- [x] **Yield/swap verified both directions**: requesting the split evicted `muse-glimmer`;
+  requesting `muse-glimmer` back reloaded it in 13.5 s and freed GPU #2. `ttl: 0` confirmed
+  on the resident entry.
 - [ ] Confirm **vision + speculative work together** — the drafter loads before the mmproj
   (`server-context.cpp:1225-1275`), so a failure in either aborts the whole load. Run the
   vision probe with the drafter enabled, not just a text prompt.
