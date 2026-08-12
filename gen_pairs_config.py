@@ -155,13 +155,26 @@ SOLO = [
 UNGROUPED_GGUF = [
     # On-call standby (see scripts/oncall-wakeup.sh). ttl 0 = never idle-unload; it is still
     # evicted by any exclusive group, which is exactly what we want — hence NOT persistent.
-    # Budget on one 3090: 16.76 (weights) + 1.40 (mmproj) + ~1.2 (compute) + ~1.82 (KV)
-    # ~= 21.2 GiB, leaving ~2.1 GiB. The dflash drafter is deliberately OFF here: at 1.63 GB
-    # it would cut that to ~0.5 GiB. The split entry below runs it instead.
+    #
+    # MEASURED on the host 2026-08-12 (do not re-derive from HF's file sizes: those are
+    # DECIMAL GB, and treating them as GiB overstates the weights by ~7%). With weights +
+    # mmproj only, llama-server reported n_ctx=131072, vision=True, and used 18.79 GiB of
+    # the 24 GiB card — i.e. 15.61 (weights) + 1.30 (mmproj) + 1.88 (KV + compute).
+    # The 1.88 confirms the sliding-window KV analysis above: the full 131072 context really
+    # does cost under ~2 GiB.
+    #
+    # That leaves 5.21 GiB free, so the dflash drafter (1.52 GiB) fits with ~3.7 GiB spare.
+    # It is ON because the ~3.1x decode speedup is the reason to run llama.cpp here at all,
+    # and the model card measured it at batch size 1 greedy — exactly this -np 1 setup.
+    # Standard flags (-md + -ngld 99), unlike Ternary-Bonsai's DSpark --spec-type.
+    # A "[spec] failed to measure draft model memory" warning at startup is documented as
+    # harmless. The dynamic quant is NOT used here: dynamic+mmproj+dflash needs 23.01 GiB,
+    # leaving ~1 GiB — too thin for prefill spikes at 131k. That is what the split entry is for.
     dict(tok="muse-glimmer", image=LLAMACPP, cards=[CARD0], ttl=0, oncall=True,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-17gb.gguf",
-         mmproj="mmproj-kquant.gguf", ctx=131072, par=1),
+         mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
+         ctx=131072, par=1),
     dict(tok="Muse-Glimmer-30B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
