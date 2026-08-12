@@ -100,10 +100,17 @@ entries byte-identical and the two Muse-Glimmer entries purely additive. The res
 - [x] **VERIFIED END-TO-END 2026-08-12** (llama-swap v249, 106 models). `muse-glimmer`
   loads in ~35 s cold / ~14 s warm and uses **20.82 GiB** on 3090 #0 (predicted 20.31), so
   the drafter is genuinely resident — it was 18.79 GiB without it. GPU #2 stays free.
-- [x] **Drafter is measurably working**: 78.8 tok/s at -np 1 greedy on a 30B dense model.
-  A 3090's ~936 GB/s against 16.76 GB of weights caps plain autoregressive decode at
-  ~56 tok/s, so exceeding it is only possible with speculation — a **>=1.4x** floor on the
-  speedup without needing a no-drafter baseline.
+- [x] **Drafter measured at 1.81x** (A/B on the same host, 2026-08-12): **44.4 tok/s without**
+  vs **80.3 tok/s with**, -np 1 greedy, 300 tokens. `draft_n` absent from the no-drafter
+  response confirms speculation was really off. Acceptance is **85.7%** (draft_n=251,
+  accepted=215) = 3.53 tokens per target forward pass; wall-clock gain is lower than that
+  ratio because verification batches and drafting both cost time.
+  Cost: **+2.03 GiB**, more than the drafter's 1.52 GiB file — the extra ~0.5 GiB is draft
+  context plus embedding buffers for its five target-layer hooks. 3.18 GiB still free.
+  Verdict: keep it. +81% throughput for 8% of the card.
+  (The model card's 3.1x is a 5090 figure; 1.81x is what a 3090 gives.)
+  NOTE: speculation cannot be toggled per request — `speculative.types` is server-level, so
+  an A/B needs a second container, not a request flag.
 - [x] **Vision + speculative work TOGETHER** (the actual goal): a generated PNG of red/green/
   blue horizontal stripes came back as "red, green, blue" with the drafter enabled. Stripe
   order was arbitrary, so this is grounded, not a guess.
