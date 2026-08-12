@@ -80,4 +80,4 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "Make this package public too, then it's referenced by config.yaml." >> "$GITHUB_STEP_SUMMARY"
+          echo "Public automatically (repo is public + OCI source label); referenced by config.yaml." >> "$GITHUB_STEP_SUMMARY"
