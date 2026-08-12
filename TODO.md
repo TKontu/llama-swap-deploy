@@ -72,11 +72,18 @@ entries byte-identical and the two Muse-Glimmer entries purely additive. The res
   isn't a multi-GB stall.
 - [ ] **Restart llama-swap** — config is read at startup only. `/v1/models` going 104 → 106
   confirms the new config was actually picked up.
-- [ ] `muse-glimmer` cold start: watch `nvidia-smi` against the budget (16.76 weights +
-  1.40 mmproj + ~1.2 compute + ~1.82 KV ≈ 21.2 GiB, **~2.1 GiB spare**). This is the
-  thinnest number in the whole change. It assumes llama.cpp allocates SWA layers windowed,
-  not full — if it allocates full, KV jumps to ~6.5 GiB and it OOMs. Fallback ladder:
-  drop `ctx` 131072 → 65536, then `cache_type="q8_0"`.
+- [x] `muse-glimmer` cold start **verified 2026-08-12**: loaded on 3090 #0, `n_ctx=131072`,
+  `vision=True`, build `b1-4801e3c` (= the pinned `b10362`). Used **18.79 GiB of 24**, i.e.
+  15.61 weights + 1.30 mmproj + 1.88 KV+compute — the sliding-window KV analysis held (the
+  full 131k context really does cost <2 GiB), so the OOM risk flagged pre-merge did not
+  materialise. That estimate ("~2.1 GiB spare") was wrong for a different reason: it treated
+  HF's DECIMAL GB file sizes as GiB, overstating weights ~7%. Actual free: **5.21 GiB**.
+- [ ] Re-measure after enabling the dflash drafter (expected 20.31 GiB used / 3.69 GiB free),
+  and confirm the documented, harmless `[spec] failed to measure draft model memory` warning
+  at startup rather than a real failure.
+- [ ] Benchmark decode with vs without the drafter at `-np 1` greedy — the card claims ~3.1x
+  on a 5090. If it is not materially faster on a 3090, that 1.52 GiB is better spent moving
+  this entry to the `dynamic` quant (21.49 GiB used / 2.51 GiB free) instead.
 - [ ] **Coherence prompt** on first load — per the `qwen3.5-9b` precedent above, trust the
   output, not a clean startup log.
 - [ ] **Vision probe**: send an image part and confirm a grounded description, proving

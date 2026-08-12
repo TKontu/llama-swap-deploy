@@ -2180,6 +2180,7 @@ models:
       -e GGUF_CTX=131072
       -e GGUF_PARALLEL=1
       -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
