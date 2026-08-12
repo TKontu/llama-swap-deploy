@@ -89,6 +89,14 @@ entries byte-identical and the two Muse-Glimmer entries purely additive. The res
   are valid in b10362. No `--draft-max` needed — DFlash reads `dflash.block_size` (16) from
   metadata and clamps n_max to block_size-1 with a warning (`spec.cpp:979`), unlike the
   DSpark path in `bonsai-serve.sh`, which asserts and must be told explicitly.
+- [x] **Images were built for the CI runner's CPU** (found 2026-08-12). Even with
+  `--spec-type draft-dflash`, the drafter died with **exit 132 = SIGILL**. `GGML_NATIVE`
+  defaults to ON, so llama.cpp compiled for the GitHub Actions runner's AVX-512/AMX cores
+  (hence the `AMX is not ready to be used!` line) and the binary hits an illegal instruction
+  on this box. Nasty because it was PARTIAL: plain generation ran for days and only the
+  DFlash path crashed, which looked like a model/flag bug. Fixed by `-DGGML_NATIVE=OFF` on
+  BOTH Dockerfiles — bonsai had the same latent hazard, surviving only because the ternary
+  path never reached those instructions.
 - [ ] Re-measure with the drafter actually loading (expected 20.31 GiB used / 3.69 GiB free)
   and confirm the documented, harmless `[spec] failed to measure draft model memory` warning
   at startup rather than a real failure.

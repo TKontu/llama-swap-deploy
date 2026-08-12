@@ -26,8 +26,13 @@ WORKDIR /src
 # devel image ships, exposed as libcuda.so.1 via LIBRARY_PATH. Build ONLY the
 # server target (the fork's extra example binaries fail to link the stub and we
 # don't need them). Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
+# GGML_NATIVE=OFF: same latent SIGILL hazard that bit the mainline image — it defaults
+# to ON and compiles for the CI runner's CPU (AVX-512/AMX), which the inference box
+# lacks. This image has not crashed yet only because the ternary path happens not to
+# reach those instructions; that is luck, not safety. See Dockerfile.llamacpp.
 RUN export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
  && cmake -B build -G Ninja \
+      -DGGML_NATIVE=OFF \
       -DGGML_CUDA=ON \
       -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHS} \
       -DCMAKE_BUILD_TYPE=Release \

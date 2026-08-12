@@ -32,8 +32,19 @@ WORKDIR /src
 # symbols (cuMemCreate, cuDeviceGet, ...). Link against the CUDA driver STUB the
 # devel image ships, exposed as libcuda.so.1 via LIBRARY_PATH. Build ONLY the
 # server target. Cap parallelism by RAM to avoid nvcc OOM on smaller runners.
+# GGML_NATIVE=OFF is REQUIRED and not cosmetic. It defaults to ON
+# (ggml/CMakeLists.txt), which compiles for the BUILD machine's CPU — here a GitHub
+# Actions runner, whose Intel cores support AVX-512/AMX that the inference box does not.
+# The resulting binary dies with SIGILL (exit 132) the moment it reaches such a code
+# path. That failure is nasty because it is PARTIAL: plain generation worked fine for
+# days and only the DFlash speculative path crashed, so it looked like a model/flag bug.
+# The official .devops/cuda.Dockerfile passes GGML_NATIVE=OFF for the same reason.
+# (Upstream also adds GGML_BACKEND_DL + GGML_CPU_ALL_VARIANTS for runtime CPU dispatch;
+# not needed here since -ngl 99 keeps everything on the GPU, so a baseline CPU build
+# costs nothing measurable.)
 RUN export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
  && cmake -B build -G Ninja \
+      -DGGML_NATIVE=OFF \
       -DGGML_CUDA=ON \
       -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHS} \
       -DCMAKE_BUILD_TYPE=Release \
