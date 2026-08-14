@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Generate a llama-swap config of co-load PAIRS for benchmarking.
 
-Each single-card model is paired with every other (all C(n,2) unique pairs). A pair
+Members are paired unless they are near-duplicates — the rule is "pair everything EXCEPT
+same family AND same role" (see worth_pairing() in main()). Each POOL entry carries a
+`family` and a `role` (anchor = heavy/high-KV, fast = small/high-concurrency). A pair
 is a `swap:false, exclusive:true` group with one model pinned to 3090 #0 and the other
 to 3090 #2 (each owns its card: vLLM TP=1 @ util 0.90; Ternary via the llama.cpp fork
 image). No shared-card contention. Callsigns are `pairNN.<model>`; roles
@@ -160,10 +162,8 @@ POOL = [
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
     # ~21.9 GiB against the util-0.95 budget of ~23.3 GiB on a 3090 (~1.4 GiB slack).
     # ~98k is the theoretical fp16-KV ceiling — do not raise further without fp8 KV.
-    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
-    dict(tok="phi-4",       backend="vllm", repo="stelterlab/phi-4-AWQ",                          mml=16384),
-    dict(tok="gemma-12b",   backend="vllm", repo="cyankiwi/gemma-4-12B-it-qat-AWQ-INT4",          mml=32000),
-    dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
+    dict(tok="gemma-26b",   family="gemma", role="anchor", backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
+    dict(tok="gemma-e4b",   family="gemma", role="fast", backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
     # BF16-INT4 replaces AWQ-4bit: linear_attn (GDN) layers stay unquantized BF16 —
     # safer for this family. Shard naming verified 2026-08-04 against the known
     # silent-failure mode (ignore list vs shards BOTH use the split in_proj_qkv/z/b/a
@@ -173,7 +173,7 @@ POOL = [
     # think=True: without the filter the 9B burns hundreds of output tokens in its
     # thinking phase even at temperature 0 (verified on first load, 2026-08-04) —
     # short-max_tokens requests never reach an answer.
-    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think_off=True, extra=APC_ALIGN),
+    dict(tok="qwen3.5-9b",  family="qwen3.5", role="fast", backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think_off=True, extra=APC_ALIGN),
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
@@ -181,14 +181,13 @@ POOL = [
     # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
     # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
     # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
-    dict(tok="mellum2-12b", backend="vllm", repo="cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4",  mml=128000),
-    dict(tok="ternary",     backend="fork"),
-    dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
+    dict(tok="qwen3.5-4b",  family="qwen3.5", role="fast", backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
+    dict(tok="ternary",     family="qwen3.6", role="anchor", backend="fork"),
+    dict(tok="qwythos-v2",  family="qwythos", role="fast", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Xet-backed repo (~11.3 GB Q6_K). llama-server -hf downloads via HTTP; if Xet blocks
     # that, we pre-download with the `hf` CLI (+hf_xet) instead. See README.
     # Q6_K weights are ~11.3 GB of the 24 GB card, so it gets fewer slots than qwythos.
-    dict(tok="fablevibes",  backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
+    dict(tok="fablevibes",  family="qwen3.6", role="fast", backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
     # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
     # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
     # general.architecture=qwen35 and the mmproj clip.projector_type=qwen3vl_merger, BOTH of
@@ -212,7 +211,7 @@ POOL = [
     # reasoning_effort/preserve_thinking controls are per-request, and llama.cpp returns the
     # trace in message.reasoning_content (see the muse-glimmer note in TODO.md) rather than
     # burning the content budget the way qwen3.5-9b does.
-    dict(tok="qwen3.8-27b", backend="gguf", image=LLAMACPP,
+    dict(tok="qwen3.8-27b", family="qwen3.8", role="anchor", backend="gguf", image=LLAMACPP,
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
          mmproj="mmproj-F16.gguf", ctx=16384, par=4,
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
@@ -228,8 +227,6 @@ POOL = [
 # TODO.md's dmesg check confirms the crash is resolved.
 SOLO = [
     ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True,  True),
-    ("Qwen3.6-27B-AWQ-INT4",       "cyankiwi/Qwen3.6-27B-AWQ-INT4",             262144, 1, 0.92, False, False),
-    ("gemma4-26B-A4B-it-INT4-max", "cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",  131072, 1, 0.90, False, False),
     ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False, False),
 ]
 
@@ -489,6 +486,31 @@ def ungrouped_gguf_entry(spec):
 
 
 def main():
+    # A pair is only worth generating if the two members are worth running SIDE BY SIDE. One
+    # predicate covers that: pair everything EXCEPT same family AND same role.
+    #
+    #   same family + same role       -> DROP. Near-duplicates; nothing is learned by co-loading
+    #                                    qwen3.5-4b next to qwen3.5-9b, and for any given
+    #                                    request one of them is simply the better choice.
+    #   same family + different role  -> KEEP. gemma-26b (anchor) + gemma-e4b (fast) is the
+    #                                    complementary case: a heavy/high-KV model sharing the
+    #                                    box with a small high-concurrency one.
+    #   different family + same role  -> KEEP. This is the head-to-head the whole pairs config
+    #                                    exists for: strong-vs-strong (gemma-26b + qwen3.8-27b)
+    #                                    and fast-vs-fast (gemma-e4b + qwen3.5-4b) ACROSS
+    #                                    families.
+    #
+    # Replaces the previous all-C(n,2) enumeration, which also emitted every same-family
+    # near-duplicate. Ordering stays (later member, earlier member) so APPENDING a POOL member
+    # is additive to the numbering; RETIRING one still renumbers, which this change does once.
+    def worth_pairing(a, b):
+        return not (a["family"] == b["family"] and a["role"] == b["role"])
+
+    combos = sorted(itertools.combinations(range(len(POOL)), 2), key=lambda p: (p[1], p[0]))
+    pairs = [(i, j) for (i, j) in combos if worth_pairing(POOL[i], POOL[j])]
+    dropped = [(POOL[i]["tok"], POOL[j]["tok"])
+               for (i, j) in combos if not worth_pairing(POOL[i], POOL[j])]
+
     out = []
     out.append("# llama-swap PAIRS config (GENERATED by gen_pairs_config.py — do not hand-edit).")
     out.append("# Each pairNN is a co-load group: two single-card models, one per 3090, serving")
@@ -500,26 +522,25 @@ def main():
     out.append("healthCheckTimeout: 900")
     out.append("logLevel: info")
     out.append("")
+    if dropped:
+        out.append("# Pairs deliberately NOT generated (same family AND same role — near-duplicates):")
+        for a, b in dropped:
+            out.append(f"#   {a} + {b}")
+        out.append("")
     out.append("models:")
     out.append("")
 
     groups = []
-    # Ordered by (higher index, lower index) rather than itertools' natural (lower, higher).
-    # Both enumerate the same C(n,2) pairs; this order groups them by their LATER member, so
-    # every pair among the first k POOL entries sorts before any pair involving entry k+1.
-    # That makes APPENDING a POOL member purely additive to the numbering — pair01..pair45
-    # keep their meaning and the new member's pairs land at the end — whereas the natural
-    # order interleaves them ((0,10) would slot in right after (0,9)) and renumbers the whole
-    # set on every addition. Consumers split the callsign on the first '.', but a pair id that
-    # silently changes partners between regenerations is a trap worth closing once.
-    # NOTE: adopting this reshuffled the existing 45 labels ONE time; it is stable from here.
-    pairs = sorted(itertools.combinations(range(len(POOL)), 2), key=lambda p: (p[1], p[0]))
     for k, (i, j) in enumerate(pairs, start=1):
         pair = f"pair{k:02d}"
+        # The anchor takes 3090 #0 when the roles differ, so the heavy member's card is
+        # predictable across pairs; equal-role pairs fall back to POOL order.
         a, b = POOL[i], POOL[j]
+        if a["role"] == "fast" and b["role"] == "anchor":
+            a, b = b, a
         id_a = f"{pair}.{a['tok']}"      # -> 3090 #0
         id_b = f"{pair}.{b['tok']}"      # -> 3090 #2
-        out.append(f"  # ===== {pair}: {a['tok']} (#0)  +  {b['tok']} (#2) =====")
+        out.append(f"  # ===== {pair}: {a['tok']} ({a['role']}, #0)  +  {b['tok']} ({b['role']}, #2) =====")
         out.append(member_entry(a, id_a, CARD0))
         out.append(member_entry(b, id_b, CARD2))
         groups.append((pair, id_a, id_b))

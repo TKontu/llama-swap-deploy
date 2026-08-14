@@ -23,10 +23,10 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] Cold-start validation, especially the tight-fit contexts flagged `VALIDATE` in
   `config.yaml`: `Qwen3.6-27B-AWQ-INT4` (262k), `Qwythos-…-1M-AWQ` (1M — likely needs TP2 or
   less context), `Qwythos-…-256k` (bf16).
-- [~] `Ternary-Bonsai-27B`: PrismML fork image is now CI-built (`Dockerfile.bonsai` →
-  `ghcr.io/tkontu/bonsai-llama`) and the model is wired on a 3090. Remaining: download the
-  GGUF weights (`prism-ml/Ternary-Bonsai-27B-gguf`: Q2_0 + mmproj + dspark-Q4_1) into
-  `/models/hf-cache`, then cold-start to validate the fork flags.
+- [x] `Ternary-Bonsai-27B`: PrismML fork image CI-built (`Dockerfile.bonsai` →
+  `ghcr.io/tkontu/bonsai-llama`), weights downloaded, and the model **run successfully on the
+  host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
+  with it — it is the only model needing the fork's ternary kernels.
 
 ## Sampling + reasoning defaults on the llama.cpp entries (added 2026-08-14)
 
@@ -47,6 +47,29 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] Decide whether `low` is right for the **on-call** entry specifically. It is the standby
   model, so faster wake-up responses are probably what's wanted, but this is a behaviour change
   to whatever consumes that path.
+
+## Pool retirement + role-based pairing (2026-08-14)
+
+Retired: `phi-4`, `gemma-12b`, `mellum2-12b` (POOL) and the `Qwen3.6-27B-AWQ-INT4` /
+`gemma4-26B-A4B-it-INT4-max` SOLO entries. Pairing switched from all-C(n,2) to
+"pair unless same family AND same role". **128 -> 67 models, 55 -> 27 groups.**
+
+- [ ] **`pairNN` labels renumbered again.** Retiring a POOL member reshuffles them (only
+  APPENDING is additive). Anything pinning a literal pair id needs updating — read
+  `/v1/models` instead.
+- [ ] Confirm nothing downstream still requests a retired id: `phi-4`, `gemma-12b`,
+  `mellum2-12b`, `Qwen3.6-27B-AWQ-INT4`, `gemma4-26B-A4B-it-INT4-max`, or any `pairNN.` name
+  containing them. They will now 404 rather than swap in.
+- [ ] `Qwen3.6-27B-AWQ-INT4` was retired as superseded by `qwen3.8-27b` (same class, newer gen,
+  adds vision + 262k + thinking control). Sanity-check that on the host before deleting the
+  cached weights — it is the easiest retirement to reverse while the GGUFs are still on disk.
+- [ ] `gemma4-26B-A4B-it-INT4-max` was the SAME repo as pooled `gemma-26b`, differing only in
+  `mml` (131072 vs 65536). If the 131k profile is actually wanted, it is cheaper to raise
+  `gemma-26b`'s `mml` than to keep a second entry — but see the KV-ceiling note above, 65536
+  is already near the fp16 limit on one card.
+- [ ] Only one pair was dropped by the predicate itself (`qwen3.5-9b` + `qwen3.5-4b`); the rest
+  of the reduction came from retirement. If more pruning is wanted, retiring members is the
+  lever, not the rule.
 
 ## 0. Decisions to lock first
 
@@ -182,9 +205,9 @@ entries byte-identical and the two Muse-Glimmer entries purely additive. The res
 Two entries: `qwen3.8-27b` (UD-Q4_K_XL + vision, one 3090, 16384 × 4 slots, **pooled** so it
 co-loads) and `Qwen3.8-27B-split` (UD-Q6_K_XL + vision, both 3090s, full 262144 in one slot).
 
-Config-side checks already pass locally: **128 models / 55 groups**, every one of the 106
-pre-existing entry bodies preserved byte-identical, and all 45 original partner-sets intact
-(verified by comparing partner sets with the `pairNN` label stripped).
+Config-side checks pass locally. NOTE: the counts below moved after the pool retirement in the
+section above — the config is now **67 models / 27 groups**, not the 128/55 this section was
+written against.
 
 - [ ] **Pair labels were renumbered ONCE.** `gen_pairs_config.py` now orders pairs by
   `(higher index, lower index)` so appending a POOL member is purely additive. The pair *set*
@@ -193,7 +216,8 @@ pre-existing entry bodies preserved byte-identical, and all 45 original partner-
   reading `/v1/models`. From here the numbering is stable across future additions.
 - [ ] Pre-download the ~44 GB of GGUFs (README → Qwen3.8-27B) before the first cold start.
 - [ ] **Restart llama-swap** — config is read at startup only, and a model TTL reload proves
-  nothing. `/v1/models` going 106 → **128** is what confirms the new config was picked up.
+  nothing. `/v1/models` going 106 → **67** is what confirms the new config was picked up
+  (the count DROPS: Qwen3.8 adds entries but the retirement removes more).
 - [ ] **Cold start `qwen3.8-27b`** and check the reported footprint against the prediction:
   16.69 (weights) + 0.86 (mmproj) + 4.00 (65536 tok × 64 KiB f16 KV) = **21.55 GiB** of the
   ~23.3 GiB budget, i.e. ~1.75 GiB for DeltaNet state (~0.3 GiB at `-np 4`) and prefill.

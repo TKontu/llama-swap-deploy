@@ -119,7 +119,7 @@ curl -Ns http://<host>:9292/logs/stream           # live logs
 
 # fire a request (loads the model on demand)
 curl http://<host>:9292/v1/chat/completions -H 'Content-Type: application/json' -d '{
-  "model": "Qwen3.6-27B-AWQ-INT4",
+  "model": "qwen3.8-27b",
   "messages": [{"role":"user","content":"hi"}]
 }'
 ```
@@ -176,8 +176,34 @@ groups:
     members: ["Qwen3.6-35B-A3B-AWQ-4bit_16k_8seqs", "gemma-4-E4B-it-qat-AWQ-INT4-shortkv"]
 ```
 
-> ⚠️ Don't set `persistent: true` on a group that occupies both 3090s — the other 13
+> ⚠️ Don't set `persistent: true` on a group that occupies both 3090s — the other
 > models could then never load. See `config.yaml` for the sized co-load pair.
+
+### Which pairs get generated
+
+`gen_pairs_config.py` used to emit **every** C(n,2) combination. It now tags each `POOL`
+member with a `family` and a `role` and applies one predicate:
+
+> **Pair everything EXCEPT same family *and* same role.**
+
+`role` is `anchor` (heavy / high-KV) or `fast` (small / high-concurrency):
+
+| Case | Verdict | Example |
+|---|---|---|
+| same family, same role | **drop** | `qwen3.5-9b` + `qwen3.5-4b` — near-duplicates; one is simply the better pick |
+| same family, different role | keep | `gemma-26b` (anchor) + `gemma-e4b` (fast) — complementary, shares the box well |
+| different family, same role | keep | `gemma-26b` + `qwen3.8-27b` (strong-vs-strong), `gemma-e4b` + `qwen3.5-4b` (fast-vs-fast) |
+
+The third row is the point of the whole pairs config — head-to-head comparison across
+families. The first row is pure noise: co-loading two models from one family at the same tier
+teaches nothing and just burns a card.
+
+Anchors take 3090 #0 when the roles differ, so the heavy member's card is predictable.
+Dropped pairs are listed as a comment at the top of the generated `config.yaml`, so the
+pruning is auditable rather than invisible.
+
+Adding a member is additive to the pair numbering; **retiring one renumbers `pairNN` labels**,
+so consumers should read `/v1/models` rather than pinning a pair id.
 
 ---
 
@@ -283,9 +309,9 @@ and `key_length=value_length=256`, KV costs **64 KiB/token** at f16 — so the f
 | `qwen3.8-27b` | one 3090 | `UD-Q4_K_XL` + vision | 16384 × 4 slots | **co-load member** — in `POOL`, so it pairs |
 | `Qwen3.8-27B-split` | both 3090s | `UD-Q6_K_XL` + vision | 262144, 1 slot | full native context; owns both cards |
 
-Unlike Muse-Glimmer, `qwen3.8-27b` **is** in `POOL`, so it generates `pairNN` pairs with every
-other pooled model — that is what takes the pair count from 45 to **55** and the model count
-from 106 to **128**.
+Unlike Muse-Glimmer, `qwen3.8-27b` **is** in `POOL`, so it gets `pairNN` co-load pairs. It is
+tagged `role="anchor"` (heavy/high-KV), so it pairs with every `fast` member and with the other
+anchors across families — see "Which pairs get generated" below.
 
 Why `UD-Q6_K_XL` and not `Q8_0` for the split entry: `Q8_0` is 27.05 GiB of weights against a
 ~23.3 GiB per-card budget, so it **does not fit one 3090** either — both quants own both cards
