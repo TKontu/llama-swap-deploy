@@ -225,7 +225,8 @@ Weights, not context, are the constraint — which is why two entries exist:
 Both run `-np 1` — the full native context in a single slot, with unquantized f16 KV. Neither
 is in `POOL`, so **neither generates `pairNN` co-load pairs**: the standby model is not a
 co-load partner, and pairing it would have added 10 pairs nothing would request. They live in
-`UNGROUPED_GGUF` in `gen_pairs_config.py`, and the pair count stays at 45.
+`UNGROUPED_GGUF` in `gen_pairs_config.py`, so neither contributes to the pair count.
+(`qwen3.8-27b` below made the opposite choice and *is* pooled — hence 55 pairs, not 45.)
 
 1. **Build the image** — the `llamacpp-image` workflow (`Dockerfile.llamacpp`) compiles
    mainline at the pinned `LLAMACPP_TAG` and pushes `ghcr.io/<owner>/llamacpp-mainline:latest`.
@@ -245,6 +246,58 @@ co-load partner, and pairing it would have added 10 pairs nothing would request.
 The model supports `reasoning_strength` (`low`/`medium`/`high`/`xhigh`). It's left at the
 model's own default; to pin it, add `params=dict(reasoning_strength="low")` to the POOL
 entry in `gen_pairs_config.py` and regenerate — it emits a `filters.setParams` block.
+
+## Qwen3.8-27B (mainline llama.cpp backend)
+
+A dense 27B vision-language model (Apache-2.0) with hybrid Gated DeltaNet attention. It runs
+on the **same** `llamacpp-mainline` image as Muse-Glimmer with **no version bump**: its GGUF
+declares `general.architecture=qwen35` and the projector `clip.projector_type=qwen3vl_merger`,
+and both were already supported well before the pinned `b10362`. (Verified by reading the GGUF
+headers, not the model card — there is no "Qwen3.8" architecture in llama.cpp, it reuses
+Qwen3.5's.)
+
+Like Muse-Glimmer it is cheap on KV, for a different reason: `full_attention_interval=4`, so
+only **16 of its 64 layers cache anything**, and the other 48 are DeltaNet layers whose
+recurrent state is constant-size (~75 MiB *per slot*, not per token). With `head_count_kv=4`
+and `key_length=value_length=256`, KV costs **64 KiB/token** at f16 — so the full native
+262144 context is 16.0 GiB, and 65536 tokens is 4.0 GiB.
+
+| Model ID | GPUs | Quant | Context | Notes |
+|---|---|---|---|---|
+| `qwen3.8-27b` | one 3090 | `UD-Q4_K_XL` + vision | 16384 × 4 slots | **co-load member** — in `POOL`, so it pairs |
+| `Qwen3.8-27B-split` | both 3090s | `UD-Q6_K_XL` + vision | 262144, 1 slot | full native context; owns both cards |
+
+Unlike Muse-Glimmer, `qwen3.8-27b` **is** in `POOL`, so it generates `pairNN` pairs with every
+other pooled model — that is what takes the pair count from 45 to **55** and the model count
+from 106 to **128**.
+
+Why `UD-Q6_K_XL` and not `Q8_0` for the split entry: `Q8_0` is 27.05 GiB of weights against a
+~23.3 GiB per-card budget, so it **does not fit one 3090** either — both quants own both cards
+and Q8 therefore buys no deployment flexibility, only quality, on the flattest part of that
+curve. It would also cut the slack at 262k from ~5.6 GiB to ~2.7 GiB. UD-Q6_K_XL already keeps
+the sensitive tensors at 8-bit, landing at ~Q8 quality for 2.9 GiB less.
+
+There is **no drafter** here, unlike Muse-Glimmer's 1.81x DFlash: unsloth ships no standalone
+DFlash/MTP GGUF, and although the weights carry a packed MTP layer
+(`qwen35.nextn_predict_layers=1`) mainline does not self-speculate off it.
+
+1. **Download the weights** on the host (~44 GB for both entries):
+
+   ```bash
+   HF_TOKEN=hf_... hf download unsloth/Qwen3.8-27B-GGUF \
+     Qwen3.8-27B-UD-Q4_K_XL.gguf Qwen3.8-27B-UD-Q6_K_XL.gguf mmproj-F16.gguf \
+     --local-dir /models/hf-cache/gguf/unsloth_Qwen3.8-27B-GGUF
+   ```
+
+2. Request either model ID. Thinking is **on by default** in this family and llama.cpp returns
+   the trace in `message.reasoning_content`, so budget `max_tokens` accordingly — see the
+   Muse-Glimmer note above and the `qwen3.5-9b` precedent. Depth is tunable per request via
+   `reasoning_effort`, and `preserve_thinking` retains it across turns.
+
+Sampling per the model card — thinking: `temperature=1.0, top_p=0.95, top_k=20`; non-thinking:
+`temperature=0.7, top_p=0.80, top_k=20, presence_penalty=1.5`. The first three are already
+embedded in the GGUF as `general.sampling.*`, so llama.cpp applies them unless a request
+overrides.
 
 ## On-call standby model
 

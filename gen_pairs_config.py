@@ -117,6 +117,32 @@ POOL = [
     # that, we pre-download with the `hf` CLI (+hf_xet) instead. See README.
     # Q6_K weights are ~11.3 GB of the 24 GB card, so it gets fewer slots than qwythos.
     dict(tok="fablevibes",  backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
+    # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
+    # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
+    # general.architecture=qwen35 and the mmproj clip.projector_type=qwen3vl_merger, BOTH of
+    # which the pinned b10362 already supports (Qwen3.5 + Qwen3-VL predate the b10353 Muse
+    # Glimmer cut), so this needs no image bump and no rebuild. Verified by reading the GGUF
+    # headers directly, not the model card.
+    #
+    # KV is unusually cheap for a 27B, which is what makes it a viable co-load member:
+    # qwen35.full_attention_interval=4, so only 16 of the 64 layers cache anything; the other
+    # 48 are Gated DeltaNet with a constant-size recurrent state (ssm.state_size=128,
+    # inner_size=6144 -> ~75 MiB per SLOT, not per token). At head_count_kv=4 and
+    # key_length=value_length=256 that is 4*256*2B*2 = 4 KiB/layer/token * 16 = 64 KiB/token
+    # f16 -> 16384*4 = 65536 tokens costs exactly 4.00 GiB.
+    # Against the 23.3 GiB card budget: 16.69 (UD-Q4_K_XL) + 0.86 (mmproj-F16) + 4.00 (KV)
+    # = 21.55, leaving ~1.75 GiB for the DeltaNet states (~0.3 GiB at par=4) and prefill.
+    # UD (Unsloth Dynamic v3.0) over plain Q4_K_M (15.93 GiB): +0.76 GiB buys the
+    # keep-sensitive-tensors-wider treatment, which pays off most at 4-bit. If the fit turns
+    # out tight on the host, drop to Qwen3.8-27B-Q4_K_M.gguf for +0.76 GiB of slack before
+    # touching ctx/par.
+    # Thinking is ON by default in this family and is NOT filtered off here: the model card's
+    # reasoning_effort/preserve_thinking controls are per-request, and llama.cpp returns the
+    # trace in message.reasoning_content (see the muse-glimmer note in TODO.md) rather than
+    # burning the content budget the way qwen3.5-9b does.
+    dict(tok="qwen3.8-27b", backend="gguf", image=LLAMACPP,
+         repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
+         mmproj="mmproj-F16.gguf", ctx=16384, par=4),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
@@ -180,6 +206,29 @@ UNGROUPED_GGUF = [
          hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
          spec_type="draft-dflash", ctx=131072, par=1, split_mode="layer", tensor_split="1,1"),
+    # Qwen3.8-27B at the full native 262144 context, across BOTH 3090s. Same shape and same
+    # bargain as Muse-Glimmer-30B-split: -sm layer is PIPELINE parallel, so it buys CAPACITY,
+    # not speed (measured 78.2 vs 78.8 tok/s on Muse-Glimmer — identical within noise). It
+    # exists because 262k of context at a >4-bit quant does not fit one card, full stop.
+    # 24.14 (UD-Q6_K_XL) + 0.86 (mmproj-F16) + 16.00 (262144 tok * 64 KiB f16 KV) = 41.00 GiB
+    # of the ~46.6 GiB two-card budget -> ~5.6 GiB slack.
+    #
+    # Q6 over Q8_0 (27.05 GiB): both quants own both cards, so Q8 buys no deployment
+    # flexibility over Q6 — only quality — and it is on the flattest part of that curve while
+    # cutting the slack to ~2.7 GiB at 262k. UD-Q6_K_XL already keeps the sensitive tensors at
+    # 8-bit, so it lands at ~Q8 quality for 2.9 GiB less. Q8_0 does NOT fit a single 3090
+    # either way (27.05 GiB of weights against a ~23.3 GiB budget), so there is no third
+    # option where it earns its size.
+    #
+    # No drafter, unlike muse-glimmer: unsloth ships no standalone DFlash/MTP GGUF here, and
+    # while the weights carry a packed MTP layer (qwen35.nextn_predict_layers=1) mainline does
+    # not self-speculate off it. So there is no 1.81x to be had — this entry is quality and
+    # context only. Revisit if an MTP GGUF appears (cf. the commented qwythos-v2-mtp in POOL).
+    dict(tok="Qwen3.8-27B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
+         repo="unsloth/Qwen3.8-27B-GGUF",
+         hf_file="Qwen3.8-27B-UD-Q6_K_XL.gguf",
+         mmproj="mmproj-F16.gguf",
+         ctx=262144, par=1, split_mode="layer", tensor_split="1,1"),
 ]
 
 def setparams_filter(**kwargs):
@@ -314,8 +363,17 @@ def member_entry(spec, model_id, card):
     if b == "fork":
         return fork_entry(model_id, card)
     if b == "gguf":
+        # Forward the optional GGUF knobs the same way ungrouped_gguf_entry() does. Until
+        # qwen3.8-27b joined POOL every pooled GGUF was a plain single-file model on the
+        # bonsai image, so these were silently dropped — a pooled member with an mmproj or a
+        # non-default image would have been generated WITHOUT them and served text-only (or
+        # failed to load) with nothing in the config to show why.
         return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"],
-                          spec.get("par", GGUF_PARALLEL))
+                          spec.get("par", GGUF_PARALLEL),
+                          image=spec.get("image", BONSAI),
+                          mmproj=spec.get("mmproj"), draft=spec.get("draft"),
+                          spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
+                          cache_type=spec.get("cache_type"), params=spec.get("params"))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
                       extra=spec.get("extra", ()))
@@ -349,7 +407,16 @@ def main():
     out.append("")
 
     groups = []
-    pairs = list(itertools.combinations(range(len(POOL)), 2))
+    # Ordered by (higher index, lower index) rather than itertools' natural (lower, higher).
+    # Both enumerate the same C(n,2) pairs; this order groups them by their LATER member, so
+    # every pair among the first k POOL entries sorts before any pair involving entry k+1.
+    # That makes APPENDING a POOL member purely additive to the numbering — pair01..pair45
+    # keep their meaning and the new member's pairs land at the end — whereas the natural
+    # order interleaves them ((0,10) would slot in right after (0,9)) and renumbers the whole
+    # set on every addition. Consumers split the callsign on the first '.', but a pair id that
+    # silently changes partners between regenerations is a trap worth closing once.
+    # NOTE: adopting this reshuffled the existing 45 labels ONE time; it is stable from here.
+    pairs = sorted(itertools.combinations(range(len(POOL)), 2), key=lambda p: (p[1], p[0]))
     for k, (i, j) in enumerate(pairs, start=1):
         pair = f"pair{k:02d}"
         a, b = POOL[i], POOL[j]
