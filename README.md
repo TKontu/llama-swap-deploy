@@ -245,14 +245,24 @@ Weights, not context, are the constraint — which is why two entries exist:
 
 | Model ID | GPUs | Quant | Context | Notes |
 |---|---|---|---|---|
-| `muse-glimmer` | one 3090 | `17gb` + vision | 131072, 1 slot | the **on-call** model |
+| `muse-glimmer` | one 3090 | `17gb` + vision + drafter | 131072, 1 slot | the **on-call** model; pooled `anchor` |
 | `Muse-Glimmer-30B-split` | both 3090s | `dynamic` + vision + drafter | 131072, 1 slot | best quality; owns both cards |
 
-Both run `-np 1` — the full native context in a single slot, with unquantized f16 KV. Neither
-is in `POOL`, so **neither generates `pairNN` co-load pairs**: the standby model is not a
-co-load partner, and pairing it would have added 10 pairs nothing would request. They live in
-`UNGROUPED_GGUF` in `gen_pairs_config.py`, so neither contributes to the pair count.
-(`qwen3.8-27b` below made the opposite choice and *is* pooled — hence 55 pairs, not 45.)
+Both run `-np 1` — the full native context in a single slot, with unquantized f16 KV.
+
+`muse-glimmer` **is** in `POOL`, tagged `role="anchor"`, so it gets `pairNN` co-load pairs —
+including the strong-vs-strong ones against `gemma-26b`, `ternary` and `qwen3.8-27b`. It was
+previously excluded on the grounds that pairing it "would have added 10 pairs nothing would
+request", which was true under the old exhaustive C(n,2) enumeration; with family+role
+filtering the pairs it generates are ones you'd actually run.
+
+Being pooled does **not** compromise the on-call contract. Its spec carries
+`standalone_ttl=0`, which applies to the bare `muse-glimmer` entry only: that one never
+idle-unloads (and is the exact name `oncall-wakeup.sh` requests), while its `pairNN.` members
+age out on the normal 5 h TTL. It is still not `persistent`, so any other request evicts it.
+
+`Muse-Glimmer-30B-split` stays in `UNGROUPED_GGUF` — it owns both cards, so it can't be half of
+a pair by construction.
 
 1. **Build the image** — the `llamacpp-image` workflow (`Dockerfile.llamacpp`) compiles
    mainline at the pinned `LLAMACPP_TAG` and pushes `ghcr.io/<owner>/llamacpp-mainline:latest`.
@@ -429,7 +439,8 @@ for sampling, so these have to be CLI flags.
 blocking another model. Three parts:
 
 - Its standalone entry carries **`ttl: 0`** (never idle-unload). Its `pairNN.` members keep
-  the normal 5 h TTL.
+  the normal 5 h TTL. Both come from one `POOL` spec — `standalone_ttl=0` applies to the bare
+  entry only, which is what lets the model be a co-load partner *and* the standby.
 - Every pair/solo group is `exclusive: true`, so **a request to any other model evicts it
   immediately**. Nothing has to unload it explicitly.
 - The `oncall-wakeup` compose service (`scripts/oncall-wakeup.sh`) polls `/metrics`; when

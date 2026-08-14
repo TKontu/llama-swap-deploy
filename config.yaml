@@ -1238,6 +1238,432 @@ models:
     ttl: 18000
     concurrencyLimit: 16
 
+  # ===== pair28: gemma-26b (anchor, #0)  +  muse-glimmer (anchor, #2) =====
+  "pair28.gemma-26b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 65536 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair28.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  # ===== pair29: muse-glimmer (anchor, #0)  +  gemma-e4b (fast, #2) =====
+  "pair29.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  "pair29.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair30: muse-glimmer (anchor, #0)  +  qwen3.5-9b (fast, #2) =====
+  "pair30.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  "pair30.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ===== pair31: muse-glimmer (anchor, #0)  +  qwen3.5-4b (fast, #2) =====
+  "pair31.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  "pair31.qwen3.5-4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ===== pair32: ternary (anchor, #0)  +  muse-glimmer (anchor, #2) =====
+  "pair32.ternary":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
+  "pair32.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  # ===== pair33: muse-glimmer (anchor, #0)  +  qwythos-v2 (fast, #2) =====
+  "pair33.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  "pair33.qwythos-v2":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
+
+  # ===== pair34: muse-glimmer (anchor, #0)  +  fablevibes (fast, #2) =====
+  "pair34.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
+  "pair34.fablevibes":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair35: qwen3.8-27b (anchor, #0)  +  muse-glimmer (anchor, #2) =====
+  "pair35.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  "pair35.muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 4
+
   # ===== Standalone entries (ungrouped): load one pooled model solo =====
   # Callsign = the base token (no pairNN prefix). Requesting one loads it alone
   # (exclusive swap unloads whatever else is resident). TP=1 on 3090 #0.
@@ -1419,6 +1845,36 @@ models:
     ttl: 18000
     concurrencyLimit: 16
 
+  "muse-glimmer":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
+      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
+      -e GGUF_CTX=131072
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-kquant.gguf
+      -e GGUF_DRAFT=dflash-kquant.gguf
+      -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 0
+    concurrencyLimit: 4
+
   # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====
   "Qwen3.6-35B-A3B-AWQ-4bit":
     cmd: |
@@ -1462,36 +1918,6 @@ models:
     concurrencyLimit: 256
 
   # ===== Ungrouped GGUF entries (no pairNN membership; see UNGROUPED_GGUF) =====
-  "muse-glimmer":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
-      -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
-      -e GGUF_CTX=131072
-      -e GGUF_PARALLEL=1
-      -e GGUF_MMPROJ=mmproj-kquant.gguf
-      -e GGUF_DRAFT=dflash-kquant.gguf
-      -e GGUF_SPEC_TYPE=draft-dflash
-      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/llamacpp-mainline:latest
-      --alias ${MODEL_ID}
-      --temp 1.0
-      --top-p 0.95
-      --top-k 64
-      --min-p 0.0
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 0
-    concurrencyLimit: 4
-
   "Muse-Glimmer-30B-split":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -1748,3 +2174,59 @@ groups:
     members:
       - "pair27.qwen3.8-27b"
       - "pair27.fablevibes"
+  pair28:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair28.gemma-26b"
+      - "pair28.muse-glimmer"
+  pair29:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair29.muse-glimmer"
+      - "pair29.gemma-e4b"
+  pair30:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair30.muse-glimmer"
+      - "pair30.qwen3.5-9b"
+  pair31:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair31.muse-glimmer"
+      - "pair31.qwen3.5-4b"
+  pair32:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair32.ternary"
+      - "pair32.muse-glimmer"
+  pair33:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair33.muse-glimmer"
+      - "pair33.qwythos-v2"
+  pair34:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair34.muse-glimmer"
+      - "pair34.fablevibes"
+  pair35:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair35.qwen3.8-27b"
+      - "pair35.muse-glimmer"

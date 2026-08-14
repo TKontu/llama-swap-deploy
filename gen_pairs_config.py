@@ -215,6 +215,30 @@ POOL = [
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
          mmproj="mmproj-F16.gguf", ctx=16384, par=4,
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
+    # Muse-Glimmer-30B — the on-call standby, and now also a pooled ANCHOR so it can be
+    # benchmarked head-to-head against the other strong models. It was deliberately kept out of
+    # POOL before ("on-call standby, not a co-load partner"); that reasoning was about avoiding
+    # 10 pairs nobody would request, and it no longer holds now that pairs are filtered by
+    # family+role instead of enumerated exhaustively.
+    #
+    # `standalone_ttl=0` preserves the on-call contract: the bare `muse-glimmer` entry never
+    # idle-unloads (scripts/oncall-wakeup.sh wakes it by that exact name), while its pairNN
+    # members age out on the normal TTL. That is what the README's on-call section already
+    # described — "its pairNN. members keep the normal 5 h TTL" — which was aspirational until
+    # now, since it had no pair members at all.
+    #
+    # Still NOT persistent: every pair/solo group is exclusive, so any other request evicts it.
+    # That is the design; persistent:true would pin the cards and starve everything else.
+    #
+    # Fits one card with room to spare — MEASURED 20.82 GiB of ~23.3 on 3090 #0 with weights +
+    # mmproj + the dflash drafter at the full 131072 context (-np 1). Its pair partner sits on
+    # the other 3090, so pairing costs it nothing.
+    dict(tok="muse-glimmer", family="muse", role="anchor", backend="gguf", image=LLAMACPP,
+         repo="meta-models/Muse-Glimmer-30B-GGUF",
+         hf_file="muse-glimmer-30B-kquant-17gb.gguf",
+         mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
+         spec_type="draft-dflash", ctx=131072, par=1, standalone_ttl=0,
+         template_kwargs=MUSE_TEMPLATE_KWARGS, sampling=MUSE_SAMPLING),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
@@ -266,12 +290,6 @@ UNGROUPED_GGUF = [
     # A "[spec] failed to measure draft model memory" warning at startup is documented as
     # harmless. The dynamic quant is NOT used here: dynamic+mmproj+dflash needs 23.01 GiB,
     # leaving ~1 GiB — too thin for prefill spikes at 131k. That is what the split entry is for.
-    dict(tok="muse-glimmer", image=LLAMACPP, cards=[CARD0], ttl=0, oncall=True,
-         repo="meta-models/Muse-Glimmer-30B-GGUF",
-         hf_file="muse-glimmer-30B-kquant-17gb.gguf",
-         mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
-         spec_type="draft-dflash", ctx=131072, par=1,
-         template_kwargs=MUSE_TEMPLATE_KWARGS, sampling=MUSE_SAMPLING),
     dict(tok="Muse-Glimmer-30B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
@@ -448,10 +466,10 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
     return e
 
 
-def member_entry(spec, model_id, card):
+def member_entry(spec, model_id, card, ttl=TTL):
     b = spec["backend"]
     if b == "fork":
-        return fork_entry(model_id, card)
+        return fork_entry(model_id, card, ttl=ttl)
     if b == "gguf":
         # Forward the optional GGUF knobs the same way ungrouped_gguf_entry() does. Until
         # qwen3.8-27b joined POOL every pooled GGUF was a plain single-file model on the
@@ -459,7 +477,7 @@ def member_entry(spec, model_id, card):
         # non-default image would have been generated WITHOUT them and served text-only (or
         # failed to load) with nothing in the config to show why.
         return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"],
-                          spec.get("par", GGUF_PARALLEL),
+                          spec.get("par", GGUF_PARALLEL), ttl=ttl,
                           image=spec.get("image", BONSAI),
                           mmproj=spec.get("mmproj"), draft=spec.get("draft"),
                           spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
@@ -468,7 +486,7 @@ def member_entry(spec, model_id, card):
                           sampling=spec.get("sampling"))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
-                      extra=spec.get("extra", ()))
+                      ttl=ttl, extra=spec.get("extra", ()))
 
 
 def ungrouped_gguf_entry(spec):
@@ -549,7 +567,11 @@ def main():
     out.append("  # Callsign = the base token (no pairNN prefix). Requesting one loads it alone")
     out.append("  # (exclusive swap unloads whatever else is resident). TP=1 on 3090 #0.")
     for spec in POOL:
-        out.append(member_entry(spec, spec["tok"], CARD0))
+        # `standalone_ttl` applies to the bare `<tok>` entry ONLY, not to its pairNN members.
+        # muse-glimmer needs it: as the on-call standby its standalone entry must never
+        # idle-unload (ttl 0), while its pair members should age out on the normal TTL.
+        out.append(member_entry(spec, spec["tok"], CARD0,
+                                ttl=spec.get("standalone_ttl", TTL)))
 
     out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
     for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:

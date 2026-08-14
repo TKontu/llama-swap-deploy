@@ -71,6 +71,28 @@ Retired: `phi-4`, `gemma-12b`, `mellum2-12b` (POOL) and the `Qwen3.6-27B-AWQ-INT
   of the reduction came from retirement. If more pruning is wanted, retiring members is the
   lever, not the rule.
 
+## muse-glimmer as a pooled anchor (2026-08-14)
+
+Moved from `UNGROUPED_GGUF` into `POOL` with `role="anchor"`, so it can be benchmarked
+head-to-head. **67 -> 83 models, 27 -> 35 groups** (8 new pairs, appended as pair28-pair35).
+
+- [ ] **The three strong-vs-strong pairs are the point of this** — `pair28` (gemma-26b),
+  `pair32` (ternary), `pair35` (qwen3.8-27b). Run those first; the five anchor+fast pairs are
+  ordinary co-load.
+- [ ] **Verify the on-call path still works after the change.** The standalone `muse-glimmer`
+  must still show `ttl: 0` and must still be the name `scripts/oncall-wakeup.sh` requests
+  (`ONCALL_MODEL` defaults to it). Config-side both hold, but confirm a real wakeup fires and
+  `/running` shows it.
+- [ ] Confirm a `pairNN.muse-glimmer` member does NOT inherit `ttl: 0` — it should be 18000.
+  A pooled member that never unloads would pin a card and quietly break the exclusive-swap
+  assumption the whole on-call design rests on. (Generated config is correct; verify live.)
+- [ ] VRAM on the strong-vs-strong pairs: muse-glimmer measured **20.82 GiB of ~23.3** on one
+  card, and `gemma-26b` ~21.9, `qwen3.8-27b` ~21.6 on the other. Each owns its own 3090 so
+  they should not interact, but these are the two fullest cards in the config running at once —
+  watch for prefill spikes on the first co-load.
+- [ ] Existing `pair01`-`pair27` labels did NOT move this time (appending to POOL is additive
+  under the current ordering). Worth confirming against `/v1/models` anyway.
+
 ## 0. Decisions to lock first
 
 - [ ] **GPU layout for the co-load pair.** Pick one:
@@ -216,8 +238,7 @@ written against.
   reading `/v1/models`. From here the numbering is stable across future additions.
 - [ ] Pre-download the ~44 GB of GGUFs (README → Qwen3.8-27B) before the first cold start.
 - [ ] **Restart llama-swap** — config is read at startup only, and a model TTL reload proves
-  nothing. `/v1/models` going 106 → **67** is what confirms the new config was picked up
-  (the count DROPS: Qwen3.8 adds entries but the retirement removes more).
+  nothing. `/v1/models` going 106 → **83** is what confirms the new config was picked up.
 - [ ] **Cold start `qwen3.8-27b`** and check the reported footprint against the prediction:
   16.69 (weights) + 0.86 (mmproj) + 4.00 (65536 tok × 64 KiB f16 KV) = **21.55 GiB** of the
   ~23.3 GiB budget, i.e. ~1.75 GiB for DeltaNet state (~0.3 GiB at `-np 4`) and prefill.
