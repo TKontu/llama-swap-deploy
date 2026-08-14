@@ -291,8 +291,39 @@ DFlash/MTP GGUF, and although the weights carry a packed MTP layer
 
 2. Request either model ID. Thinking is **on by default** in this family and llama.cpp returns
    the trace in `message.reasoning_content`, so budget `max_tokens` accordingly — see the
-   Muse-Glimmer note above and the `qwen3.5-9b` precedent. Depth is tunable per request via
-   `reasoning_effort`, and `preserve_thinking` retains it across turns.
+   Muse-Glimmer note above and the `qwen3.5-9b` precedent.
+
+### Reasoning defaults
+
+Both entries ship a server-side default of `reasoning_effort=low`, set via
+`LLAMA_ARG_CHAT_TEMPLATE_KWARGS` (llama-server's `--chat-template-kwargs` under its env alias,
+which keeps the JSON out of llama-swap's cmd tokenizer):
+
+```
+-e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
+```
+
+This is a **default, not a forced override** — `server-common.cpp` seeds the template kwargs
+from the CLI/env and then writes any per-request `chat_template_kwargs` object over them, so a
+client can still ask for more depth. (Contrast `params=` in `gen_pairs_config.py`, which routes
+through llama-swap's `filters.setParams` and *rewrites* the request — that one forces.)
+
+Three things worth knowing before pointing a client at it:
+
+- **The template's own default is `xhigh`** (`reasoning_effort|default('xhigh')`), the most
+  expensive mode. Without this flag every request reasons at maximum depth, which is the
+  `qwen3.5-9b` trap again: short-`max_tokens` requests return empty `content` with
+  `finish_reason: length`, having spent the budget in `reasoning_content`.
+- **Only `xhigh`, `medium`, `low` are valid.** The template calls `raise_exception()` on
+  anything else — so the ordinary OpenAI value `"high"` is a hard error, not a fallback.
+- **A top-level OpenAI `reasoning_effort` does not reach the template.** llama.cpp inspects it
+  only to catch `"none"` (which maps to `enable_thinking=false`) and leaves everything else
+  "model-specific and not yet handled". Clients must nest it:
+  `{"chat_template_kwargs": {"reasoning_effort": "medium"}}`.
+
+`preserve_thinking=true` is included for documentation only — the template already defaults it
+to true. It's pinned because the template is embedded in the GGUF and moves when the repo is
+requantized.
 
 Sampling per the model card — thinking: `temperature=1.0, top_p=0.95, top_k=20`; non-thinking:
 `temperature=0.7, top_p=0.80, top_k=20, presence_penalty=1.5`. The first three are already

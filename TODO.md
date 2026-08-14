@@ -190,9 +190,23 @@ pre-existing entry bodies preserved byte-identical, and all 45 original partner-
   trust the output, not a clean startup log. Doubly so here: `qwen35` is the same hybrid
   family whose documented failure mode is incoherent output from a clean boot.
 - [ ] **Reasoning budget**: thinking is ON by default and llama.cpp puts it in
-  `message.reasoning_content`. Confirm a short-`max_tokens` request still reaches an answer;
-  if it doesn't, that's the muse-glimmer trap again — either budget more or pin
-  `params=dict(reasoning_effort="low")` on the POOL entry.
+  `message.reasoning_content`. Both entries now ship `reasoning_effort=low` as a server-side
+  default (the template's own default is `xhigh`), so confirm a short-`max_tokens` request
+  actually reaches an answer instead of returning empty `content` with `finish_reason: length`.
+- [ ] **Confirm the env var survived llama-swap's cmd tokenizer.** The default is passed as
+  `-e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'` —
+  single-quoted JSON containing double quotes. Same quoting shape as the existing
+  `--gpus '"device=..."'`, so it should hold, but a mis-split would set a truncated env var and
+  llama-server would fail to parse the JSON. `docker inspect` the running container, or just
+  watch the startup log for a chat-template-kwargs parse error.
+- [ ] **Verify it is a DEFAULT, not a forced override**: send `{"chat_template_kwargs":
+  {"reasoning_effort": "xhigh"}}` and confirm the response reasons noticeably longer than the
+  same prompt without it. The merge order in `server-common.cpp` says request beats env; this
+  confirms it end-to-end.
+- [ ] Note for consumers: only `xhigh|medium|low` are valid — the template `raise_exception()`s
+  on anything else, so an OpenAI-shaped client sending `"high"` gets a hard error. And a
+  TOP-LEVEL `reasoning_effort` is ignored except for the value `"none"`; it must be nested
+  under `chat_template_kwargs`. Worth a probe of each so the failure mode is documented.
 - [ ] **Vision probe** with a generated image whose content can't be guessed (the red/green/
   blue stripe trick), proving `--mmproj` attached rather than being silently ignored.
 - [ ] **Co-load test** — the whole reason it's pooled. Request e.g. `pair46` (gemma-26b #0 +

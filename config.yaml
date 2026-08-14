@@ -1918,6 +1918,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -1960,6 +1961,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2002,6 +2004,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2044,6 +2047,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2092,6 +2096,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2140,6 +2145,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2182,6 +2188,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2223,6 +2230,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2269,6 +2277,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2315,6 +2324,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2544,6 +2554,7 @@ models:
       -e GGUF_CTX=16384
       -e GGUF_PARALLEL=4
       -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
@@ -2700,6 +2711,7 @@ models:
       -e GGUF_MMPROJ=mmproj-F16.gguf
       -e GGUF_SPLIT_MODE=layer
       -e GGUF_TENSOR_SPLIT=1,1
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest

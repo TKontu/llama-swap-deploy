@@ -83,6 +83,26 @@ TTL_SOLO = 36000   # 10 h — TP=2 solo models (slowest to reload, own both card
 # vllm:prefix_cache_hits_total moves under a repeated-prefix workload.
 APC_ALIGN = ("--enable-prefix-caching", "--mamba-cache-mode align")
 
+# Chat-template DEFAULTS shared by both Qwen3.8-27B entries. Server-side only: a request that
+# sends its own chat_template_kwargs still wins (see the merge note in gguf_entry). Both keys
+# were read off Qwen3.8-27B's chat_template.jinja, not the model card:
+#
+#   reasoning_effort   the template does `reasoning_effort|default('xhigh')`, so leaving it
+#                      unset means EVERY request runs in xhigh — the most expensive reasoning
+#                      mode. That is the qwen3.5-9b / muse-glimmer trap a third time: a
+#                      short-max_tokens request spends the whole budget in reasoning_content
+#                      and returns empty content with finish_reason=length. `low` is the right
+#                      floor; callers who want depth can ask per request.
+#                      VALID VALUES ARE ONLY xhigh|medium|low — the template calls
+#                      raise_exception() on anything else, so a client sending the ordinary
+#                      OpenAI "high" gets a hard template error rather than a graceful
+#                      fallback. Worth knowing before pointing an OpenAI-shaped client at it.
+#   preserve_thinking  already defaults to true in the template
+#                      (`preserve_thinking is undefined or preserve_thinking is true`), so
+#                      this is a NO-OP today. Pinned explicitly because the embedded template
+#                      travels with the GGUF and moves whenever the repo is requantized.
+QWEN38_TEMPLATE_KWARGS = dict(reasoning_effort="low", preserve_thinking=True)
+
 POOL = [
     # 65536: measured 19882 MiB @ 16800 and 20552 MiB @ 32768 (TP=1, kv_seqs 1,
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
@@ -142,7 +162,8 @@ POOL = [
     # burning the content budget the way qwen3.5-9b does.
     dict(tok="qwen3.8-27b", backend="gguf", image=LLAMACPP,
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
-         mmproj="mmproj-F16.gguf", ctx=16384, par=4),
+         mmproj="mmproj-F16.gguf", ctx=16384, par=4,
+         template_kwargs=QWEN38_TEMPLATE_KWARGS),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
@@ -228,7 +249,8 @@ UNGROUPED_GGUF = [
          repo="unsloth/Qwen3.8-27B-GGUF",
          hf_file="Qwen3.8-27B-UD-Q6_K_XL.gguf",
          mmproj="mmproj-F16.gguf",
-         ctx=262144, par=1, split_mode="layer", tensor_split="1,1"),
+         ctx=262144, par=1, split_mode="layer", tensor_split="1,1",
+         template_kwargs=QWEN38_TEMPLATE_KWARGS),
 ]
 
 def setparams_filter(**kwargs):
@@ -306,7 +328,7 @@ def fork_entry(model_id, gpus, ttl=TTL):
 
 def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
                mmproj=None, draft=None, spec_type=None, draft_max=None, split_mode=None,
-               tensor_split=None, cache_type=None, params=None):
+               tensor_split=None, cache_type=None, params=None, template_kwargs=None):
     # Standard GGUF via the gguf-serve.sh entrypoint (present in BOTH images): it
     # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
     # cache, then serves the local file with llama-server (this build's llama-server has
@@ -329,6 +351,21 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         opt += f"      -e GGUF_TENSOR_SPLIT={tensor_split}\n"
     if cache_type:
         opt += f"      -e GGUF_CACHE_TYPE={cache_type}\n"
+    if template_kwargs:
+        # SERVER-SIDE DEFAULTS for the jinja chat template, NOT a forced override. This is
+        # llama-server's own --chat-template-kwargs, reached via its LLAMA_ARG_* env alias so
+        # the JSON never has to survive llama-swap's cmd tokenizer. Merge order is explicit in
+        # tools/server/server-common.cpp: the CLI/env values seed inputs.chat_template_kwargs
+        # and any per-request `chat_template_kwargs` object is then written OVER them, so a
+        # client can still override per request. Contrast with `params=` below, which routes
+        # through llama-swap's filters.setParams and REWRITES the request — that one forces.
+        #
+        # Note this is the only channel that reaches the template: llama.cpp reads a TOP-LEVEL
+        # OpenAI `reasoning_effort` only to catch the value "none" (-> enable_thinking=false)
+        # and explicitly leaves everything else "model-specific and not yet handled". So a
+        # client following the model card and sending reasoning_effort at the top level is
+        # silently ignored; it has to be nested under chat_template_kwargs.
+        opt += f"      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={json.dumps(template_kwargs, separators=(',', ':'))}'\n"
     e = (
         f'  "{model_id}":\n'
         f"    cmd: |\n"
@@ -373,7 +410,8 @@ def member_entry(spec, model_id, card):
                           image=spec.get("image", BONSAI),
                           mmproj=spec.get("mmproj"), draft=spec.get("draft"),
                           spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
-                          cache_type=spec.get("cache_type"), params=spec.get("params"))
+                          cache_type=spec.get("cache_type"), params=spec.get("params"),
+                          template_kwargs=spec.get("template_kwargs"))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
                       extra=spec.get("extra", ()))
@@ -388,7 +426,8 @@ def ungrouped_gguf_entry(spec):
                       split_mode=spec.get("split_mode"),
                       tensor_split=spec.get("tensor_split"),
                       cache_type=spec.get("cache_type"),
-                      params=spec.get("params"))
+                      params=spec.get("params"),
+                      template_kwargs=spec.get("template_kwargs"))
 
 
 def main():
