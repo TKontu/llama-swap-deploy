@@ -339,7 +339,32 @@ Three things worth knowing before pointing a client at it:
 
 `preserve_thinking=true` is included for documentation only — the template already defaults it
 to true. It's pinned because the template is embedded in the GGUF and moves when the repo is
-requantized.
+requantized. The knob's *useful* value is `false` (drop historical reasoning); `true` just
+restates the default.
+
+### The card's three thinking controls, per request
+
+All three work against this deployment, but they take different routes — and only one of them
+is where you'd expect:
+
+| Card feature | How a client actually does it |
+|---|---|
+| "on by default, **disabled per request**" | top-level `"reasoning_effort": "none"` — the standard OpenAI field, no nesting |
+| "depth tuned with **`reasoning_effort`**" | `"chat_template_kwargs": {"reasoning_effort": "medium"}` — **must** be nested |
+| "history retained via **`preserve_thinking`**" | `"chat_template_kwargs": {"preserve_thinking": false}` to drop it |
+
+The split is a llama.cpp implementation detail, not the model's: `server-common.cpp` reads a
+top-level `reasoning_effort` *only* to catch the value `"none"` (mapping it to
+`enable_thinking=false`) and leaves every other value "model-specific and not yet handled". So
+top-level `"low"`/`"medium"`/`"xhigh"` are silently dropped, while `"none"` works — the one
+case that looks like an exception is the only one that isn't.
+
+Precedence is well-defined in `common/chat.cpp`: the template input object gets
+`enable_thinking` from the request first, then `chat_template_kwargs` is merged **over** it. So
+`chat_template_kwargs: {"enable_thinking": true}` beats a top-level `"reasoning_effort":
+"none"`. (`enable_thinking` via kwargs logs a deprecation warning; `--reasoning on|off` is the
+current server-side spelling.) Our env defaults set neither key, so they never interfere with a
+client turning thinking off.
 
 Sampling is passed explicitly as llama-server flags — see "Sampling defaults" below.
 
