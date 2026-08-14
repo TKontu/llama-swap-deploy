@@ -83,6 +83,78 @@ TTL_SOLO = 36000   # 10 h — TP=2 solo models (slowest to reload, own both card
 # vllm:prefix_cache_hits_total moves under a repeated-prefix workload.
 APC_ALIGN = ("--enable-prefix-caching", "--mamba-cache-mode align")
 
+# Chat-template DEFAULTS shared by both Qwen3.8-27B entries. Server-side only: a request that
+# sends its own chat_template_kwargs still wins (see the merge note in gguf_entry). Both keys
+# were read off Qwen3.8-27B's chat_template.jinja, not the model card:
+#
+#   reasoning_effort   the template does `reasoning_effort|default('xhigh')`, so leaving it
+#                      unset means EVERY request runs in xhigh — the most expensive reasoning
+#                      mode. That is the qwen3.5-9b / muse-glimmer trap a third time: a
+#                      short-max_tokens request spends the whole budget in reasoning_content
+#                      and returns empty content with finish_reason=length. `low` is the right
+#                      floor; callers who want depth can ask per request.
+#                      VALID VALUES ARE ONLY xhigh|medium|low — the template calls
+#                      raise_exception() on anything else, so a client sending the ordinary
+#                      OpenAI "high" gets a hard template error rather than a graceful
+#                      fallback. Worth knowing before pointing an OpenAI-shaped client at it.
+#   preserve_thinking  already defaults to true in the template
+#                      (`preserve_thinking is undefined or preserve_thinking is true`), so
+#                      this is a NO-OP today. Pinned explicitly because the embedded template
+#                      travels with the GGUF and moves whenever the repo is requantized.
+QWEN38_TEMPLATE_KWARGS = dict(reasoning_effort="low", preserve_thinking=True)
+
+# Same idea for Muse-Glimmer, but the knob has a DIFFERENT NAME and different semantics — read
+# off the template embedded in muse-glimmer-30B-kquant-17gb.gguf, which is the one llama.cpp
+# actually applies (not the HF repo's, and not the model card's example):
+#
+#   {%- set rs = reasoning_strength if reasoning_strength is defined and reasoning_strength
+#                else 'high' -%}
+#
+#   * the key is `reasoning_strength`, NOT `reasoning_effort` (Qwen3.8's key). Passing the
+#     wrong one is silently ignored — it just falls through to the default.
+#   * the default is 'high', not Qwen3.8's 'xhigh'.
+#   * valid values are xhigh|high|medium|low, and unlike Qwen3.8 there is NO raise_exception:
+#     the value is interpolated straight into a "Reasoning strength: X." line, so a typo
+#     degrades the prompt quietly rather than erroring.
+#
+# One caveat this default cannot beat: the template only injects that line
+# `{%- if 'reasoning strength' not in (sys_text | lower) -%}`, and it first rewrites any
+# "reasoning effort" in the system text to "reasoning strength". So a system prompt that
+# mentions either phrase suppresses this default entirely and wins. That is a feature (callers
+# can steer it inline) but it means the default is not a guarantee.
+MUSE_TEMPLATE_KWARGS = dict(reasoning_strength="low")
+
+
+def sampling_args(**kw):
+    """Render model-card sampling defaults as llama-server CLI flags (forwarded via "$@").
+
+    These MUST be passed explicitly. llama.cpp does NOT read the `general.sampling.*` keys
+    some GGUFs carry (Qwen3.8's has them; grep b10362 for the key — llama-model-loader.cpp
+    and common.cpp never look at it), so without these flags every model silently runs on
+    llama.cpp's own defaults from common.h:
+
+        top_k = 40    top_p = 0.95    min_p = 0.05    temp = 0.80
+
+    which match neither model card. min_p in particular is the quiet one: 0.05 is a llama.cpp
+    invention that truncates the tail, and Qwen3.8 explicitly asks for 0.0.
+
+    Server-level defaults only — a request's own temperature/top_p/top_k still wins, same as
+    the chat-template kwargs above.
+    """
+    flag = {"temp": "--temp", "top_p": "--top-p", "top_k": "--top-k",
+            "min_p": "--min-p", "presence_penalty": "--presence-penalty"}
+    return "".join(f"      {flag[k]} {v}\n" for k, v in kw.items())
+
+
+# Muse-Glimmer card: temperature 1.0, top_p 0.95, top_k 64. Its GGUF carries NO general.sampling.*
+# keys at all, so before this it ran at temp 0.80 / top_k 40 — wrong on two of the three.
+MUSE_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=64, min_p=0.0)
+
+# Qwen3.8 card, THINKING mode (which is the default here): temperature 1.0, top_p 0.95,
+# top_k 20, min_p 0.0, presence_penalty 0.0. Callers who disable thinking should override to
+# the card's instruct values (temp 0.7, top_p 0.80, presence_penalty 1.5) per request.
+QWEN38_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0)
+
 POOL = [
     # 65536: measured 19882 MiB @ 16800 and 20552 MiB @ 32768 (TP=1, kv_seqs 1,
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
@@ -142,7 +214,8 @@ POOL = [
     # burning the content budget the way qwen3.5-9b does.
     dict(tok="qwen3.8-27b", backend="gguf", image=LLAMACPP,
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
-         mmproj="mmproj-F16.gguf", ctx=16384, par=4),
+         mmproj="mmproj-F16.gguf", ctx=16384, par=4,
+         template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
@@ -200,12 +273,14 @@ UNGROUPED_GGUF = [
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-17gb.gguf",
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
-         spec_type="draft-dflash", ctx=131072, par=1),
+         spec_type="draft-dflash", ctx=131072, par=1,
+         template_kwargs=MUSE_TEMPLATE_KWARGS, sampling=MUSE_SAMPLING),
     dict(tok="Muse-Glimmer-30B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
-         spec_type="draft-dflash", ctx=131072, par=1, split_mode="layer", tensor_split="1,1"),
+         spec_type="draft-dflash", ctx=131072, par=1, split_mode="layer", tensor_split="1,1",
+         template_kwargs=MUSE_TEMPLATE_KWARGS, sampling=MUSE_SAMPLING),
     # Qwen3.8-27B at the full native 262144 context, across BOTH 3090s. Same shape and same
     # bargain as Muse-Glimmer-30B-split: -sm layer is PIPELINE parallel, so it buys CAPACITY,
     # not speed (measured 78.2 vs 78.8 tok/s on Muse-Glimmer — identical within noise). It
@@ -228,7 +303,8 @@ UNGROUPED_GGUF = [
          repo="unsloth/Qwen3.8-27B-GGUF",
          hf_file="Qwen3.8-27B-UD-Q6_K_XL.gguf",
          mmproj="mmproj-F16.gguf",
-         ctx=262144, par=1, split_mode="layer", tensor_split="1,1"),
+         ctx=262144, par=1, split_mode="layer", tensor_split="1,1",
+         template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
 ]
 
 def setparams_filter(**kwargs):
@@ -306,7 +382,8 @@ def fork_entry(model_id, gpus, ttl=TTL):
 
 def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
                mmproj=None, draft=None, spec_type=None, draft_max=None, split_mode=None,
-               tensor_split=None, cache_type=None, params=None):
+               tensor_split=None, cache_type=None, params=None, template_kwargs=None,
+               sampling=None):
     # Standard GGUF via the gguf-serve.sh entrypoint (present in BOTH images): it
     # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
     # cache, then serves the local file with llama-server (this build's llama-server has
@@ -329,6 +406,21 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         opt += f"      -e GGUF_TENSOR_SPLIT={tensor_split}\n"
     if cache_type:
         opt += f"      -e GGUF_CACHE_TYPE={cache_type}\n"
+    if template_kwargs:
+        # SERVER-SIDE DEFAULTS for the jinja chat template, NOT a forced override. This is
+        # llama-server's own --chat-template-kwargs, reached via its LLAMA_ARG_* env alias so
+        # the JSON never has to survive llama-swap's cmd tokenizer. Merge order is explicit in
+        # tools/server/server-common.cpp: the CLI/env values seed inputs.chat_template_kwargs
+        # and any per-request `chat_template_kwargs` object is then written OVER them, so a
+        # client can still override per request. Contrast with `params=` below, which routes
+        # through llama-swap's filters.setParams and REWRITES the request — that one forces.
+        #
+        # Note this is the only channel that reaches the template: llama.cpp reads a TOP-LEVEL
+        # OpenAI `reasoning_effort` only to catch the value "none" (-> enable_thinking=false)
+        # and explicitly leaves everything else "model-specific and not yet handled". So a
+        # client following the model card and sending reasoning_effort at the top level is
+        # silently ignored; it has to be nested under chat_template_kwargs.
+        opt += f"      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={json.dumps(template_kwargs, separators=(',', ':'))}'\n"
     e = (
         f'  "{model_id}":\n'
         f"    cmd: |\n"
@@ -347,6 +439,7 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         f"      -p ${{PORT}}:8080\n"
         f"      {image}\n"
         f"      --alias ${{MODEL_ID}}\n"
+        f"{sampling or ''}"
         f"    cmdStop: docker stop ${{MODEL_ID}}\n"
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
         f"    checkEndpoint: /health\n"
@@ -373,7 +466,9 @@ def member_entry(spec, model_id, card):
                           image=spec.get("image", BONSAI),
                           mmproj=spec.get("mmproj"), draft=spec.get("draft"),
                           spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
-                          cache_type=spec.get("cache_type"), params=spec.get("params"))
+                          cache_type=spec.get("cache_type"), params=spec.get("params"),
+                          template_kwargs=spec.get("template_kwargs"),
+                          sampling=spec.get("sampling"))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
                       extra=spec.get("extra", ()))
@@ -388,7 +483,9 @@ def ungrouped_gguf_entry(spec):
                       split_mode=spec.get("split_mode"),
                       tensor_split=spec.get("tensor_split"),
                       cache_type=spec.get("cache_type"),
-                      params=spec.get("params"))
+                      params=spec.get("params"),
+                      template_kwargs=spec.get("template_kwargs"),
+                      sampling=spec.get("sampling"))
 
 
 def main():

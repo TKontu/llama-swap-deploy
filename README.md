@@ -243,9 +243,25 @@ co-load partner, and pairing it would have added 10 pairs nothing would request.
 3. Request either model ID. `gguf-serve.sh` already passes `--jinja`, which the model
    requires for its embedded chat template.
 
-The model supports `reasoning_strength` (`low`/`medium`/`high`/`xhigh`). It's left at the
-model's own default; to pin it, add `params=dict(reasoning_strength="low")` to the POOL
-entry in `gen_pairs_config.py` and regenerate — it emits a `filters.setParams` block.
+Both entries default to `reasoning_strength=low`, passed the same way as Qwen3.8's (see
+"Reasoning defaults" below) — the template's own default is `high`. Valid values are
+`xhigh`/`high`/`medium`/`low`, and unlike Qwen3.8 there is **no** `raise_exception` on a bad
+value: it's interpolated straight into a `Reasoning strength: X.` line, so a typo degrades the
+prompt quietly rather than erroring.
+
+One caveat this default can't beat: the template only injects that line
+`{%- if 'reasoning strength' not in (sys_text | lower) -%}`, and it first rewrites any
+"reasoning effort" in the system text to "reasoning strength". **A system prompt mentioning
+either phrase suppresses the default and wins.** That's useful for steering inline, but it
+means the server default isn't a guarantee.
+
+**Tool calling works out of the box.** llama.cpp b10362 has a dedicated Muse-Glimmer chat
+format (`common_chat_params_init_muse_glimmer` in `common/chat.cpp`), auto-selected when the
+template source contains both `<atem:function_calls>` and `<|eom|>` — which this GGUF's does.
+It parses the ATEM markup into standard OpenAI `tool_calls` and registers `<|eot|>`, `<|eom|>`
+and the ATEM tags as preserved tokens, so the model-card warning about never stopping on
+`<|eom|>` is handled by the server rather than something we configure. One call per turn; the
+model does not do parallel tool calls.
 
 ## Qwen3.8-27B (mainline llama.cpp backend)
 
@@ -291,13 +307,95 @@ DFlash/MTP GGUF, and although the weights carry a packed MTP layer
 
 2. Request either model ID. Thinking is **on by default** in this family and llama.cpp returns
    the trace in `message.reasoning_content`, so budget `max_tokens` accordingly — see the
-   Muse-Glimmer note above and the `qwen3.5-9b` precedent. Depth is tunable per request via
-   `reasoning_effort`, and `preserve_thinking` retains it across turns.
+   Muse-Glimmer note above and the `qwen3.5-9b` precedent.
 
-Sampling per the model card — thinking: `temperature=1.0, top_p=0.95, top_k=20`; non-thinking:
-`temperature=0.7, top_p=0.80, top_k=20, presence_penalty=1.5`. The first three are already
-embedded in the GGUF as `general.sampling.*`, so llama.cpp applies them unless a request
-overrides.
+### Reasoning defaults
+
+Both entries ship a server-side default of `reasoning_effort=low`, set via
+`LLAMA_ARG_CHAT_TEMPLATE_KWARGS` (llama-server's `--chat-template-kwargs` under its env alias,
+which keeps the JSON out of llama-swap's cmd tokenizer):
+
+```
+-e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
+```
+
+This is a **default, not a forced override** — `server-common.cpp` seeds the template kwargs
+from the CLI/env and then writes any per-request `chat_template_kwargs` object over them, so a
+client can still ask for more depth. (Contrast `params=` in `gen_pairs_config.py`, which routes
+through llama-swap's `filters.setParams` and *rewrites* the request — that one forces.)
+
+Three things worth knowing before pointing a client at it:
+
+- **The template's own default is `xhigh`** (`reasoning_effort|default('xhigh')`), the most
+  expensive mode. Without this flag every request reasons at maximum depth, which is the
+  `qwen3.5-9b` trap again: short-`max_tokens` requests return empty `content` with
+  `finish_reason: length`, having spent the budget in `reasoning_content`.
+- **Only `xhigh`, `medium`, `low` are valid.** The template calls `raise_exception()` on
+  anything else — so the ordinary OpenAI value `"high"` is a hard error, not a fallback.
+- **A top-level OpenAI `reasoning_effort` does not reach the template.** llama.cpp inspects it
+  only to catch `"none"` (which maps to `enable_thinking=false`) and leaves everything else
+  "model-specific and not yet handled". Clients must nest it:
+  `{"chat_template_kwargs": {"reasoning_effort": "medium"}}`.
+
+`preserve_thinking=true` is included for documentation only — the template already defaults it
+to true. It's pinned because the template is embedded in the GGUF and moves when the repo is
+requantized. The knob's *useful* value is `false` (drop historical reasoning); `true` just
+restates the default.
+
+### The card's three thinking controls, per request
+
+All three work against this deployment, but they take different routes — and only one of them
+is where you'd expect:
+
+| Card feature | How a client actually does it |
+|---|---|
+| "on by default, **disabled per request**" | top-level `"reasoning_effort": "none"` — the standard OpenAI field, no nesting |
+| "depth tuned with **`reasoning_effort`**" | `"chat_template_kwargs": {"reasoning_effort": "medium"}` — **must** be nested |
+| "history retained via **`preserve_thinking`**" | `"chat_template_kwargs": {"preserve_thinking": false}` to drop it |
+
+The split is a llama.cpp implementation detail, not the model's: `server-common.cpp` reads a
+top-level `reasoning_effort` *only* to catch the value `"none"` (mapping it to
+`enable_thinking=false`) and leaves every other value "model-specific and not yet handled". So
+top-level `"low"`/`"medium"`/`"xhigh"` are silently dropped, while `"none"` works — the one
+case that looks like an exception is the only one that isn't.
+
+Precedence is well-defined in `common/chat.cpp`: the template input object gets
+`enable_thinking` from the request first, then `chat_template_kwargs` is merged **over** it. So
+`chat_template_kwargs: {"enable_thinking": true}` beats a top-level `"reasoning_effort":
+"none"`. (`enable_thinking` via kwargs logs a deprecation warning; `--reasoning on|off` is the
+current server-side spelling.) Our env defaults set neither key, so they never interfere with a
+client turning thinking off.
+
+Sampling is passed explicitly as llama-server flags — see "Sampling defaults" below.
+
+## Sampling defaults (llama.cpp entries)
+
+**llama.cpp does not read the `general.sampling.*` keys that some GGUFs carry.** Qwen3.8's
+GGUF has them (`temp=1.0`, `top_p=0.95`, `top_k=20`); Muse-Glimmer's has none at all. Neither
+matters — grep `b10362` and nothing in `llama-model-loader.cpp` or `common.cpp` ever reads that
+key. Without explicit flags, every llama.cpp model here runs on llama.cpp's own defaults from
+`common.h`:
+
+```
+top_k = 40    top_p = 0.95    min_p = 0.05    temp = 0.80
+```
+
+which match neither model card. So both models now pass their card's values as flags:
+
+| Model | Flags |
+|---|---|
+| `muse-glimmer`, `Muse-Glimmer-30B-split` | `--temp 1.0 --top-p 0.95 --top-k 64 --min-p 0.0` |
+| `qwen3.8-27b`, `Qwen3.8-27B-split` | `--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.0 --presence-penalty 0.0` |
+
+Two notes. `min_p` is the quiet one: `0.05` is a llama.cpp invention that truncates the tail,
+and Qwen3.8 explicitly asks for `0.0`. And the Qwen3.8 values are its **thinking-mode** set,
+which is the default here — a caller who disables thinking should override per request to the
+card's instruct values (`temp 0.7`, `top_p 0.80`, `presence_penalty 1.5`).
+
+These are server defaults; a request's own `temperature`/`top_p`/`top_k` still wins. They're
+declared via `sampling_args()` in `gen_pairs_config.py` and forwarded to `llama-server` through
+`gguf-serve.sh`'s `"$@"`. Unlike the chat-template kwargs there is no `LLAMA_ARG_*` env alias
+for sampling, so these have to be CLI flags.
 
 ## On-call standby model
 
