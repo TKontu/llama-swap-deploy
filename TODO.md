@@ -28,6 +28,26 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   GGUF weights (`prism-ml/Ternary-Bonsai-27B-gguf`: Q2_0 + mmproj + dspark-Q4_1) into
   `/models/hf-cache`, then cold-start to validate the fork flags.
 
+## Sampling + reasoning defaults on the llama.cpp entries (added 2026-08-14)
+
+- [ ] **Muse-Glimmer has been serving on the wrong sampling since 2026-08-12.** llama.cpp does
+  not read `general.sampling.*` from the GGUF (and Muse-Glimmer's carries none anyway), so it
+  ran on llama.cpp's `common.h` defaults — `temp 0.80 / top_k 40 / min_p 0.05` against a card
+  asking for `temp 1.0 / top_p 0.95 / top_k 64`. Now passed as explicit flags. **Re-run the
+  quality-sensitive checks after the restart** — the 1.81x drafter A/B and the vision probe
+  were both measured under the old sampling. The throughput numbers should be unaffected
+  (sampling doesn't change acceptance much at these settings) but the outputs will differ.
+- [ ] Confirm the flags actually landed: `--temp/--top-p/--top-k/--min-p` are appended after
+  `--alias` and reach `llama-server` via `gguf-serve.sh`'s `"$@"`. The startup log echoes the
+  sampler chain — check it rather than assuming.
+- [ ] `reasoning_strength=low` on both Muse-Glimmer entries: confirm the rendered prompt shows
+  `Reasoning strength: low.` Note the template **suppresses** its own injection when the system
+  prompt already contains "reasoning strength" (and rewrites "reasoning effort" to match), so
+  test with and without a system prompt that mentions it.
+- [ ] Decide whether `low` is right for the **on-call** entry specifically. It is the standby
+  model, so faster wake-up responses are probably what's wanted, but this is a behaviour change
+  to whatever consumes that path.
+
 ## 0. Decisions to lock first
 
 - [ ] **GPU layout for the co-load pair.** Pick one:
