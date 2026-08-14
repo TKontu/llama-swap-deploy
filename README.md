@@ -243,9 +243,25 @@ co-load partner, and pairing it would have added 10 pairs nothing would request.
 3. Request either model ID. `gguf-serve.sh` already passes `--jinja`, which the model
    requires for its embedded chat template.
 
-The model supports `reasoning_strength` (`low`/`medium`/`high`/`xhigh`). It's left at the
-model's own default; to pin it, add `params=dict(reasoning_strength="low")` to the POOL
-entry in `gen_pairs_config.py` and regenerate — it emits a `filters.setParams` block.
+Both entries default to `reasoning_strength=low`, passed the same way as Qwen3.8's (see
+"Reasoning defaults" below) — the template's own default is `high`. Valid values are
+`xhigh`/`high`/`medium`/`low`, and unlike Qwen3.8 there is **no** `raise_exception` on a bad
+value: it's interpolated straight into a `Reasoning strength: X.` line, so a typo degrades the
+prompt quietly rather than erroring.
+
+One caveat this default can't beat: the template only injects that line
+`{%- if 'reasoning strength' not in (sys_text | lower) -%}`, and it first rewrites any
+"reasoning effort" in the system text to "reasoning strength". **A system prompt mentioning
+either phrase suppresses the default and wins.** That's useful for steering inline, but it
+means the server default isn't a guarantee.
+
+**Tool calling works out of the box.** llama.cpp b10362 has a dedicated Muse-Glimmer chat
+format (`common_chat_params_init_muse_glimmer` in `common/chat.cpp`), auto-selected when the
+template source contains both `<atem:function_calls>` and `<|eom|>` — which this GGUF's does.
+It parses the ATEM markup into standard OpenAI `tool_calls` and registers `<|eot|>`, `<|eom|>`
+and the ATEM tags as preserved tokens, so the model-card warning about never stopping on
+`<|eom|>` is handled by the server rather than something we configure. One call per turn; the
+model does not do parallel tool calls.
 
 ## Qwen3.8-27B (mainline llama.cpp backend)
 
@@ -325,10 +341,36 @@ Three things worth knowing before pointing a client at it:
 to true. It's pinned because the template is embedded in the GGUF and moves when the repo is
 requantized.
 
-Sampling per the model card — thinking: `temperature=1.0, top_p=0.95, top_k=20`; non-thinking:
-`temperature=0.7, top_p=0.80, top_k=20, presence_penalty=1.5`. The first three are already
-embedded in the GGUF as `general.sampling.*`, so llama.cpp applies them unless a request
-overrides.
+Sampling is passed explicitly as llama-server flags — see "Sampling defaults" below.
+
+## Sampling defaults (llama.cpp entries)
+
+**llama.cpp does not read the `general.sampling.*` keys that some GGUFs carry.** Qwen3.8's
+GGUF has them (`temp=1.0`, `top_p=0.95`, `top_k=20`); Muse-Glimmer's has none at all. Neither
+matters — grep `b10362` and nothing in `llama-model-loader.cpp` or `common.cpp` ever reads that
+key. Without explicit flags, every llama.cpp model here runs on llama.cpp's own defaults from
+`common.h`:
+
+```
+top_k = 40    top_p = 0.95    min_p = 0.05    temp = 0.80
+```
+
+which match neither model card. So both models now pass their card's values as flags:
+
+| Model | Flags |
+|---|---|
+| `muse-glimmer`, `Muse-Glimmer-30B-split` | `--temp 1.0 --top-p 0.95 --top-k 64 --min-p 0.0` |
+| `qwen3.8-27b`, `Qwen3.8-27B-split` | `--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.0 --presence-penalty 0.0` |
+
+Two notes. `min_p` is the quiet one: `0.05` is a llama.cpp invention that truncates the tail,
+and Qwen3.8 explicitly asks for `0.0`. And the Qwen3.8 values are its **thinking-mode** set,
+which is the default here — a caller who disables thinking should override per request to the
+card's instruct values (`temp 0.7`, `top_p 0.80`, `presence_penalty 1.5`).
+
+These are server defaults; a request's own `temperature`/`top_p`/`top_k` still wins. They're
+declared via `sampling_args()` in `gen_pairs_config.py` and forwarded to `llama-server` through
+`gguf-serve.sh`'s `"$@"`. Unlike the chat-template kwargs there is no `LLAMA_ARG_*` env alias
+for sampling, so these have to be CLI flags.
 
 ## On-call standby model
 

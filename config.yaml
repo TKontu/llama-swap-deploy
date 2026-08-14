@@ -1923,6 +1923,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -1966,6 +1971,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2009,6 +2019,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2052,6 +2067,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2101,6 +2121,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2150,6 +2175,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2193,6 +2223,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2235,6 +2270,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2282,6 +2322,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2329,6 +2374,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2559,6 +2609,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2659,10 +2714,15 @@ models:
       -e GGUF_MMPROJ=mmproj-kquant.gguf
       -e GGUF_DRAFT=dflash-kquant.gguf
       -e GGUF_SPEC_TYPE=draft-dflash
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2686,10 +2746,15 @@ models:
       -e GGUF_SPEC_TYPE=draft-dflash
       -e GGUF_SPLIT_MODE=layer
       -e GGUF_TENSOR_SPLIT=1,1
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+      --min-p 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
@@ -2716,6 +2781,11 @@ models:
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
