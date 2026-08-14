@@ -92,8 +92,8 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  # ===== pair03: gemma-26b (#0)  +  gemma-e4b (#2) =====
-  "pair03.gemma-26b":
+  # ===== pair03: phi-4 (#0)  +  gemma-12b (#2) =====
+  "pair03.phi-4":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -101,21 +101,17 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 65536 --max-num-seqs 64
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
 
-  "pair03.gemma-e4b":
+  "pair03.gemma-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -123,17 +119,17 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
 
-  # ===== pair04: gemma-26b (#0)  +  qwen3.5-9b (#2) =====
+  # ===== pair04: gemma-26b (#0)  +  gemma-e4b (#2) =====
   "pair04.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -156,7 +152,122 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  "pair04.qwen3.5-9b":
+  "pair04.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair05: phi-4 (#0)  +  gemma-e4b (#2) =====
+  "pair05.phi-4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model stelterlab/phi-4-AWQ
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair05.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair06: gemma-12b (#0)  +  gemma-e4b (#2) =====
+  "pair06.gemma-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair06.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair07: gemma-26b (#0)  +  qwen3.5-9b (#2) =====
+  "pair07.gemma-26b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 65536 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair07.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -180,8 +291,137 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair05: gemma-26b (#0)  +  qwen3.5-4b (#2) =====
-  "pair05.gemma-26b":
+  # ===== pair08: phi-4 (#0)  +  qwen3.5-9b (#2) =====
+  "pair08.phi-4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model stelterlab/phi-4-AWQ
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair08.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ===== pair09: gemma-12b (#0)  +  qwen3.5-9b (#2) =====
+  "pair09.gemma-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair09.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ===== pair10: gemma-e4b (#0)  +  qwen3.5-9b (#2) =====
+  "pair10.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair10.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ===== pair11: gemma-26b (#0)  +  qwen3.5-4b (#2) =====
+  "pair11.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -203,7 +443,7 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  "pair05.qwen3.5-4b":
+  "pair11.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -227,252 +467,7 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair06: gemma-26b (#0)  +  mellum2-12b (#2) =====
-  "pair06.gemma-26b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 65536 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair06.mellum2-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  # ===== pair07: gemma-26b (#0)  +  ternary (#2) =====
-  "pair07.gemma-26b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 65536 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair07.ternary":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 8
-
-  # ===== pair08: gemma-26b (#0)  +  qwythos-v2 (#2) =====
-  "pair08.gemma-26b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 65536 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair08.qwythos-v2":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
-      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=8
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 32
-
-  # ===== pair09: gemma-26b (#0)  +  fablevibes (#2) =====
-  "pair09.gemma-26b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 65536 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair09.fablevibes":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 16
-
-  # ===== pair10: phi-4 (#0)  +  gemma-12b (#2) =====
-  "pair10.phi-4":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair10.gemma-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  # ===== pair11: phi-4 (#0)  +  gemma-e4b (#2) =====
-  "pair11.phi-4":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair11.gemma-e4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  # ===== pair12: phi-4 (#0)  +  qwen3.5-9b (#2) =====
+  # ===== pair12: phi-4 (#0)  +  qwen3.5-4b (#2) =====
   "pair12.phi-4":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -491,7 +486,7 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  "pair12.qwen3.5-9b":
+  "pair12.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -499,10 +494,10 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
+      --max-model-len 32768 --max-num-seqs 64
       --enable-prefix-caching
       --mamba-cache-mode align
       --port 8000
@@ -515,8 +510,8 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair13: phi-4 (#0)  +  qwen3.5-4b (#2) =====
-  "pair13.phi-4":
+  # ===== pair13: gemma-12b (#0)  +  qwen3.5-4b (#2) =====
+  "pair13.gemma-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -524,10 +519,10 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
+      --max-model-len 32000 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -558,187 +553,14 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair14: phi-4 (#0)  +  mellum2-12b (#2) =====
-  "pair14.phi-4":
+  # ===== pair14: gemma-e4b (#0)  +  qwen3.5-4b (#2) =====
+  "pair14.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair14.mellum2-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  # ===== pair15: phi-4 (#0)  +  ternary (#2) =====
-  "pair15.phi-4":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair15.ternary":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 8
-
-  # ===== pair16: phi-4 (#0)  +  qwythos-v2 (#2) =====
-  "pair16.phi-4":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair16.qwythos-v2":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
-      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=8
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 32
-
-  # ===== pair17: phi-4 (#0)  +  fablevibes (#2) =====
-  "pair17.phi-4":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model stelterlab/phi-4-AWQ
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair17.fablevibes":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 16
-
-  # ===== pair18: gemma-12b (#0)  +  gemma-e4b (#2) =====
-  "pair18.gemma-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair18.gemma-e4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
@@ -750,69 +572,7 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  # ===== pair19: gemma-12b (#0)  +  qwen3.5-9b (#2) =====
-  "pair19.gemma-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair19.qwen3.5-9b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  # ===== pair20: gemma-12b (#0)  +  qwen3.5-4b (#2) =====
-  "pair20.gemma-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair20.qwen3.5-4b":
+  "pair14.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -836,8 +596,135 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair21: gemma-12b (#0)  +  mellum2-12b (#2) =====
-  "pair21.gemma-12b":
+  # ===== pair15: qwen3.5-9b (#0)  +  qwen3.5-4b (#2) =====
+  "pair15.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair15.qwen3.5-4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  # ===== pair16: gemma-26b (#0)  +  mellum2-12b (#2) =====
+  "pair16.gemma-26b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 65536 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair16.mellum2-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair17: phi-4 (#0)  +  mellum2-12b (#2) =====
+  "pair17.phi-4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model stelterlab/phi-4-AWQ
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair17.mellum2-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair18: gemma-12b (#0)  +  mellum2-12b (#2) =====
+  "pair18.gemma-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -854,6 +741,129 @@ models:
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
+
+  "pair18.mellum2-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair19: gemma-e4b (#0)  +  mellum2-12b (#2) =====
+  "pair19.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair19.mellum2-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair20: qwen3.5-9b (#0)  +  mellum2-12b (#2) =====
+  "pair20.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair20.mellum2-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  # ===== pair21: qwen3.5-4b (#0)  +  mellum2-12b (#2) =====
+  "pair21.qwen3.5-4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair21.mellum2-12b":
     cmd: |
@@ -873,8 +883,8 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  # ===== pair22: gemma-12b (#0)  +  ternary (#2) =====
-  "pair22.gemma-12b":
+  # ===== pair22: gemma-26b (#0)  +  ternary (#2) =====
+  "pair22.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -882,15 +892,19 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 64
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair22.ternary":
     cmd: |
@@ -909,8 +923,8 @@ models:
     ttl: 18000
     concurrencyLimit: 8
 
-  # ===== pair23: gemma-12b (#0)  +  qwythos-v2 (#2) =====
-  "pair23.gemma-12b":
+  # ===== pair23: phi-4 (#0)  +  ternary (#2) =====
+  "pair23.phi-4":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -918,28 +932,23 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --model stelterlab/phi-4-AWQ
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32000 --max-num-seqs 64
+      --max-model-len 16384 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
 
-  "pair23.qwythos-v2":
+  "pair23.ternary":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
-      --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
-      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -948,9 +957,9 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 32
+    concurrencyLimit: 8
 
-  # ===== pair24: gemma-12b (#0)  +  fablevibes (#2) =====
+  # ===== pair24: gemma-12b (#0)  +  ternary (#2) =====
   "pair24.gemma-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -969,18 +978,13 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  "pair24.fablevibes":
+  "pair24.ternary":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
-      --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -989,9 +993,9 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 16
+    concurrencyLimit: 8
 
-  # ===== pair25: gemma-e4b (#0)  +  qwen3.5-9b (#2) =====
+  # ===== pair25: gemma-e4b (#0)  +  ternary (#2) =====
   "pair25.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -1010,13 +1014,31 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  "pair25.qwen3.5-9b":
+  "pair25.ternary":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
+  # ===== pair26: qwen3.5-9b (#0)  +  ternary (#2) =====
+  "pair26.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
@@ -1034,32 +1056,31 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair26: gemma-e4b (#0)  +  qwen3.5-4b (#2) =====
-  "pair26.gemma-e4b":
+  "pair26.ternary":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
+  # ===== pair27: qwen3.5-4b (#0)  +  ternary (#2) =====
+  "pair27.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair26.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
@@ -1077,53 +1098,33 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== pair27: gemma-e4b (#0)  +  mellum2-12b (#2) =====
-  "pair27.gemma-e4b":
+  "pair27.ternary":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
+  # ===== pair28: mellum2-12b (#0)  +  ternary (#2) =====
+  "pair28.mellum2-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair27.mellum2-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  # ===== pair28: gemma-e4b (#0)  +  ternary (#2) =====
-  "pair28.gemma-e4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 64
@@ -1150,8 +1151,8 @@ models:
     ttl: 18000
     concurrencyLimit: 8
 
-  # ===== pair29: gemma-e4b (#0)  +  qwythos-v2 (#2) =====
-  "pair29.gemma-e4b":
+  # ===== pair29: gemma-26b (#0)  +  qwythos-v2 (#2) =====
+  "pair29.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -1159,15 +1160,19 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair29.qwythos-v2":
     cmd: |
@@ -1191,8 +1196,90 @@ models:
     ttl: 18000
     concurrencyLimit: 32
 
-  # ===== pair30: gemma-e4b (#0)  +  fablevibes (#2) =====
-  "pair30.gemma-e4b":
+  # ===== pair30: phi-4 (#0)  +  qwythos-v2 (#2) =====
+  "pair30.phi-4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model stelterlab/phi-4-AWQ
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair30.qwythos-v2":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
+
+  # ===== pair31: gemma-12b (#0)  +  qwythos-v2 (#2) =====
+  "pair31.gemma-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair31.qwythos-v2":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
+
+  # ===== pair32: gemma-e4b (#0)  +  qwythos-v2 (#2) =====
+  "pair32.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -1210,7 +1297,7 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  "pair30.fablevibes":
+  "pair32.qwythos-v2":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
@@ -1218,10 +1305,10 @@ models:
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1230,101 +1317,9 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 16
+    concurrencyLimit: 32
 
-  # ===== pair31: qwen3.5-9b (#0)  +  qwen3.5-4b (#2) =====
-  "pair31.qwen3.5-9b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair31.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  # ===== pair32: qwen3.5-9b (#0)  +  mellum2-12b (#2) =====
-  "pair32.qwen3.5-9b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair32.mellum2-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  # ===== pair33: qwen3.5-9b (#0)  +  ternary (#2) =====
+  # ===== pair33: qwen3.5-9b (#0)  +  qwythos-v2 (#2) =====
   "pair33.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -1349,13 +1344,18 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  "pair33.ternary":
+  "pair33.qwythos-v2":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
+      --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1364,10 +1364,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 8
+    concurrencyLimit: 32
 
-  # ===== pair34: qwen3.5-9b (#0)  +  qwythos-v2 (#2) =====
-  "pair34.qwen3.5-9b":
+  # ===== pair34: qwen3.5-4b (#0)  +  qwythos-v2 (#2) =====
+  "pair34.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -1375,10 +1375,10 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
+      --max-model-len 32768 --max-num-seqs 64
       --enable-prefix-caching
       --mamba-cache-mode align
       --port 8000
@@ -1413,85 +1413,14 @@ models:
     ttl: 18000
     concurrencyLimit: 32
 
-  # ===== pair35: qwen3.5-9b (#0)  +  fablevibes (#2) =====
-  "pair35.qwen3.5-9b":
+  # ===== pair35: mellum2-12b (#0)  +  qwythos-v2 (#2) =====
+  "pair35.mellum2-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair35.fablevibes":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 16
-
-  # ===== pair36: qwen3.5-4b (#0)  +  mellum2-12b (#2) =====
-  "pair36.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair36.mellum2-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
       --served-model-name ${MODEL_ID}
@@ -1503,74 +1432,7 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  # ===== pair37: qwen3.5-4b (#0)  +  ternary (#2) =====
-  "pair37.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair37.ternary":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 8
-
-  # ===== pair38: qwen3.5-4b (#0)  +  qwythos-v2 (#2) =====
-  "pair38.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "pair38.qwythos-v2":
+  "pair35.qwythos-v2":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
@@ -1592,8 +1454,48 @@ models:
     ttl: 18000
     concurrencyLimit: 32
 
-  # ===== pair39: qwen3.5-4b (#0)  +  fablevibes (#2) =====
-  "pair39.qwen3.5-4b":
+  # ===== pair36: ternary (#0)  +  qwythos-v2 (#2) =====
+  "pair36.ternary":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
+  "pair36.qwythos-v2":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
+
+  # ===== pair37: gemma-26b (#0)  +  fablevibes (#2) =====
+  "pair37.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -1601,12 +1503,10 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
+      --max-model-len 65536 --max-num-seqs 64
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -1616,6 +1516,88 @@ models:
       setParams:
         chat_template_kwargs:
           enable_thinking: false
+
+  "pair37.fablevibes":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair38: phi-4 (#0)  +  fablevibes (#2) =====
+  "pair38.phi-4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model stelterlab/phi-4-AWQ
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair38.fablevibes":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair39: gemma-12b (#0)  +  fablevibes (#2) =====
+  "pair39.gemma-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
 
   "pair39.fablevibes":
     cmd: |
@@ -1639,8 +1621,8 @@ models:
     ttl: 18000
     concurrencyLimit: 16
 
-  # ===== pair40: mellum2-12b (#0)  +  ternary (#2) =====
-  "pair40.mellum2-12b":
+  # ===== pair40: gemma-e4b (#0)  +  fablevibes (#2) =====
+  "pair40.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -1648,7 +1630,7 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
       --max-model-len 128000 --max-num-seqs 64
@@ -1658,43 +1640,7 @@ models:
     ttl: 18000
     concurrencyLimit: 256
 
-  "pair40.ternary":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 8
-
-  # ===== pair41: mellum2-12b (#0)  +  qwythos-v2 (#2) =====
-  "pair41.mellum2-12b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-
-  "pair41.qwythos-v2":
+  "pair40.fablevibes":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
@@ -1702,10 +1648,10 @@ models:
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
-      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=8
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1714,10 +1660,10 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 32
+    concurrencyLimit: 16
 
-  # ===== pair42: mellum2-12b (#0)  +  fablevibes (#2) =====
-  "pair42.mellum2-12b":
+  # ===== pair41: qwen3.5-9b (#0)  +  fablevibes (#2) =====
+  "pair41.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
@@ -1725,15 +1671,68 @@ models:
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 128000 --max-num-seqs 64
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
       --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
     ttl: 18000
     concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair41.fablevibes":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair42: qwen3.5-4b (#0)  +  fablevibes (#2) =====
+  "pair42.qwen3.5-4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "pair42.fablevibes":
     cmd: |
@@ -1757,25 +1756,26 @@ models:
     ttl: 18000
     concurrencyLimit: 16
 
-  # ===== pair43: ternary (#0)  +  qwythos-v2 (#2) =====
-  "pair43.ternary":
+  # ===== pair43: mellum2-12b (#0)  +  fablevibes (#2) =====
+  "pair43.mellum2-12b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 8
+    concurrencyLimit: 256
 
-  "pair43.qwythos-v2":
+  "pair43.fablevibes":
     cmd: |
       docker run --rm --name ${MODEL_ID}
       --pull=always
@@ -1783,10 +1783,10 @@ models:
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       -e HF_TOKEN=${env.HF_TOKEN}
       -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
-      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
-      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=8
+      -e GGUF_PARALLEL=4
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1795,7 +1795,7 @@ models:
     proxy: http://127.0.0.1:${PORT}
     checkEndpoint: /health
     ttl: 18000
-    concurrencyLimit: 32
+    concurrencyLimit: 16
 
   # ===== pair44: ternary (#0)  +  fablevibes (#2) =====
   "pair44.ternary":
@@ -1875,6 +1875,449 @@ models:
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair46: gemma-26b (#0)  +  qwen3.8-27b (#2) =====
+  "pair46.gemma-26b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 65536 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair46.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair47: phi-4 (#0)  +  qwen3.8-27b (#2) =====
+  "pair47.phi-4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model stelterlab/phi-4-AWQ
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair47.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair48: gemma-12b (#0)  +  qwen3.8-27b (#2) =====
+  "pair48.gemma-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-12B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair48.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair49: gemma-e4b (#0)  +  qwen3.8-27b (#2) =====
+  "pair49.gemma-e4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair49.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair50: qwen3.5-9b (#0)  +  qwen3.8-27b (#2) =====
+  "pair50.qwen3.5-9b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 16384 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair50.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair51: qwen3.5-4b (#0)  +  qwen3.8-27b (#2) =====
+  "pair51.qwen3.5-4b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "pair51.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair52: mellum2-12b (#0)  +  qwen3.8-27b (#2) =====
+  "pair52.mellum2-12b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Mellum2-12B-A2.5B-Instruct-AWQ-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 128000 --max-num-seqs 64
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+
+  "pair52.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair53: ternary (#0)  +  qwen3.8-27b (#2) =====
+  "pair53.ternary":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
+  "pair53.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair54: qwythos-v2 (#0)  +  qwen3.8-27b (#2) =====
+  "pair54.qwythos-v2":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
+      -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
+
+  "pair54.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  # ===== pair55: fablevibes (#0)  +  qwen3.8-27b (#2) =====
+  "pair55.fablevibes":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
+      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=4
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/bonsai-llama:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
+  "pair55.qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -2088,6 +2531,29 @@ models:
     ttl: 18000
     concurrencyLimit: 16
 
+  "qwen3.8-27b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=4
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 16
+
   # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====
   "Qwen3.6-35B-A3B-AWQ-4bit":
     cmd: |
@@ -2219,6 +2685,31 @@ models:
     ttl: 36000
     concurrencyLimit: 4
 
+  "Qwen3.8-27B-split":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e HF_TOKEN=${env.HF_TOKEN}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q6_K_XL.gguf
+      -e GGUF_CTX=262144
+      -e GGUF_PARALLEL=1
+      -e GGUF_MMPROJ=mmproj-F16.gguf
+      -e GGUF_SPLIT_MODE=layer
+      -e GGUF_TENSOR_SPLIT=1,1
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 36000
+    concurrencyLimit: 4
+
 
 # Each pair is its own group: members co-load and stay together (swap:false);
 # loading a pair/solo unloads the others (exclusive).
@@ -2242,288 +2733,288 @@ groups:
     exclusive: true
     persistent: false
     members:
-      - "pair03.gemma-26b"
-      - "pair03.gemma-e4b"
+      - "pair03.phi-4"
+      - "pair03.gemma-12b"
   pair04:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair04.gemma-26b"
-      - "pair04.qwen3.5-9b"
+      - "pair04.gemma-e4b"
   pair05:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair05.gemma-26b"
-      - "pair05.qwen3.5-4b"
+      - "pair05.phi-4"
+      - "pair05.gemma-e4b"
   pair06:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair06.gemma-26b"
-      - "pair06.mellum2-12b"
+      - "pair06.gemma-12b"
+      - "pair06.gemma-e4b"
   pair07:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair07.gemma-26b"
-      - "pair07.ternary"
+      - "pair07.qwen3.5-9b"
   pair08:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair08.gemma-26b"
-      - "pair08.qwythos-v2"
+      - "pair08.phi-4"
+      - "pair08.qwen3.5-9b"
   pair09:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair09.gemma-26b"
-      - "pair09.fablevibes"
+      - "pair09.gemma-12b"
+      - "pair09.qwen3.5-9b"
   pair10:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair10.phi-4"
-      - "pair10.gemma-12b"
+      - "pair10.gemma-e4b"
+      - "pair10.qwen3.5-9b"
   pair11:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair11.phi-4"
-      - "pair11.gemma-e4b"
+      - "pair11.gemma-26b"
+      - "pair11.qwen3.5-4b"
   pair12:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair12.phi-4"
-      - "pair12.qwen3.5-9b"
+      - "pair12.qwen3.5-4b"
   pair13:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair13.phi-4"
+      - "pair13.gemma-12b"
       - "pair13.qwen3.5-4b"
   pair14:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair14.phi-4"
-      - "pair14.mellum2-12b"
+      - "pair14.gemma-e4b"
+      - "pair14.qwen3.5-4b"
   pair15:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair15.phi-4"
-      - "pair15.ternary"
+      - "pair15.qwen3.5-9b"
+      - "pair15.qwen3.5-4b"
   pair16:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair16.phi-4"
-      - "pair16.qwythos-v2"
+      - "pair16.gemma-26b"
+      - "pair16.mellum2-12b"
   pair17:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair17.phi-4"
-      - "pair17.fablevibes"
+      - "pair17.mellum2-12b"
   pair18:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair18.gemma-12b"
-      - "pair18.gemma-e4b"
+      - "pair18.mellum2-12b"
   pair19:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair19.gemma-12b"
-      - "pair19.qwen3.5-9b"
+      - "pair19.gemma-e4b"
+      - "pair19.mellum2-12b"
   pair20:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair20.gemma-12b"
-      - "pair20.qwen3.5-4b"
+      - "pair20.qwen3.5-9b"
+      - "pair20.mellum2-12b"
   pair21:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair21.gemma-12b"
+      - "pair21.qwen3.5-4b"
       - "pair21.mellum2-12b"
   pair22:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair22.gemma-12b"
+      - "pair22.gemma-26b"
       - "pair22.ternary"
   pair23:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair23.gemma-12b"
-      - "pair23.qwythos-v2"
+      - "pair23.phi-4"
+      - "pair23.ternary"
   pair24:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair24.gemma-12b"
-      - "pair24.fablevibes"
+      - "pair24.ternary"
   pair25:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair25.gemma-e4b"
-      - "pair25.qwen3.5-9b"
+      - "pair25.ternary"
   pair26:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair26.gemma-e4b"
-      - "pair26.qwen3.5-4b"
+      - "pair26.qwen3.5-9b"
+      - "pair26.ternary"
   pair27:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair27.gemma-e4b"
-      - "pair27.mellum2-12b"
+      - "pair27.qwen3.5-4b"
+      - "pair27.ternary"
   pair28:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair28.gemma-e4b"
+      - "pair28.mellum2-12b"
       - "pair28.ternary"
   pair29:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair29.gemma-e4b"
+      - "pair29.gemma-26b"
       - "pair29.qwythos-v2"
   pair30:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair30.gemma-e4b"
-      - "pair30.fablevibes"
+      - "pair30.phi-4"
+      - "pair30.qwythos-v2"
   pair31:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair31.qwen3.5-9b"
-      - "pair31.qwen3.5-4b"
+      - "pair31.gemma-12b"
+      - "pair31.qwythos-v2"
   pair32:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair32.qwen3.5-9b"
-      - "pair32.mellum2-12b"
+      - "pair32.gemma-e4b"
+      - "pair32.qwythos-v2"
   pair33:
     swap: false
     exclusive: true
     persistent: false
     members:
       - "pair33.qwen3.5-9b"
-      - "pair33.ternary"
+      - "pair33.qwythos-v2"
   pair34:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair34.qwen3.5-9b"
+      - "pair34.qwen3.5-4b"
       - "pair34.qwythos-v2"
   pair35:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair35.qwen3.5-9b"
-      - "pair35.fablevibes"
+      - "pair35.mellum2-12b"
+      - "pair35.qwythos-v2"
   pair36:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair36.qwen3.5-4b"
-      - "pair36.mellum2-12b"
+      - "pair36.ternary"
+      - "pair36.qwythos-v2"
   pair37:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair37.qwen3.5-4b"
-      - "pair37.ternary"
+      - "pair37.gemma-26b"
+      - "pair37.fablevibes"
   pair38:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair38.qwen3.5-4b"
-      - "pair38.qwythos-v2"
+      - "pair38.phi-4"
+      - "pair38.fablevibes"
   pair39:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair39.qwen3.5-4b"
+      - "pair39.gemma-12b"
       - "pair39.fablevibes"
   pair40:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair40.mellum2-12b"
-      - "pair40.ternary"
+      - "pair40.gemma-e4b"
+      - "pair40.fablevibes"
   pair41:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair41.mellum2-12b"
-      - "pair41.qwythos-v2"
+      - "pair41.qwen3.5-9b"
+      - "pair41.fablevibes"
   pair42:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair42.mellum2-12b"
+      - "pair42.qwen3.5-4b"
       - "pair42.fablevibes"
   pair43:
     swap: false
     exclusive: true
     persistent: false
     members:
-      - "pair43.ternary"
-      - "pair43.qwythos-v2"
+      - "pair43.mellum2-12b"
+      - "pair43.fablevibes"
   pair44:
     swap: false
     exclusive: true
@@ -2538,3 +3029,73 @@ groups:
     members:
       - "pair45.qwythos-v2"
       - "pair45.fablevibes"
+  pair46:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair46.gemma-26b"
+      - "pair46.qwen3.8-27b"
+  pair47:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair47.phi-4"
+      - "pair47.qwen3.8-27b"
+  pair48:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair48.gemma-12b"
+      - "pair48.qwen3.8-27b"
+  pair49:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair49.gemma-e4b"
+      - "pair49.qwen3.8-27b"
+  pair50:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair50.qwen3.5-9b"
+      - "pair50.qwen3.8-27b"
+  pair51:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair51.qwen3.5-4b"
+      - "pair51.qwen3.8-27b"
+  pair52:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair52.mellum2-12b"
+      - "pair52.qwen3.8-27b"
+  pair53:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair53.ternary"
+      - "pair53.qwen3.8-27b"
+  pair54:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair54.qwythos-v2"
+      - "pair54.qwen3.8-27b"
+  pair55:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "pair55.fablevibes"
+      - "pair55.qwen3.8-27b"

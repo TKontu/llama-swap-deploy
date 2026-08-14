@@ -157,6 +157,58 @@ entries byte-identical and the two Muse-Glimmer entries purely additive. The res
 - [ ] Decide whether the ~1 h replacement delay is right in practice — it now supersedes
   the 5 h TTL for *replacement* (TTLs still govern unloading).
 
+## Post-deploy verification (Qwen3.8-27B — added 2026-08-14)
+
+Two entries: `qwen3.8-27b` (UD-Q4_K_XL + vision, one 3090, 16384 × 4 slots, **pooled** so it
+co-loads) and `Qwen3.8-27B-split` (UD-Q6_K_XL + vision, both 3090s, full 262144 in one slot).
+
+Config-side checks already pass locally: **128 models / 55 groups**, every one of the 106
+pre-existing entry bodies preserved byte-identical, and all 45 original partner-sets intact
+(verified by comparing partner sets with the `pairNN` label stripped).
+
+- [ ] **Pair labels were renumbered ONCE.** `gen_pairs_config.py` now orders pairs by
+  `(higher index, lower index)` so appending a POOL member is purely additive. The pair *set*
+  is unchanged and no pair was lost, but pair01–pair45 no longer point at the same partners
+  they did before. **Check whether anything downstream pinned a `pairNN` id** rather than
+  reading `/v1/models`. From here the numbering is stable across future additions.
+- [ ] Pre-download the ~44 GB of GGUFs (README → Qwen3.8-27B) before the first cold start.
+- [ ] **Restart llama-swap** — config is read at startup only, and a model TTL reload proves
+  nothing. `/v1/models` going 106 → **128** is what confirms the new config was picked up.
+- [ ] **Cold start `qwen3.8-27b`** and check the reported footprint against the prediction:
+  16.69 (weights) + 0.86 (mmproj) + 4.00 (65536 tok × 64 KiB f16 KV) = **21.55 GiB** of the
+  ~23.3 GiB budget, i.e. ~1.75 GiB for DeltaNet state (~0.3 GiB at `-np 4`) and prefill.
+  That is the thinnest margin in the pool — if it OOMs or spikes, drop to plain
+  `Qwen3.8-27B-Q4_K_M.gguf` (+0.76 GiB) *before* cutting `ctx`/`par`.
+- [ ] Confirm `n_ctx` reports **65536** (llama.cpp is given `ctx × par`), not 16384, and that
+  `vision = true`. Both are silent-failure surfaces.
+- [ ] **Architecture claim is inferred, not observed.** It is read off the GGUF headers
+  (`general.architecture=qwen35`, `clip.projector_type=qwen3vl_merger`) as already supported at
+  the pinned `b10362` — no image rebuild. If either load path rejects it, that inference is
+  what was wrong, and the fix is a `LLAMACPP_TAG` bump, **not** a flag change. Bumping the tag
+  re-tests Muse-Glimmer, so re-run its checks above if it comes to that.
+- [ ] **Coherence prompt** on first load — per the `qwen3.5-9b` and `muse-glimmer` precedents,
+  trust the output, not a clean startup log. Doubly so here: `qwen35` is the same hybrid
+  family whose documented failure mode is incoherent output from a clean boot.
+- [ ] **Reasoning budget**: thinking is ON by default and llama.cpp puts it in
+  `message.reasoning_content`. Confirm a short-`max_tokens` request still reaches an answer;
+  if it doesn't, that's the muse-glimmer trap again — either budget more or pin
+  `params=dict(reasoning_effort="low")` on the POOL entry.
+- [ ] **Vision probe** with a generated image whose content can't be guessed (the red/green/
+  blue stripe trick), proving `--mmproj` attached rather than being silently ignored.
+- [ ] **Co-load test** — the whole reason it's pooled. Request e.g. `pair46` (gemma-26b #0 +
+  qwen3.8-27b #2) and confirm both stay resident and serve concurrently. gemma-26b is the
+  heaviest partner (~21.9 GiB on #0) against qwen3.8-27b's ~21.6 GiB on #2; they are on
+  separate cards, so this should hold, but it is the tightest pair in the set.
+- [ ] `Qwen3.8-27B-split`: confirm `-sm layer` spreads across both 3090s and that 262144
+  actually allocates (predicted 24.14 + 0.86 + 16.00 = **41.00 GiB** of ~46.6, ~5.6 GiB slack).
+  Then an over-limit probe (expect a clean 400).
+- [ ] Measure decode on the split entry. Expect **~single-card** speed — layer split is
+  pipeline, not tensor, parallel, and Muse-Glimmer measured 78.2 vs 78.8 tok/s. If it is
+  *slower* than `qwen3.8-27b`, the split entry isn't earning its disk.
+- [ ] Revisit if an MTP GGUF appears: the weights carry a packed MTP layer
+  (`nextn_predict_layers=1`) that mainline does not currently self-speculate off. That is the
+  only route to a Muse-Glimmer-style 1.81x here.
+
 ## 1. Build the custom image
 
 - [ ] `Dockerfile` = `FROM ghcr.io/mostlygeek/llama-swap:unified-cuda` + `docker.io`.
