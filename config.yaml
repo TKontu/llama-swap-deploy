@@ -1981,6 +1981,78 @@ models:
     ttl: 36000
     concurrencyLimit: 4
 
+  # ===== x2extract: qwen3.5-4b on BOTH cards (same family + same role) =====
+  #
+  # gen_pairs_config.py deliberately never emits this shape — its rule is "pair everything
+  # EXCEPT same family AND same role", because a same/same pair is useless for the
+  # head-to-head benchmarking that script exists to set up. This group is hand-written for
+  # the opposite purpose: a CONSUMER that needs one role at twice the width.
+  #
+  # Why: Iknos' reference build is strictly stage-sequential (propositionize -> admit ->
+  # extract -> resolve, each awaited to completion). The §13 verifier belongs to the
+  # Propositionizer only — the Extractor has no verifier — so during `admit` and `extract`,
+  # the card carrying the judge model sits idle while the extractor's card saturates.
+  # `extract` is the dominant LLM stage of a build (3,005 extract calls vs the
+  # propositionizer's 189 on the 3-doc rehearsal). Running the extractor on both cards for
+  # those two stages trades an idle GPU for width.
+  #
+  # Parameters are a byte-faithful copy of pair04.qwen3.5-4b, deliberately: the measured
+  # knee (16/instance, 1,235 calls/h — SVC-096) was taken against exactly this regime, so
+  # changing anything here would invalidate that number as a baseline for the A/B. Note
+  # both members declare 32,768, the same as pair04's binding floor, so the consumer's
+  # derived input budget ((32,768 - 2,048) * 0.9 ~= 27,648) is UNCHANGED by switching to
+  # this group — no re-pin of LLM_MAX_INPUT_TOKENS is owed.
+  #
+  # llama-swap has no replica/load-balance concept: one served id is one proxy port. These
+  # are therefore two DISTINCT served ids and the consumer must shard across them.
+  "x2extract.qwen3.5-4b-a":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "x2extract.qwen3.5-4b-b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 32768 --max-num-seqs 64
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
 
 # Each pair is its own group: members co-load and stay together (swap:false);
 # loading a pair/solo unloads the others (exclusive).
@@ -2230,3 +2302,14 @@ groups:
     members:
       - "pair35.qwen3.8-27b"
       - "pair35.muse-glimmer"
+  # Not a benchmarking pair — a consumer-shaped group: one role, both cards. See the
+  # x2extract model entries above for why. Same swap/exclusive semantics as every pair,
+  # so requesting either member evicts pair04 (and vice versa), which is exactly the
+  # stage-boundary switch the Iknos build wants.
+  x2extract:
+    swap: false
+    exclusive: true
+    persistent: false
+    members:
+      - "x2extract.qwen3.5-4b-a"
+      - "x2extract.qwen3.5-4b-b"
