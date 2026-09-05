@@ -79,13 +79,44 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 3. Grab the image reference from the workflow's run summary, e.g.
    `ghcr.io/<owner>/llama-swap-deploy:latest` (all lowercase).
 
+### HuggingFace auth (token file, not an env var)
+
+Gated repos still need a token, but it is **not** passed to model containers as
+`-e HF_TOKEN`. llama-swap expands `${env.*}` at spawn time and echoes the fully
+expanded command back from `GET /running`, so an inline token was readable in
+plaintext by anyone who could reach `:9292`.
+
+Instead, put the token in the HF cache that every model container already mounts
+(`-v /models/hf-cache:/root/.cache/huggingface`). `huggingface_hub` resolves
+`$HF_HOME/token` when no env var is set, so both the `hf` CLI in `gguf-serve.sh`
+and vLLM pick it up automatically:
+
+```bash
+# on the inference host, once
+install -m 600 /dev/null /models/hf-cache/token
+printf '%s' 'hf_YOURTOKEN' > /models/hf-cache/token
+```
+
+Verify after deploying, by forcing a cold fetch of a gated repo:
+
+```bash
+curl -s http://<host>:9292/running | grep -c hf_    # must be 0
+docker exec -it <a-running-model> hf download meta-models/Muse-Glimmer-30B-GGUF   --revision main --dry-run    # must not 401
+```
+
+If a container ever fails to authenticate this way, the explicit fallback is
+`--env-file` with a **directory** bind-mount into the llama-swap container (a
+directory, not a single file — see the `Dockerfile` note on Portainer mangling
+single-file mounts). Do not go back to inline `-e HF_TOKEN`.
+
 ### Create the stack
 
 1. Portainer → **Stacks → Add stack → Repository**.
 2. Repository URL = your repo; **Compose path** = `docker-compose.yml`.
-3. Add these **environment variables**:
+3. Add this **environment variable**:
    - `LLAMA_SWAP_IMAGE=ghcr.io/<owner>/llama-swap-deploy:latest`
-   - `HF_TOKEN=hf_…`
+
+   `HF_TOKEN` is **no longer a stack variable** — see *HuggingFace auth* below.
 4. Enable **automatic updates** with **re-pull image** (poll or webhook) for push-to-deploy.
    `config.yaml` is **baked into the image**, so **editing models is a git push** → CI
    rebuilds the image (a `config.yaml` change triggers it) → Portainer re-pulls and restarts.

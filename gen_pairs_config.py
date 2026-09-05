@@ -350,7 +350,6 @@ def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTI
         f'  "{model_id}":\n'
         f"    cmd: |\n"
         f"      docker run --rm --name ${{MODEL_ID}}\n"
-        f"      -e HUGGING_FACE_HUB_TOKEN=${{env.HF_TOKEN}}\n"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
         f"      -p ${{PORT}}:8000\n"
         f"      --gpus '\"device={gpus}\"'\n"
@@ -381,8 +380,6 @@ def fork_entry(model_id, gpus, ttl=TTL):
         f"      docker run --rm --name ${{MODEL_ID}}\n"
         f"      --pull=always\n"
         f"      --gpus '\"device={gpus}\"'\n"
-        f"      -e HF_TOKEN=${{env.HF_TOKEN}}\n"
-        f"      -e HUGGING_FACE_HUB_TOKEN=${{env.HF_TOKEN}}\n"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
         f"      -p ${{PORT}}:8080\n"
         f"      {BONSAI}\n"
@@ -443,8 +440,6 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         f"      --pull=always\n"
         f"      --entrypoint gguf-serve.sh\n"
         f"      --gpus '\"device={gpus}\"'\n"
-        f"      -e HF_TOKEN=${{env.HF_TOKEN}}\n"
-        f"      -e HUGGING_FACE_HUB_TOKEN=${{env.HF_TOKEN}}\n"
         f"      -e GGUF_REPO={repo}\n"
         f"      -e GGUF_FILE={hf_file}\n"
         f"      -e GGUF_CTX={ctx}\n"
@@ -536,6 +531,14 @@ def main():
     out.append("# system; split on the FIRST '.' to get the pair id). Only one pair (or one solo")
     out.append("# model) is resident at a time; requesting another swaps it in.")
     out.append("# Regenerate: python3 gen_pairs_config.py > config.pairs.yaml")
+    out.append("#")
+    out.append("# HF AUTH: deliberately NOT passed as -e HF_TOKEN/-e HUGGING_FACE_HUB_TOKEN.")
+    out.append("# llama-swap expands ${env.*} at spawn time and echoes the fully expanded")
+    out.append("# command back from GET /running, which leaked the token in plaintext to")
+    out.append("# anyone who could reach :9292. Instead the token is read from the HF cache")
+    out.append("# that every model already mounts: write it to /models/hf-cache/token")
+    out.append("# (chmod 600) on the host; huggingface_hub resolves $HF_HOME/token when no")
+    out.append("# env var is set. Do not re-add the -e lines.")
     out.append("")
     out.append("healthCheckTimeout: 900")
     out.append("logLevel: info")

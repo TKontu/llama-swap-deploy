@@ -4,6 +4,14 @@
 # system; split on the FIRST '.' to get the pair id). Only one pair (or one solo
 # model) is resident at a time; requesting another swaps it in.
 # Regenerate: python3 gen_pairs_config.py > config.pairs.yaml
+#
+# HF AUTH: deliberately NOT passed as -e HF_TOKEN/-e HUGGING_FACE_HUB_TOKEN.
+# llama-swap expands ${env.*} at spawn time and echoes the fully expanded
+# command back from GET /running, which leaked the token in plaintext to
+# anyone who could reach :9292. Instead the token is read from the HF cache
+# that every model already mounts: write it to /models/hf-cache/token
+# (chmod 600) on the host; huggingface_hub resolves $HF_HOME/token when no
+# env var is set. Do not re-add the -e lines.
 
 healthCheckTimeout: 900
 logLevel: info
@@ -17,7 +25,6 @@ models:
   "pair01.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -39,7 +46,6 @@ models:
   "pair01.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -58,7 +64,6 @@ models:
   "pair02.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -80,7 +85,6 @@ models:
   "pair02.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -105,7 +109,6 @@ models:
   "pair03.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -123,7 +126,6 @@ models:
   "pair03.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -148,7 +150,6 @@ models:
   "pair04.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -170,7 +171,6 @@ models:
   "pair04.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -195,7 +195,6 @@ models:
   "pair05.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -213,7 +212,6 @@ models:
   "pair05.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -238,7 +236,6 @@ models:
   "pair06.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -262,8 +259,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -280,8 +275,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -295,7 +288,6 @@ models:
   "pair07.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -316,8 +308,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -331,7 +321,6 @@ models:
   "pair08.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -358,8 +347,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -373,7 +360,6 @@ models:
   "pair09.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -398,7 +384,6 @@ models:
   "pair10.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -423,8 +408,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -443,7 +426,6 @@ models:
   "pair11.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -464,8 +446,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -484,7 +464,6 @@ models:
   "pair12.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -511,8 +490,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -531,7 +508,6 @@ models:
   "pair13.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -558,8 +534,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -580,8 +554,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -598,8 +570,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -618,7 +588,6 @@ models:
   "pair15.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -643,8 +612,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -663,7 +630,6 @@ models:
   "pair16.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -684,8 +650,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -704,7 +668,6 @@ models:
   "pair17.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -731,8 +694,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -751,7 +712,6 @@ models:
   "pair18.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -778,8 +738,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -800,8 +758,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -818,8 +774,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -841,8 +795,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -863,8 +815,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -883,7 +833,6 @@ models:
   "pair21.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -908,8 +857,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -938,8 +885,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -964,7 +909,6 @@ models:
   "pair22.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -986,8 +930,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1012,7 +954,6 @@ models:
   "pair23.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1040,8 +981,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1066,7 +1005,6 @@ models:
   "pair24.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1093,8 +1031,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1111,8 +1047,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1141,8 +1075,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1170,8 +1102,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -1193,8 +1123,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1222,8 +1150,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -1242,7 +1168,6 @@ models:
   "pair28.gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -1267,8 +1192,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1298,8 +1221,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1325,7 +1246,6 @@ models:
   "pair29.gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1347,8 +1267,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1374,7 +1292,6 @@ models:
   "pair30.qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1402,8 +1319,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1429,7 +1344,6 @@ models:
   "pair31.qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1456,8 +1370,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1474,8 +1386,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1505,8 +1415,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1535,8 +1443,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -1558,8 +1464,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1588,8 +1492,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -1611,8 +1513,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1640,8 +1540,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1670,7 +1568,6 @@ models:
   "gemma-26b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -1692,7 +1589,6 @@ models:
   "gemma-e4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -1710,7 +1606,6 @@ models:
   "qwen3.5-9b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -1734,7 +1629,6 @@ models:
   "qwen3.5-4b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -1760,8 +1654,6 @@ models:
       docker run --rm --name ${MODEL_ID}
       --pull=always
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
@@ -1778,8 +1670,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=empero-ai/Qwythos-9B-v2-GGUF
       -e GGUF_FILE=Qwythos-9B-v2-Q4_K_M.gguf
       -e GGUF_CTX=8192
@@ -1800,8 +1690,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
       -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
       -e GGUF_CTX=8192
@@ -1822,8 +1710,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
       -e GGUF_CTX=16384
@@ -1851,8 +1737,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-17gb.gguf
       -e GGUF_CTX=131072
@@ -1879,7 +1763,6 @@ models:
   "Qwen3.6-35B-A3B-AWQ-4bit":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1902,7 +1785,6 @@ models:
   "Qwythos-9B-Claude-Mythos-5-1M":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
@@ -1924,8 +1806,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=meta-models/Muse-Glimmer-30B-GGUF
       -e GGUF_FILE=muse-glimmer-30B-kquant-dynamic.gguf
       -e GGUF_CTX=131072
@@ -1956,8 +1836,6 @@ models:
       --pull=always
       --entrypoint gguf-serve.sh
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e HF_TOKEN=${env.HF_TOKEN}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
       -e GGUF_FILE=Qwen3.8-27B-UD-Q6_K_XL.gguf
       -e GGUF_CTX=262144
@@ -2008,7 +1886,6 @@ models:
   "x2extract.qwen3.5-4b-a":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
@@ -2032,7 +1909,6 @@ models:
   "x2extract.qwen3.5-4b-b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
-      -e HUGGING_FACE_HUB_TOKEN=${env.HF_TOKEN}
       -v /models/hf-cache:/root/.cache/huggingface
       -p ${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
