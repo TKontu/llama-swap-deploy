@@ -186,3 +186,16 @@ check when its architecture was merged against the fork's branch date.
 Mounting `/var/run/docker.sock` grants the llama-swap container root-equivalent control of
 the host Docker. Acceptable on this single-tenant box; do not expose `:9292` to untrusted
 networks without an auth layer (llama-swap supports API keys).
+
+**Resolved 2026-09-05 — HF token disclosure.** `GET /running` returns each model's fully
+expanded `docker run` line. While the config passed `-e HF_TOKEN=${env.HF_TOKEN}`, that
+echoed the token in plaintext to any unauthenticated caller on the LAN. The token env
+lines were removed from `gen_pairs_config.py` (130 lines out of the generated config);
+auth now comes from `/models/hf-cache/token`, inside the volume every model already
+mounts. See README → *HuggingFace auth*. `/running` was the only leaking route — `/logs`,
+`/v1/models`, `/health`, `/api/events` and `/ui` were checked and are clean.
+
+Note this closed the *disclosure*, not the exposure: `:9292` is still unauthenticated on
+the LAN, and the socket mount still makes it root-equivalent. Enabling llama-swap's API
+key remains worthwhile — it needs an `Authorization` header added to the three `curl`
+calls in `scripts/oncall-wakeup.sh` (lines 39, 79, 85) and to any client config.

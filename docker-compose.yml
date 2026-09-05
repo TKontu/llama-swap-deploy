@@ -23,7 +23,11 @@ services:
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - HF_TOKEN=${HF_TOKEN}
+      # HF_TOKEN is intentionally NOT injected. It was only ever here so that
+      # `${env.HF_TOKEN}` could be interpolated into each model's `docker run`
+      # line -- which llama-swap then echoed back, in plaintext, from GET /running.
+      # Model containers now read the token from /models/hf-cache/token inside the
+      # HF cache volume they already mount. See README -> "HuggingFace auth".
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /models/hf-cache:/root/.cache/huggingface
