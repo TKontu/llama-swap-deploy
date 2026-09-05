@@ -184,8 +184,48 @@ check when its architecture was merged against the fork's branch date.
 ## Security note
 
 Mounting `/var/run/docker.sock` grants the llama-swap container root-equivalent control of
-the host Docker. Acceptable on this single-tenant box; do not expose `:9292` to untrusted
-networks without an auth layer (llama-swap supports API keys).
+the host Docker. It is needed to spawn model containers: all 85 models launch via
+`docker run` (38 vLLM, 47 llama.cpp).
+
+### What an API caller can and cannot do
+
+**Cannot reach the socket.** It is mounted into the container and never proxied over HTTP.
+Over `:9292` a caller names a model ID and llama-swap runs the `cmd` string already baked
+into the image, so a caller selects *which* of 85 predefined commands runs, never *what* it
+runs. No value from an HTTP request reaches a docker command line.
+
+**The residual risk is indirect** -- a bug in llama-swap (injection via model name, path
+traversal, an admin route) would turn HTTP reach into host root; likewise the GHCR image
+supply chain, or uncommenting the `config.yaml` bind-mount in `docker-compose.yml`, which
+would make the spawn commands host-editable.
+
+### Accepted risk: `:9292` is unauthenticated
+
+Deliberate. Single-tenant box on a trusted LAN, and llama-swap's API key would need an
+`Authorization` header added to the three `curl` calls in `scripts/oncall-wakeup.sh`
+(lines 39, 79, 85) and to every client. **Network reachability is the compensating
+control**, so it has to be an actual firewall rule rather than a convention.
+
+### Hardening, ranked by value-per-effort
+
+1. **Firewall `:9292` to the consuming host's IP.** The compensating control for
+   accepting no auth; the one item that should not be skipped.
+2. **Expose only `/v1/*`** behind a reverse proxy -- block `/running`, `/ui`, `/logs`,
+   `/api/*`, `/metrics`. An OpenAI-compatible client needs only `/v1/models` and
+   `/v1/chat/completions`. Removes the information-disclosure surface, including the
+   route that leaked the HF token (see PR #20).
+3. **Rootless Docker** on this host -- the only option that actually removes
+   root-equivalence, since socket access would then yield an unprivileged user. Cost:
+   `nvidia-container-toolkit` with CDI; GPU passthrough is the fiddly part.
+4. **Socket-free instance for single-model consumers.** llama-swap's base image runs
+   `llama-server` as a child process with no socket at all. Baking the
+   `llamacpp-mainline` build into the image would let a second, minimal instance serve
+   one GGUF model on its own port with zero docker access, keeping this DooD instance
+   internal.
+5. ~~Docker socket proxy~~ -- **not a fix.** llama-swap needs `containers/create`, and
+   create-with-bind-mounts is itself root-equivalent (mount `/` into a container). It
+   blocks `exec` and image tampering only. Not worth doing except alongside rootless
+   Docker.
 
 **Resolved 2026-09-05 — HF token disclosure.** `GET /running` returns each model's fully
 expanded `docker run` line. While the config passed `-e HF_TOKEN=${env.HF_TOKEN}`, that
