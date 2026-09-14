@@ -28,15 +28,30 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## Candidate whole-box models — planned, not implemented (2026-09-14)
+
+Plan and sizing in `SPEC-bigmoe.md` §11. In recommended order:
+
+- [ ] **Qwen3-Coder-Next** (80B/3B, `llamacpp-mainline`, no §2 prerequisites). Decide between
+  `UD-Q4_K_S` (42.9 GiB, fully on GPU, thin margin) and `Q4_K_M` (45.2 GiB) with `n_cpu_moe` of
+  ~2–4, by measured tok/s. `Q4_K_M` does NOT fit fully on the GPUs.
+- [ ] **gpt-oss-120b** (117B/5.1B, MXFP4 59.0 GiB, ~15–18 GiB in RAM, `llamacpp-mainline`).
+  A/B the EAGLE3 drafter. `bigmoe=True` unless measured decode GPU util clears `IDLE_PCT`.
+- [ ] **Mistral Small 4** (119B/6.5B, UD-Q4_K_M 68.7 GiB + mmproj, ~23–25 GiB in RAM,
+  `llamacpp-mainline`). Verify the real context limit: the GGUF says 1M, the model is described as 256K.
+- [ ] **GLM-5.3-Flash** — blocked: `glm5next` is not in mainline llama.cpp (PRs #27752 / #27754
+  / #27773 / #27917 open). Revisit on merge, and re-download the GGUF from after the merge.
+  186.0 GiB at UD-Q4_K_XL: larger than P5's disk figure, and tight in a 200 GiB VM.
+
 ## DeepSeek-V4-Flash / bigmoe (2026-09-14)
 
-Implements `SPEC-bigmoe.md` (see its §10 for deviations from the draft). Two whole-box entries,
-`deepseek-v4-flash` (UD-Q4_K_XL) and `deepseek-v4-flash-q3` (UD-Q3_K_M), on a new
-`llamacpp-v4` image (same Dockerfile at `v0.4.0`). **22 -> 24 models.** Verified locally:
+Implements `SPEC-bigmoe.md` (see its §10 for deviations from the draft). One whole-box entry,
+`deepseek-v4-flash` (UD-Q4_K_XL), on a new `llamacpp-v4` image (same Dockerfile at `v0.4.0`).
+**22 -> 23 models.** Verified locally:
 
 - [x] `llama-swap -validate` (v255) passes. The routing test with dummy upstreams passes:
   a bigmoe request clears both cards; a card request evicts it.
-- [x] Config diff vs. the matrix-refactor output is purely additive (the two entries). The
+- [x] Config diff vs. the matrix-refactor output is purely additive (one entry). The
   `GGUF_ENV` refactor of `gen_config.py` leaves every existing entry byte-identical.
 - [x] `gguf-serve.sh` with stubbed `hf`/`llama-server`, under both bash-sh and **dash**:
   - a first-shard name fetches all N shards (including 00012, which a shell would misread as
@@ -69,7 +84,7 @@ Needs CI / the host:
   "is resident (BIGMOE_MODELS) — not evicting it" and fires no request.
 - [ ] Probe tool calling (DSML) and thinking control (`enable_thinking:false`,
   `reasoning_effort:max`).
-- [ ] Try `deepseek-v4-flash-q3` only if P2 slips.
+- [ ] Only if P2 slips: add a `UD-Q3_K_M` entry (119.3 GiB) as a capacity fallback.
 
 ## Matrix routing refactor (2026-09-14)
 

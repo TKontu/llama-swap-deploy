@@ -360,15 +360,6 @@ UNGROUPED_GGUF = [
          ctx=65536, par=1, split_mode="layer", tensor_split="1,1",
          n_cpu_moe=43, numa="distribute", threads=12, batch=4096, ubatch=1024,
          sampling=DEEPSEEK_V4_SAMPLING),
-    # Capacity fallback if the VM cannot get to 200 GiB (SPEC P2): 4 shards, 119.3 GiB. Q3 is
-    # genuinely lossy for this model — not a quality tier. Same drafter and tuning.
-    dict(tok="deepseek-v4-flash-q3", bigmoe=True, image=LLAMACPP_V4, cards=[CARD0, CARD2],
-         ttl=TTL_BIGMOE, repo="unsloth/DeepSeek-V4-Flash-0731-GGUF",
-         hf_file="UD-Q3_K_M/DeepSeek-V4-Flash-0731-UD-Q3_K_M-00001-of-00004.gguf",
-         draft="dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf", spec_type="draft-dspark", draft_max=3,
-         ctx=65536, par=1, split_mode="layer", tensor_split="1,1",
-         n_cpu_moe=43, numa="distribute", threads=12, batch=4096, ubatch=1024,
-         sampling=DEEPSEEK_V4_SAMPLING),
 ]
 
 # TRANSITIONAL compatibility aliases for callsigns of the old pairs config, frozen at its last
