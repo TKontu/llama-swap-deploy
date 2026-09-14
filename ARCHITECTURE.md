@@ -97,17 +97,24 @@ the CI rebuild, and Portainer re-pulls the new image.
   serves on host `:9292`. Simplest reliable wiring.
 - **GPU pinning by UUID.** Indices can reorder across reboots; UUIDs are stable.
 
-## Concurrency model (llama-swap `groups`)
+## Concurrency model (llama-swap `matrix` router)
 
-llama-swap decides what runs together via **groups** (default engine) or the newer
-**matrix** DSL. We use groups:
+llama-swap decides what runs together via **groups** (default engine) or the **matrix**
+router. We use the matrix router, because the layout is "each 3090 is an independent slot",
+and groups cannot express that without enumerating every pair of models.
 
-- `swap: false` → members of the group stay loaded **together**.
-- `exclusive: false` → loading a member does **not** unload other groups.
-- `persistent: true` → other groups can **never** evict this group.
+- Every single-card model is defined **once per 3090**: `c0.<model>` and `c2.<model>`.
+- One matrix set, `(any c0 model) & (any c2 model)`, allows every combination, including
+  the same model on both cards. Subsets are implied, so one card alone is also fine.
+- When a model is requested, the solver evicts the running models outside the cheapest set
+  that contains it. With disjoint card slots that is exactly the other model on the same
+  card, so **a request never disturbs the other card**.
+- Models that need both cards (TP=2 vLLM, `-sm layer` GGUF splits) are in **no set**, which
+  llama-swap defines as "can only run alone".
 
-The co-load set (`35B` + a small model) is one such group. Everything else can be an
-on-demand model that swaps normally, or its own group.
+History: this replaced ~35 generated `pairNN` groups (`swap: false, exclusive: true`), which
+could only co-load pre-enumerated pairs in a fixed card orientation and evicted both cards on
+every switch. The old callsigns remain as aliases for now (README → "Legacy callsigns").
 
 ## GPU / VRAM placement strategy (manual, explicit)
 
@@ -164,14 +171,15 @@ check when its architecture was merged against the fork's branch date.
 ## Request lifecycle
 
 1. Client → `POST /v1/chat/completions` to llama-swap `:9292` with `"model": "<id>"`.
-2. llama-swap checks if `<id>`'s upstream is running; if not (and the group allows), it
-   runs the model's `cmd`, waits for `checkEndpoint` (`/health`) to return 200.
+2. llama-swap resolves an alias to its real model ID, and checks if that upstream is running;
+   if not, the matrix solver evicts whatever conflicts, then it runs the model's `cmd` and
+   waits for `checkEndpoint` (`/health`) to return 200.
 3. Request is proxied to `proxy` (`http://127.0.0.1:<PORT>`), response streamed back.
 4. `ttl` unloads idle models — seconds since the last request finished, per model:
-   5 h for pool/pair members, 10 h for the TP=2 solos (`TTL`/`TTL_SOLO` in
-   `gen_pairs_config.py`). Long on purpose: cold starts run minutes, and because every
-   group is `exclusive`, requesting another pair evicts the resident one immediately
-   regardless of TTL. `cmdStop` (`docker stop ${MODEL_ID}`) tears down cleanly.
+   5 h for per-card pool entries, 10 h for the TP=2 solos (`TTL`/`TTL_SOLO` in
+   `gen_config.py`). Long on purpose: cold starts run minutes, and a request for another
+   model on the same card evicts the resident one immediately regardless of TTL.
+   `cmdStop` (`docker stop ${MODEL_ID}`) tears down cleanly.
 
 ## Known issues llama-swap does NOT fix (set expectations)
 
@@ -184,8 +192,8 @@ check when its architecture was merged against the fork's branch date.
 ## Security note
 
 Mounting `/var/run/docker.sock` grants the llama-swap container root-equivalent control of
-the host Docker. It is needed to spawn model containers: all 85 models launch via
-`docker run` (38 vLLM, 47 llama.cpp).
+the host Docker. It is needed to spawn model containers: all 22 models launch via
+`docker run` (10 vLLM, 12 llama.cpp).
 
 ### What an API caller can and cannot do
 
@@ -203,7 +211,7 @@ would make the spawn commands host-editable.
 
 Deliberate. Single-tenant box on a trusted LAN, and llama-swap's API key would need an
 `Authorization` header added to the three `curl` calls in `scripts/oncall-wakeup.sh`
-(lines 39, 79, 85) and to every client. **Network reachability is the compensating
+(lines 44, 84, 90) and to every client. **Network reachability is the compensating
 control**, so it has to be an actual firewall rule rather than a convention.
 
 ### Hardening, ranked by value-per-effort
@@ -230,7 +238,7 @@ control**, so it has to be an actual firewall rule rather than a convention.
 **Resolved 2026-09-05 — HF token disclosure.** `GET /running` returns each model's fully
 expanded `docker run` line. While the config passed `-e HF_TOKEN=${env.HF_TOKEN}`, that
 echoed the token in plaintext to any unauthenticated caller on the LAN. The token env
-lines were removed from `gen_pairs_config.py` (130 lines out of the generated config);
+lines were removed from `gen_config.py` (130 lines out of the generated config);
 auth now comes from `/models/hf-cache/token`, inside the volume every model already
 mounts. See README → *HuggingFace auth*. `/running` was the only leaking route — `/logs`,
 `/v1/models`, `/health`, `/api/events` and `/ui` were checked and are clean.
@@ -238,4 +246,4 @@ mounts. See README → *HuggingFace auth*. `/running` was the only leaking route
 Note this closed the *disclosure*, not the exposure: `:9292` is still unauthenticated on
 the LAN, and the socket mount still makes it root-equivalent. Enabling llama-swap's API
 key remains worthwhile — it needs an `Authorization` header added to the three `curl`
-calls in `scripts/oncall-wakeup.sh` (lines 39, 79, 85) and to any client config.
+calls in `scripts/oncall-wakeup.sh` (lines 44, 84, 90) and to any client config.

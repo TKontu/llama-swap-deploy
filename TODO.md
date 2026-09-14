@@ -28,6 +28,39 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## Matrix routing refactor (2026-09-14)
+
+`pairNN` groups replaced by per-card entries (`c0.<model>`, `c2.<model>`) and one matrix set.
+**85 -> 22 models, 36 groups -> 1 set.** Verified locally before merge:
+
+- [x] `llama-swap -validate` (v255) accepts the config; a set naming an unknown model is
+  rejected (negative control).
+- [x] Every one of the 85 old IDs resolves (model or alias) to an entry whose `cmd`, `ttl`,
+  `filters`, `proxy` etc. are identical — except the five card-0 `pairNN.muse-glimmer` aliases,
+  which now share `c0.muse-glimmer`'s `ttl: 0` (intended: one on-call entry per card).
+- [x] End-to-end on v255 with dummy upstreams: an alias rewrites the upstream `model` to the
+  vLLM served name; a card request leaves the other card loaded; the same model runs on both
+  cards; a whole-box model clears both and is evicted by a card request; `/v1/models` lists
+  the aliases; `/running` reports real IDs (hence `ONCALL_MODEL=c0.muse-glimmer`).
+
+Needs the host:
+
+- [ ] **Check the deployed llama-swap version is >= v243** (full model IDs in matrix sets).
+  The image is `unified-cuda` rolling; TODO above records v249, so re-pulling is enough.
+- [ ] **Restart llama-swap** and confirm `/v1/models` shows 22 models + 81 aliases (103 ids).
+- [ ] **`c2.gemma-26b` is new** — gemma-26b was always an anchor, so it never ran on 3090 #2.
+  The cards are identical, but cold-start it once and check the ~21.9 GiB fit.
+- [ ] Co-load two heavy models across cards (e.g. `c0.muse-glimmer` + `c2.qwen3.8-27b`), then
+  request `c2.gemma-26b` and confirm card 0 stays loaded and only card 2 swaps.
+- [ ] Same model on both cards: `c0.qwen3.5-4b` + `c2.qwen3.5-4b` — replaces `x2extract`.
+- [ ] Whole-box: with both cards loaded, request `Qwen3.8-27B-split`; confirm both `docker stop`
+  before it starts (no OOM from a straggler), then request a `c0.` model and confirm it evicts.
+- [ ] On-call: `IDLE_SECONDS=120`, confirm the wakeup loads `c0.muse-glimmer`, a card-2 model
+  stays loaded, and the next poll logs "already resident" (proves the real-ID grep matches).
+- [ ] **Consumers**: move from `pairNN.<model>` / `x2extract.*` / bare names to `c0.`/`c2.` IDs.
+  Anything that split callsigns on the first `.` to get a pair id now gets a card label.
+  Then delete `LEGACY_PAIRS`, `LEGACY_X2EXTRACT` and `includeAliasesInList` from `gen_config.py`.
+
 ## Sampling + reasoning defaults on the llama.cpp entries (added 2026-08-14)
 
 - [ ] **Muse-Glimmer has been serving on the wrong sampling since 2026-08-12.** llama.cpp does
