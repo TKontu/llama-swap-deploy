@@ -1,0 +1,221 @@
+# SPEC: hybrid CPU/GPU MoE backend (`bigmoe`)
+
+Status: implemented in config (2026-09-14) — host prerequisites and §8 acceptance pending.
+See §10 for where the implementation deviates from this draft.
+Target repo: `TKontu/llama-swap-deploy`
+First model: DeepSeek-V4-Flash (284B total / 13B active, native MXFP4 experts)
+
+---
+
+## 1. Purpose
+
+Add a model class the current deployment has never had: a model whose **weights do not
+fit in VRAM at all**, and which runs with routed experts resident in host RAM while
+attention, shared experts and KV stay on the 3090s.
+
+Every existing entry — `qwen3.8-27b`, `muse-glimmer`, the `pairNN.` co-loads, the vLLM
+models — is sized against a 24 GiB or 48 GiB *VRAM* budget. This one is sized against a
+~200 GiB *host RAM* budget. That is a second, orthogonal resource that llama-swap does
+not model, and most of this spec is about making that safe rather than about the model.
+
+## 2. Prerequisites
+
+| # | Item | Owner | Blocking? |
+|---|------|-------|-----------|
+| P1 | TrueNAS stays on the Dell; not migrated to this host | done | — |
+| P2 | Inference VM RAM raised 128 GiB → 200 GiB, fixed, ballooning off | Proxmox | yes |
+| P3 | BIOS memory interleave set to **NPS1** | BMC | yes |
+| P4 | `kernel.numa_balancing=0` on the inference VM | host | yes |
+| P5 | ≥180 GiB free on `/models` (NVMe) for weights | host | yes |
+| P6 | llama.cpp build with DeepSeek-V4 support (see §3) | CI | yes |
+
+P3/P4 are not optional polish. With ~150 GiB of expert tensors spread across all eight
+channels, the kernel migrating pages mid-decode is a measurable and repeatable loss.
+
+## 3. Backend image
+
+DeepSeek-V4 support landed after the pinned `LLAMACPP_TAG=b10362`. Community quants state
+they require the `wip/deepseek-v4-support` branch (PR #22378) or later.
+
+**Decision: build a third image, `llamacpp-v4`. Do not bump `Dockerfile.llamacpp`.**
+
+Rationale follows the `bonsai` precedent already in the repo: `b10362` is load-bearing for
+`muse-glimmer` (its dedicated ATEM chat format lives in that build) and for `qwen3.8-27b`.
+Bumping the shared tag to get one new model puts two working, tool-calling models at risk
+of a silent template or sampler regression. A separate pin costs one workflow file and
+~10 minutes of CUDA compile.
+
+```
+Dockerfile.v4                      # ARG LLAMACPP_V4_TAG, sm_86, ships docker/gguf-serve.sh
+.github/workflows/v4-image.yml     # → ghcr.io/<owner>/llamacpp-v4:latest
+```
+
+Reuses `docker/gguf-serve.sh` unchanged except for §4. Three images is the ceiling — if a
+fourth is ever needed, that is the signal to make the tag a build matrix instead.
+
+## 4. `gguf-serve.sh` additions
+
+New env vars, all optional and inert when unset, so the shared entrypoint stays valid for
+the bonsai and mainline images:
+
+```sh
+# MoE CPU offload
+GGUF_N_CPU_MOE       # int  → --n-cpu-moe N
+GGUF_OT              # str  → -ot <regex>   (escape hatch; mutually exclusive with above)
+GGUF_NUMA            # str  → --numa distribute
+GGUF_THREADS         # int  → --threads / --threads-batch
+GGUF_BATCH           # int  → -b
+GGUF_UBATCH          # int  → -ub
+```
+
+Rules:
+
+- `--mlock` is **never** set. The GGUF is mmap'd; page cache must stay reclaimable or an
+  eviction under memory pressure becomes an OOM kill instead of a slow reload.
+- If both `GGUF_N_CPU_MOE` and `GGUF_OT` are set, fail fast at entrypoint rather than
+  letting llama-server pick. Silent precedence is how the KV-sizing bugs happened before.
+
+## 5. Model entries
+
+Both entries own **both 3090s and the RAM reservation**. They therefore live in
+`UNGROUPED_GGUF`, not `POOL` — same reasoning as `Muse-Glimmer-30B-split`: a model that
+owns both cards cannot be half of a co-load pair by construction.
+
+| Model ID | Quant | On disk | Context | Notes |
+|----------|-------|---------|---------|-------|
+| `deepseek-v4-flash` | `UD-Q4_K_XL` | ~161 GB | 65536, 1 slot | default |
+| `deepseek-v4-flash-q3` | `Q3_K_M` | ~125 GB | 65536, 1 slot | fallback if P2 slips |
+
+Quant rationale: the routed experts are ~96% of the model and ship **natively MXFP4**.
+A Q8 build (~162 GB lossless) buys essentially nothing over 4-bit — the experts were never
+more than ~4 bits — while doubling the per-token read that decode speed is bound by. Do
+not go above Q4-class here. Q3 and below are genuinely lossy for this model; treat the Q3
+entry as a capacity fallback, not a quality tier.
+
+Context: V4-Flash's CSA+HCA stack costs roughly a tenth of V3.2's KV at 1M. 64k in one
+slot is the starting point; raise it only after §8 baselines exist, since the constraint
+here is weights, not context.
+
+DSpark speculative decoding is enabled for the GGUFs and is reported at 1.5–1.9×. Wire it
+through the existing `GGUF_DRAFT` path (the bonsai entry already does exactly this with
+its `*dspark-Q4_1*` drafter) and A/B it in §8 rather than assuming it.
+
+### Config sketch
+
+```yaml
+  "deepseek-v4-flash":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --gpus '"device=GPU-a8c640ca-...,GPU-094f1ca3-..."'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -e GGUF_N_CPU_MOE=48
+      -e GGUF_NUMA=distribute
+      -e GGUF_THREADS=12
+      -e GGUF_BATCH=4096 -e GGUF_UBATCH=1024
+      -p ${PORT}:8000
+      ghcr.io/<owner>/llamacpp-v4:latest
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 28800
+```
+
+`-b 4096 / -ub 1024` rather than the 2048/512 defaults: those defaults are tuned for pure
+GPU inference, and below the op-offload threshold llama.cpp does prefill for the
+CPU-assigned weights **on the CPU** — 12 Zen 2 cores, which is the worst path available
+here. Bigger batches keep prefill on the 3090s.
+
+`--n-cpu-moe` is the tuning knob, not `-ot`. Start at "all experts on CPU", then walk N
+down until VRAM lands at ~44/48 GiB across the pair.
+
+`ttl: 28800` (8 h). Cold load is disk-bound at ~160 GB off NVMe; this should not be
+casually evicted.
+
+## 6. Eviction and the on-call poller — **required change**
+
+This is the part that breaks if it ships as-is.
+
+`scripts/oncall-wakeup.sh` polls `/metrics`, and when **both 3090s** sit below `IDLE_PCT`
+for `IDLE_SECONDS` it fires a 1-token request at `muse-glimmer`, evicting whatever is
+loaded.
+
+Two failure modes against this model:
+
+1. **GPU utilisation is not an idle signal for a CPU-offload model.** During decode, the
+   3090s hold only attention, shared experts and KV — they are mostly *waiting on RAM*.
+   The cards will read as idle while the model is actively generating. The poller will
+   evict a running inference.
+2. Even when genuinely idle, the trade is bad: it discards a ~160 GB load that took a
+   minute to fault in, to restore a 17 GB standby.
+
+**Fix (do this in the same PR as the model entry, not after):** the poller must consult
+`/running` before firing, and skip the wakeup entirely if the loaded model is in a
+`BIGMOE_MODELS` set. Add the set as a service env var alongside `ONCALL_MODEL`.
+
+Keep the group `exclusive: true` and **not** `persistent` — the existing warning applies
+unchanged, and more sharply, since this one holds both cards *and* the RAM.
+
+## 7. Things this spec explicitly does not do
+
+- **No vLLM path.** V4-Flash needs vLLM 0.20.0+ and ~284 GB for an FP8-only conversion.
+  Not reachable on this box. llama.cpp is the only backend.
+- **No `POOL` membership, no `pairNN.` pairs.** Nothing co-loads with this.
+- **No on-call role.** `muse-glimmer` stays the standby.
+- **No RAM admission control in llama-swap.** Out of scope; §6 exclusivity plus one big
+  model at a time is the mitigation. Revisit only if a second RAM-resident model appears.
+
+## 8. Acceptance criteria
+
+Baselines measured on a cold box, recorded in `TODO.md` next to the existing numbers:
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Decode, single stream | ≥ 8 tok/s | ~7 GB read/token at 4-bit vs ~100–130 GB/s real DDR4 bandwidth puts the ceiling near 14–18 |
+| Decode with DSpark | ≥ 1.4× the above | else drop the drafter and reclaim its VRAM |
+| Prefill, 8k prompt | ≥ 100 tok/s | if far below, `-b`/`-ub` are too small and prefill fell to the CPU |
+| Peak VRAM | ≤ 44 GiB across both cards | tuned via `--n-cpu-moe` |
+| Peak container RSS | ≤ 180 GiB | leaves headroom in the 200 GiB VM |
+| Warm load | ≤ 90 s | cold load will be worse; record both |
+| Evict → `muse-glimmer` ready | ≤ 60 s | confirms §6 didn't regress on-call |
+
+Note the measured bandwidth assumption: the 3945WX has four CCDs, so expect ~100–130 GB/s
+in practice, not the ~204 GB/s the eight channels imply. If STREAM comes back materially
+below 100 GB/s, P3/P4 were not applied — fix that before tuning anything else.
+
+## 9. Rollback
+
+Each piece reverts independently, which is the point of the three-image split:
+
+1. Remove the two entries from `UNGROUPED_GGUF`, regenerate `config.yaml`, push.
+2. Poller change is additive and safe to leave in place (no-op when the set is empty).
+3. `llamacpp-v4` image and workflow can sit unused; nothing else references them.
+4. Weights stay on `/models`; deleting them is a separate, deliberate step.
+
+No existing model's image tag, config, or VRAM budget is touched by this change.
+
+## 10. Implementation notes (2026-09-14)
+
+What shipped, and where it differs from the draft above. The draft text is kept unchanged so
+the original reasoning stays readable.
+
+| § | Draft | Implemented | Why |
+|---|-------|-------------|-----|
+| 3 | Needs `wip/deepseek-v4-support` (PR #22378); new `Dockerfile.v4` + `v4-image.yml` | `llamacpp-v4` image = the **same** `Dockerfile.llamacpp` at `LLAMACPP_TAG=v0.4.0`, a second row in the `llamacpp-image` workflow matrix | #22378 closed unmerged; V4 landed in mainline as #24162 (2026-06-29) and V4 DSpark as #25784 (2026-08-02). `b10362` already loads both, but `v0.4.0` adds CUDA sparse FA for DSV4 (#27970). The separate pin keeps the draft's point (don't move Muse/Qwen3.8 off `b10362`) without a copied Dockerfile. |
+| 4 | Six `GGUF_*` env vars | As drafted, plus **split-shard download**: `GGUF_FILE` names the first shard and every shard is fetched | Both quants are multi-file (`UD-Q4_K_XL` 5 shards, `UD-Q3_K_M` 4) in a repo subdirectory. Fetching only the named file leaves shard 1 of N. |
+| 4 | — | `GGUF_DRAFT_MAX` now maps to `--spec-draft-n-max` | `v0.4.0` turned `--draft-max` into a hard "argument has been removed" error. `b10362` already accepts the new name. |
+| 5 | `unsloth/DeepSeek-V4-Flash-GGUF`, `UD-Q4_K_XL` ~161 GB, `Q3_K_M` ~125 GB | `unsloth/DeepSeek-V4-Flash-0731-GGUF`, `UD-Q4_K_XL` 144.4 GiB, `UD-Q3_K_M` 119.3 GiB | The original repo ships **no** DSpark drafter; the 0731 checkpoint does (`dspark-…-Q8_0.gguf`, 10.1 GiB). |
+| 5 | DSpark via `GGUF_DRAFT` "like bonsai" | `spec_type=draft-dspark`, `draft_max=3`, drafter on the GPUs (`-ngld 99`) | Bonsai uses its own entrypoint. Drafter metadata read from the GGUF header: `general.architecture=dflash`, `dflash.block_size=5`, `target_layers=[41,42,43]`. `v0.4.0` clamps an oversize draft instead of asserting. The drafter's 10.1 GiB counts against the §8 VRAM budget. |
+| 5 | Sketch: `-p ${PORT}:8000`, `--n-cpu-moe 48` | Generated by `gen_config.py` (`UNGROUPED_GGUF`, `bigmoe=True`), port 8080, `n_cpu_moe=43` | gguf-serve listens on 8080. 43 = `deepseek4.block_count`, i.e. all experts in RAM — the "start at all experts on CPU" the draft asks for. A hand-written YAML entry would be deleted on the next regeneration. |
+| 5 | — | Sampling `--temp 1.0 --top-p 1.0 --min-p 0.01` | Model card + unsloth's llama.cpp commands. Thinking left at the template default (High). |
+| 6 | `BIGMOE_MODELS` skip | As drafted, plus: skip when `/running` is unreadable (fail closed), fixed-string ID match | IDs contain dots. `gen_config.py` refuses to generate if `BIGMOE_MODELS` in `docker-compose.yml` differs from the `bigmoe=True` entries. |
+| 5/7 | Groups `exclusive: true` | Matrix router: the entries are in no set, so they run alone | The config moved to the matrix router (PR #22). Same eviction semantics. |
+
+Open questions carried to TODO.md, not resolved by the implementation:
+
+- **P3/P4 may be no-ops.** A single-socket 3945WX at NPS1 is one NUMA node, and page migration
+  happens *between* nodes, so `--numa distribute` and `numa_balancing=0` should change little.
+  Measure before treating them as the explanation for a low STREAM result.
+- **CCD count.** The 3945WX (12 cores) is likely two CCDs, not the four §8 assumes; if so, the §8 bandwidth
+  expectation (~100–130 GB/s) is optimistic. Check STREAM first.
+- **Tool calling.** DSML parsing for DeepSeek has open upstream fixes (#28612, V3.2). Add a
+  tool-call probe to §8.
+

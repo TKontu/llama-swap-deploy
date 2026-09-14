@@ -67,6 +67,9 @@ services:
       - LLAMASWAP_URL=http://127.0.0.1:9292
       # Real model ID, not an alias — the poller matches it against /running.
       - ONCALL_MODEL=c0.muse-glimmer
+      # Never evict these, whatever the GPUs read: a RAM-offload MoE looks idle on the cards
+      # while it decodes. Must match the bigmoe=True entries — gen_config.py enforces it.
+      - BIGMOE_MODELS=deepseek-v4-flash,deepseek-v4-flash-q3
       # Both 3090s must sit below IDLE_PCT for this long before the model is woken.
       # This becomes the effective replacement delay for an idle model, so it is
       # deliberately long — the 5 h / 10 h TTLs still govern unloading.

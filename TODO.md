@@ -28,6 +28,49 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## DeepSeek-V4-Flash / bigmoe (2026-09-14)
+
+Implements `SPEC-bigmoe.md` (see its §10 for deviations from the draft). Two whole-box entries,
+`deepseek-v4-flash` (UD-Q4_K_XL) and `deepseek-v4-flash-q3` (UD-Q3_K_M), on a new
+`llamacpp-v4` image (same Dockerfile at `v0.4.0`). **22 -> 24 models.** Verified locally:
+
+- [x] `llama-swap -validate` (v255) passes. The routing test with dummy upstreams passes:
+  a bigmoe request clears both cards; a card request evicts it.
+- [x] Config diff vs. the matrix-refactor output is purely additive (the two entries). The
+  `GGUF_ENV` refactor of `gen_config.py` leaves every existing entry byte-identical.
+- [x] `gguf-serve.sh` with stubbed `hf`/`llama-server`, under both bash-sh and **dash**:
+  - a first-shard name fetches all N shards (including 00012, which a shell would misread as
+    octal); a cached re-run fetches nothing
+  - `GGUF_N_CPU_MOE` + `GGUF_OT` exits 1; a glob-laden `-ot` regex passes through literally
+  - a plain single-file entry produces the same argv as before
+- [x] `oncall-wakeup.sh` under dash against a fake llama-swap, all 7 cases pass:
+  - no wake while either bigmoe ID is resident, or while `/running` is down
+  - still wakes when only card models are loaded; "already resident" still works
+  - `c0Xmuse-glimmer` does not match `c0.muse-glimmer`
+
+Needs CI / the host:
+
+- [ ] **CI builds `llamacpp-v4` at `v0.4.0`.** The CMake layout matches `b10362` (same
+  `llama-server` target, `build/bin` output, UI now OFF by default), but it has not been
+  compiled. This PR changes `gguf-serve.sh`, so it also rebuilds `llamacpp-mainline` and
+  `bonsai-llama` — same binaries, new entrypoint.
+- [ ] **Spec prerequisites P2–P5**: VM RAM 200 GiB fixed / ballooning off, BIOS NPS1,
+  `kernel.numa_balancing=0`, >=180 GiB free on `/models`. P3/P4 may be no-ops on one NUMA node
+  (SPEC §10) — measure rather than assume.
+- [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF (README → DeepSeek-V4-Flash).
+- [ ] Cold start `deepseek-v4-flash`. Confirm the log shows `deepseek4`, the DSpark block size
+  of 5, **sparse FA** enabled, and experts on CPU. Record VRAM per card and container RSS.
+- [ ] **Walk `n_cpu_moe` down from 43** until ~44 GiB VRAM total; rebalance `tensor_split`,
+  because the GPU expert layers land on card 2 first.
+- [ ] SPEC §8 baselines on a cold box: decode (>=8 tok/s), decode with DSpark (>=1.4x, else drop
+  the drafter and reclaim 10 GiB), 8k prefill (>=100 tok/s), peak VRAM/RSS, warm/cold load,
+  and evict -> `c0.muse-glimmer` ready (<=60 s).
+- [ ] On-call: with `deepseek-v4-flash` resident and idle GPUs, confirm the poller logs
+  "is resident (BIGMOE_MODELS) — not evicting it" and fires no request.
+- [ ] Probe tool calling (DSML) and thinking control (`enable_thinking:false`,
+  `reasoning_effort:max`).
+- [ ] Try `deepseek-v4-flash-q3` only if P2 slips.
+
 ## Matrix routing refactor (2026-09-14)
 
 `pairNN` groups replaced by per-card entries (`c0.<model>`, `c2.<model>`) and one matrix set.

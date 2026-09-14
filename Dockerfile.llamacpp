@@ -1,4 +1,6 @@
 # Mainline llama.cpp image (pinned build) for GGUF models the PrismML fork can't load.
+# CI builds this file once per pin (.github/workflows/llamacpp-image.yml): b10362 as
+# llamacpp-mainline, v0.4.0 as llamacpp-v4. The ARG default below is the mainline pin.
 #
 # Why this exists ALONGSIDE Dockerfile.bonsai: the bonsai image builds PrismML's `prism`
 # fork, which carries the Q2_0_g128 ternary kernels Ternary-Bonsai-27B needs but that
@@ -6,7 +8,7 @@
 # architectures — Muse-Glimmer-30B landed in mainline on 2026-08-10 (ggml-org/llama.cpp
 # #26841) and needs build b10353+. Neither image can serve both models, hence two.
 #
-# Pin LLAMACPP_TAG to a build tag, never a rolling one — same policy as the vLLM image
+# Pin LLAMACPP_TAG to a build or release tag, never a rolling one — same policy as the vLLM image
 # (vllm/vllm-openai:v0.26.0). The official ghcr.io/ggml-org/llama.cpp:server-cuda package
 # only publishes a rolling tag for recent builds, which is why we compile instead.
 #
@@ -39,9 +41,11 @@ WORKDIR /src
 # path. That failure is nasty because it is PARTIAL: plain generation worked fine for
 # days and only the DFlash speculative path crashed, so it looked like a model/flag bug.
 # The official .devops/cuda.Dockerfile passes GGML_NATIVE=OFF for the same reason.
-# (Upstream also adds GGML_BACKEND_DL + GGML_CPU_ALL_VARIANTS for runtime CPU dispatch;
-# not needed here since -ngl 99 keeps everything on the GPU, so a baseline CPU build
-# costs nothing measurable.)
+# With GGML_NATIVE=OFF, ggml's INS_ENB default still compiles AVX/AVX2/BMI2/FMA/F16C (not
+# AVX-512), which matches this box's Zen 2 CPU. That matters for DeepSeek-V4-Flash, whose
+# experts run on the CPU (--n-cpu-moe); every other model keeps -ngl 99 on the GPU.
+# (Upstream adds GGML_BACKEND_DL + GGML_CPU_ALL_VARIANTS for runtime CPU dispatch; on Zen 2
+# it would select the same AVX2 path.)
 RUN export LIBRARY_PATH="/usr/local/cuda/lib64/stubs${LIBRARY_PATH:+:$LIBRARY_PATH}" \
  && cmake -B build -G Ninja \
       -DGGML_NATIVE=OFF \

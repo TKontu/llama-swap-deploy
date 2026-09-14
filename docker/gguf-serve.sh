@@ -4,6 +4,9 @@
 # HTTPS + gated repos + Xet), then serve the LOCAL files with llama-server. Driven by env:
 #   GGUF_REPO   (required)  e.g. empero-ai/Qwythos-9B-v2-GGUF
 #   GGUF_FILE   (required)  e.g. Qwythos-9B-v2-Q4_K_M.gguf
+#               May include a repo subdirectory. A split model is named by its FIRST shard
+#               (e.g. UD-Q4_K_XL/Model-UD-Q4_K_XL-00001-of-00005.gguf): every shard is
+#               fetched, and llama-server loads the rest from the same directory.
 #   GGUF_CTX    (optional, default 32768)  PER-SLOT context
 #   GGUF_PARALLEL (optional, default 1)    concurrent request slots
 #   GGUF_PORT   (optional, default 8080)
@@ -11,10 +14,20 @@
 #   GGUF_MMPROJ       vision projector filename in the same repo   -> --mmproj
 #   GGUF_DRAFT        speculative drafter filename in same repo    -> -md ... -ngld 99
 #   GGUF_SPEC_TYPE    speculative implementation                   -> --spec-type
-#   GGUF_DRAFT_MAX    draft tokens per step                        -> --draft-max
+#   GGUF_DRAFT_MAX    draft tokens per step                        -> --spec-draft-n-max
 #   GGUF_SPLIT_MODE   layer|row|none, for multi-GPU                -> -sm
 #   GGUF_TENSOR_SPLIT proportion per GPU, e.g. "1,1"               -> -ts
 #   GGUF_CACHE_TYPE   KV cache quant, e.g. q8_0                    -> --cache-type-k/-v
+# MoE CPU offload (for models whose weights do not fit in VRAM — see SPEC-bigmoe.md):
+#   GGUF_N_CPU_MOE    keep the experts of the first N layers in RAM -> --n-cpu-moe
+#   GGUF_OT           tensor buffer override regex (escape hatch)   -> -ot
+#                     GGUF_N_CPU_MOE and GGUF_OT are mutually exclusive; setting both fails.
+#   GGUF_NUMA         NUMA strategy, e.g. distribute                -> --numa
+#   GGUF_THREADS      CPU threads for decode AND batch              -> -t / -tb
+#   GGUF_BATCH        logical batch size                            -> -b
+#   GGUF_UBATCH       physical batch size                           -> -ub
+# --mlock is deliberately never passed: weights stay mmap'd so the page cache remains
+# reclaimable, and memory pressure means a slow reload rather than an OOM kill.
 # llama-server's -c is the TOTAL KV cache, split evenly across --parallel slots, so
 # we pass ctx*parallel to give each slot the full GGUF_CTX. Unlike vLLM there is no
 # paging or preemption here: KV VRAM scales linearly with GGUF_PARALLEL.
@@ -23,14 +36,39 @@ set -e
 
 : "${GGUF_REPO:?set GGUF_REPO}"
 : "${GGUF_FILE:?set GGUF_FILE}"
+# Two ways of placing experts: letting llama-server pick one silently is how a VRAM budget
+# ends up wrong with nothing in the log to say why.
+if [ -n "$GGUF_N_CPU_MOE" ] && [ -n "$GGUF_OT" ]; then
+    echo "gguf-serve: GGUF_N_CPU_MOE and GGUF_OT are mutually exclusive — set one" >&2
+    exit 1
+fi
 BASE="${GGUF_DIR:-/root/.cache/huggingface/gguf}"
 DIR="$BASE/$(echo "$GGUF_REPO" | tr '/' '_')"
 mkdir -p "$DIR"
 
+# Expand a first-shard name into every shard. Fetching only the named file would leave
+# llama-server with shard 1 of N and a load failure.
+MODEL_FILES="$GGUF_FILE"
+case "$GGUF_FILE" in
+    *-00001-of-[0-9][0-9][0-9][0-9][0-9].gguf)
+        stem="${GGUF_FILE%-00001-of-*}"
+        total="${GGUF_FILE##*-of-}"
+        total="${total%.gguf}"
+        n="$(echo "$total" | sed 's/^0*//')"
+        MODEL_FILES=""
+        i=1
+        while [ "$i" -le "$n" ]; do
+            MODEL_FILES="$MODEL_FILES $(printf '%s-%05d-of-%s.gguf' "$stem" "$i" "$total")"
+            i=$((i + 1))
+        done
+        ;;
+esac
+
 # Fetch each requested file once. Naming files explicitly (rather than --include) is
 # deliberate: hf's --include is ignored when positional names are present, which has
 # silently skipped the main model before — see docker/bonsai-serve.sh.
-for f in "$GGUF_FILE" "$GGUF_MMPROJ" "$GGUF_DRAFT"; do
+# shellcheck disable=SC2086
+for f in $MODEL_FILES "$GGUF_MMPROJ" "$GGUF_DRAFT"; do
     [ -n "$f" ] || continue
     if [ ! -f "$DIR/$f" ]; then
         echo "gguf-serve: downloading $GGUF_REPO :: $f -> $DIR"
@@ -59,11 +97,14 @@ SPEC=""
 if [ -n "$GGUF_DRAFT" ]; then
     SPEC="-md $DIR/$GGUF_DRAFT -ngld 99"
     [ -n "$GGUF_SPEC_TYPE" ] && SPEC="$SPEC --spec-type $GGUF_SPEC_TYPE"
-    [ -n "$GGUF_DRAFT_MAX" ] && SPEC="$SPEC --draft-max $GGUF_DRAFT_MAX"
+    # --spec-draft-n-max, not --draft-max: newer llama.cpp (v0.4.0) turned --draft-max into
+    # a hard "argument has been removed" error. b10362 already accepts the new name.
+    [ -n "$GGUF_DRAFT_MAX" ] && SPEC="$SPEC --spec-draft-n-max $GGUF_DRAFT_MAX"
 fi
 
 echo "gguf-serve: llama-server -m $DIR/$GGUF_FILE (ctx ${CTX}/slot x ${NP} slots = ${TOTAL_CTX} total, port ${GGUF_PORT:-8080})"
 echo "gguf-serve: mmproj=${GGUF_MMPROJ:-none} draft=${GGUF_DRAFT:-none} spec=${GGUF_SPEC_TYPE:-default} split=${GGUF_SPLIT_MODE:-single} ts=${GGUF_TENSOR_SPLIT:-auto} kv=${GGUF_CACHE_TYPE:-f16}"
+echo "gguf-serve: n_cpu_moe=${GGUF_N_CPU_MOE:-none} ot=${GGUF_OT:-none} numa=${GGUF_NUMA:-none} threads=${GGUF_THREADS:-auto} batch=${GGUF_BATCH:-default} ubatch=${GGUF_UBATCH:-default}"
 
 # shellcheck disable=SC2086
 exec llama-server -m "$DIR/$GGUF_FILE" \
@@ -73,5 +114,11 @@ exec llama-server -m "$DIR/$GGUF_FILE" \
     ${GGUF_SPLIT_MODE:+-sm "$GGUF_SPLIT_MODE"} \
     ${GGUF_TENSOR_SPLIT:+-ts "$GGUF_TENSOR_SPLIT"} \
     ${GGUF_CACHE_TYPE:+--cache-type-k "$GGUF_CACHE_TYPE" --cache-type-v "$GGUF_CACHE_TYPE"} \
+    ${GGUF_N_CPU_MOE:+--n-cpu-moe "$GGUF_N_CPU_MOE"} \
+    ${GGUF_OT:+-ot "$GGUF_OT"} \
+    ${GGUF_NUMA:+--numa "$GGUF_NUMA"} \
+    ${GGUF_THREADS:+-t "$GGUF_THREADS" -tb "$GGUF_THREADS"} \
+    ${GGUF_BATCH:+-b "$GGUF_BATCH"} \
+    ${GGUF_UBATCH:+-ub "$GGUF_UBATCH"} \
     $SPEC \
     "$@"
