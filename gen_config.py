@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
-"""Generate a llama-swap config of co-load PAIRS for benchmarking.
+"""Generate the llama-swap config: one entry per (POOL model, 3090), routed by the matrix engine.
 
-Members are paired unless they are near-duplicates — the rule is "pair everything EXCEPT
-same family AND same role" (see worth_pairing() in main()). Each POOL entry carries a
-`family` and a `role` (anchor = heavy/high-KV, fast = small/high-concurrency). A pair
-is a `swap:false, exclusive:true` group with one model pinned to 3090 #0 and the other
-to 3090 #2 (each owns its card: vLLM TP=1 @ util 0.90; Ternary via the llama.cpp fork
-image). No shared-card contention. Callsigns are `pairNN.<model>`; roles
-(extractor/judge/...) are assigned by the consuming system, not baked in. Big TP=2
-models that need both cards are emitted as ungrouped solo entries.
-Regenerate:  python3 gen_pairs_config.py > config.pairs.yaml
+Every single-card POOL model is emitted once PER CARD, as `c0.<model>` (3090 #0) and
+`c2.<model>` (3090 #2). The matrix router allows any one c0 entry to run alongside any one
+c2 entry, so every combination is available — including the same model on both cards and
+either orientation of an unequal mix — without enumerating pairs. A request evicts only the
+model on the card it needs.
+
+Models that need BOTH cards (SOLO vLLM TP=2, UNGROUPED_GGUF splits) appear in no matrix set,
+which llama-swap defines as "can only run alone": requesting one clears both cards, and any
+card request evicts it.
+
+Callsigns from the old pairs config (`pairNN.<model>`, `x2extract.*`, bare `<model>`) are
+kept as ALIASES of the matching card entry — see LEGACY_PAIRS.
+Regenerate:  python3 gen_config.py > config.yaml
 """
-import itertools
 import json
+import sys
 
 CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 #0
 CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 #2
+# (label, uuid). The label prefixes the model ID; card order here is also the order of the
+# `&` terms in the matrix set.
+CARDS = [("c0", CARD0), ("c2", CARD2)]
 IMAGE = "vllm/vllm-openai:v0.26.0"
 BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 # Mainline llama.cpp at a pinned build (Dockerfile.llamacpp). Separate from BONSAI because
@@ -23,8 +30,8 @@ BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 # predates newer architectures — Muse-Glimmer needs b10353+. Neither image serves both.
 LLAMACPP = "ghcr.io/tkontu/llamacpp-mainline:latest"
 
-# Uniform concurrency across the whole pool: a pair is only as fast as its slower
-# member, so per-model admission limits just create bottlenecks. For vLLM this is
+# Uniform concurrency across the whole pool: two co-loaded models are only as fast as the
+# slower one, so per-model admission limits just create bottlenecks. For vLLM this is
 # FREE — the KV pool is preallocated by --gpu-memory-utilization and max-num-seqs
 # only governs how much of that (already-bought) pool may be used at once.
 CONCURRENCY = 64
@@ -53,22 +60,25 @@ GGUF_PARALLEL = 8
 
 # Idle unload timeout, in seconds since a model's last request finished. 10x the old
 # 1800/3600: a cold start is expensive (gemma-26b @ 65k took ~7 min to ready on
-# 2026-08-04) and holding idle weights costs almost nothing here, because every group
-# is exclusive — requesting any other pair/solo evicts the resident one immediately
-# regardless of TTL. So TTL only decides how long a card stays occupied when NOTHING
-# is being served, and the cards are single-tenant.
+# 2026-08-04) and holding idle weights costs almost nothing here, because the matrix
+# router evicts a card's resident model immediately when another model is requested for
+# that card, regardless of TTL. So TTL only decides how long a card stays occupied when
+# NOTHING is being served, and the cards are single-tenant.
 # The tradeoff it does buy: TTL expiry is the de-facto recycle for a wedged backend
 # (see the Xid 31 note in TODO.md), and that now takes 5h instead of 30 min — unload
 # by hand (POST /api/models/unload) if a model misbehaves.
-TTL = 18000        # 5 h  — pool + pair members
+TTL = 18000        # 5 h  — per-card pool entries
 TTL_SOLO = 36000   # 10 h — TP=2 solo models (slowest to reload, own both cards)
 
-# Single-card pool. Each entry is a dict keyed by "backend":
+# Single-card pool — every model here must fit ONE 3090, because it is emitted on both.
+# Each entry is a dict keyed by "backend":
 #   vllm: repo, mml, eager, think_off              (vLLM container, TP=1 @ util 0.90;
 #                                                   think_off=True emits the
 #                                                   enable_thinking:false filter)
 #   fork: (none)                                   (Ternary via the PrismML bonsai image entrypoint)
 #   gguf: repo, hf_file, ctx, par                  (standard GGUF via the bonsai image's llama-server)
+# Optional on any backend:
+#   card_ttl: {label: ttl}                         (overrides TTL for that card's entry only)
 # Concurrency is NOT per-model: vLLM members all use CONCURRENCY, GGUF members all
 # use GGUF_PARALLEL. Only override `par` when a model genuinely can't hold the KV.
 # Prefix caching on the Qwen3.5 GDN hybrids: vLLM auto-disables APC for hybrid
@@ -162,8 +172,8 @@ POOL = [
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
     # ~21.9 GiB against the util-0.95 budget of ~23.3 GiB on a 3090 (~1.4 GiB slack).
     # ~98k is the theoretical fp16-KV ceiling — do not raise further without fp8 KV.
-    dict(tok="gemma-26b",   family="gemma", role="anchor", backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
-    dict(tok="gemma-e4b",   family="gemma", role="fast", backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
+    dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
+    dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
     # BF16-INT4 replaces AWQ-4bit: linear_attn (GDN) layers stay unquantized BF16 —
     # safer for this family. Shard naming verified 2026-08-04 against the known
     # silent-failure mode (ignore list vs shards BOTH use the split in_proj_qkv/z/b/a
@@ -173,7 +183,7 @@ POOL = [
     # think=True: without the filter the 9B burns hundreds of output tokens in its
     # thinking phase even at temperature 0 (verified on first load, 2026-08-04) —
     # short-max_tokens requests never reach an answer.
-    dict(tok="qwen3.5-9b",  family="qwen3.5", role="fast", backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think_off=True, extra=APC_ALIGN),
+    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think_off=True, extra=APC_ALIGN),
     # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
     # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
     # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
@@ -181,13 +191,13 @@ POOL = [
     # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
     # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
     # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
-    dict(tok="qwen3.5-4b",  family="qwen3.5", role="fast", backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
-    dict(tok="ternary",     family="qwen3.6", role="anchor", backend="fork"),
-    dict(tok="qwythos-v2",  family="qwythos", role="fast", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
+    dict(tok="ternary",     backend="fork"),
+    dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Xet-backed repo (~11.3 GB Q6_K). llama-server -hf downloads via HTTP; if Xet blocks
     # that, we pre-download with the `hf` CLI (+hf_xet) instead. See README.
     # Q6_K weights are ~11.3 GB of the 24 GB card, so it gets fewer slots than qwythos.
-    dict(tok="fablevibes",  family="qwen3.6", role="fast", backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
+    dict(tok="fablevibes",  backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
     # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
     # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
     # general.architecture=qwen35 and the mmproj clip.projector_type=qwen3vl_merger, BOTH of
@@ -211,39 +221,51 @@ POOL = [
     # reasoning_effort/preserve_thinking controls are per-request, and llama.cpp returns the
     # trace in message.reasoning_content (see the muse-glimmer note in TODO.md) rather than
     # burning the content budget the way qwen3.5-9b does.
-    dict(tok="qwen3.8-27b", family="qwen3.8", role="anchor", backend="gguf", image=LLAMACPP,
+    dict(tok="qwen3.8-27b", backend="gguf", image=LLAMACPP,
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
          mmproj="mmproj-F16.gguf", ctx=16384, par=4,
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
-    # Muse-Glimmer-30B — the on-call standby, and now also a pooled ANCHOR so it can be
-    # benchmarked head-to-head against the other strong models. It was deliberately kept out of
-    # POOL before ("on-call standby, not a co-load partner"); that reasoning was about avoiding
-    # 10 pairs nobody would request, and it no longer holds now that pairs are filtered by
-    # family+role instead of enumerated exhaustively.
+    # Muse-Glimmer-30B — the on-call standby, and an ordinary pool member on both cards.
     #
-    # `standalone_ttl=0` preserves the on-call contract: the bare `muse-glimmer` entry never
-    # idle-unloads (scripts/oncall-wakeup.sh wakes it by that exact name), while its pairNN
-    # members age out on the normal TTL. That is what the README's on-call section already
-    # described — "its pairNN. members keep the normal 5 h TTL" — which was aspirational until
-    # now, since it had no pair members at all.
+    # `card_ttl={"c0": 0}` preserves the on-call contract: `c0.muse-glimmer` never idle-unloads
+    # (scripts/oncall-wakeup.sh wakes it by that exact ID), while `c2.muse-glimmer` ages out on
+    # the normal TTL. The side effect is that c0.muse-glimmer never idle-unloads when used as a
+    # regular card-0 model either — acceptable, since any other card-0 request still evicts it.
     #
-    # Still NOT persistent: every pair/solo group is exclusive, so any other request evicts it.
-    # That is the design; persistent:true would pin the cards and starve everything else.
+    # Still NOT persistent-like: the matrix router evicts it for any other card-0 model or any
+    # whole-box model. That is the design; pinning it would starve card 0.
     #
     # Fits one card with room to spare — MEASURED 20.82 GiB of ~23.3 on 3090 #0 with weights +
-    # mmproj + the dflash drafter at the full 131072 context (-np 1). Its pair partner sits on
-    # the other 3090, so pairing costs it nothing.
-    dict(tok="muse-glimmer", family="muse", role="anchor", backend="gguf", image=LLAMACPP,
+    # mmproj + the dflash drafter at the full 131072 context (-np 1). The other 3090 is
+    # independent, so co-loading costs it nothing.
+    #
+    # Both run -np 1 (no parallelism) with the full native 131072 context in a single slot, and
+    # f16 KV (no cache quant). That is affordable because KV is unusually cheap on this model:
+    # 52 layers, num_key_value_heads=2, head_dim=128, and a 3:1 sliding/full split (39 sliding
+    # layers windowed at 2048, 13 full). The full layers cost 13 KiB/token -> 1.74 GiB at
+    # 131072; the sliding layers a flat 78 MiB at -np 1. ~1.82 GiB for the whole context.
+    # (-np 1 is also marginally cheaper than -np 4: llama.cpp gives each slot its own sliding
+    # window, so parallelism multiplies that 78 MiB while leaving the full-layer cost fixed.)
+    #
+    # MEASURED on the host 2026-08-12 (do not re-derive from HF's file sizes: those are
+    # DECIMAL GB, and treating them as GiB overstates the weights by ~7%). With weights +
+    # mmproj only, llama-server reported n_ctx=131072, vision=True, and used 18.79 GiB of
+    # the 24 GiB card — i.e. 15.61 (weights) + 1.30 (mmproj) + 1.88 (KV + compute).
+    # That left 5.21 GiB free, so the dflash drafter (1.52 GiB) fits; measured at 1.81x decode
+    # on a 3090 (TODO.md). The dynamic quant is NOT used here: dynamic+mmproj+dflash needs
+    # 23.01 GiB, leaving ~1 GiB — too thin for prefill spikes at 131k. That is what the split
+    # entry is for.
+    dict(tok="muse-glimmer", backend="gguf", image=LLAMACPP,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-17gb.gguf",
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
-         spec_type="draft-dflash", ctx=131072, par=1, standalone_ttl=0,
+         spec_type="draft-dflash", ctx=131072, par=1, card_ttl={"c0": 0},
          template_kwargs=MUSE_TEMPLATE_KWARGS, sampling=MUSE_SAMPLING),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
 
-# Solo big models (need both 3090s → TP=2 → no partner).
+# Solo big models (need both 3090s → TP=2 → in no matrix set, so they run alone).
 # (id, repo, mml, seqs, util, think_off, eager)
 # eager=True emits --enforce-eager. Only 35B-A3B needs it: vLLM's AWQ-MoE kernels
 # fault with Xid 31 mid-inference and CUDA graphs are the likely trigger — see
@@ -254,42 +276,16 @@ SOLO = [
     ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False, False),
 ]
 
-# Ungrouped GGUF entries — NOT in POOL, so they get no pairNN membership. Muse-Glimmer is
-# excluded from POOL deliberately: it is on-call standby, not a co-load partner, and adding
-# it there would have generated 10 extra pairs (45 -> 55) that nothing would ever request.
+# Whole-box GGUF entries — span BOTH 3090s, so they are not in POOL and appear in no matrix
+# set (they run alone). The name predates the matrix router, when "ungrouped" meant the same.
 #
-# Both run -np 1 (no parallelism) with the full native 131072 context in a single slot, and
-# f16 KV (no cache quant). That is affordable because KV is unusually cheap on this model:
-# 52 layers, num_key_value_heads=2, head_dim=128, and a 3:1 sliding/full split (39 sliding
-# layers windowed at 2048, 13 full). The full layers cost 13 KiB/token -> 1.74 GiB at
-# 131072; the sliding layers a flat 78 MiB at -np 1. ~1.82 GiB for the whole context.
-# (-np 1 is also marginally cheaper than -np 4: llama.cpp gives each slot its own sliding
-# window, so parallelism multiplies that 78 MiB while leaving the full-layer cost fixed.)
-#
-# `cards`: one 3090 for the standby entry, both for the split one. -sm layer is PIPELINE
-# parallel — activations cross PCIe once per layer boundary, so the no-NVLink constraint
-# that hurts vLLM TP=2 does not bite. It buys CAPACITY, not speed: only one card computes
-# at a time, so decode is ~single-card. The point is to afford the 19.65 GB dynamic quant
-# plus vision plus the drafter, which will not fit on one 3090 (22.68 GB of weights against
-# a ~23.3 GB budget).
+# `cards`: -sm layer is PIPELINE parallel — activations cross PCIe once per layer boundary,
+# so the no-NVLink constraint that hurts vLLM TP=2 does not bite. It buys CAPACITY, not
+# speed: only one card computes at a time, so decode is ~single-card.
 UNGROUPED_GGUF = [
-    # On-call standby (see scripts/oncall-wakeup.sh). ttl 0 = never idle-unload; it is still
-    # evicted by any exclusive group, which is exactly what we want — hence NOT persistent.
-    #
-    # MEASURED on the host 2026-08-12 (do not re-derive from HF's file sizes: those are
-    # DECIMAL GB, and treating them as GiB overstates the weights by ~7%). With weights +
-    # mmproj only, llama-server reported n_ctx=131072, vision=True, and used 18.79 GiB of
-    # the 24 GiB card — i.e. 15.61 (weights) + 1.30 (mmproj) + 1.88 (KV + compute).
-    # The 1.88 confirms the sliding-window KV analysis above: the full 131072 context really
-    # does cost under ~2 GiB.
-    #
-    # That leaves 5.21 GiB free, so the dflash drafter (1.52 GiB) fits with ~3.7 GiB spare.
-    # It is ON because the ~3.1x decode speedup is the reason to run llama.cpp here at all,
-    # and the model card measured it at batch size 1 greedy — exactly this -np 1 setup.
-    # Standard flags (-md + -ngld 99), unlike Ternary-Bonsai's DSpark --spec-type.
-    # A "[spec] failed to measure draft model memory" warning at startup is documented as
-    # harmless. The dynamic quant is NOT used here: dynamic+mmproj+dflash needs 23.01 GiB,
-    # leaving ~1 GiB — too thin for prefill spikes at 131k. That is what the split entry is for.
+    # Muse-Glimmer at the 19.65 GB dynamic quant plus vision plus the drafter, which will not
+    # fit on one 3090 (22.68 GB of weights against a ~23.3 GB budget). KV analysis as in the
+    # POOL muse-glimmer entry.
     dict(tok="Muse-Glimmer-30B-split", image=LLAMACPP, cards=[CARD0, CARD2], ttl=TTL_SOLO,
          repo="meta-models/Muse-Glimmer-30B-GGUF",
          hf_file="muse-glimmer-30B-kquant-dynamic.gguf",
@@ -322,6 +318,66 @@ UNGROUPED_GGUF = [
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
 ]
 
+# TRANSITIONAL compatibility aliases for callsigns of the old pairs config, frozen at its last
+# numbering (pair01-pair35) plus the hand-written x2extract group. Each old pair put its first
+# member on 3090 #0 and its second on #2, so `pairNN.<a>` -> `c0.<a>` and `pairNN.<b>` ->
+# `c2.<b>` routes every old callsign to the SAME card it used to load on.
+#
+# Semantics differ in one way: requesting a pairNN member no longer evicts the other card.
+# Delete this table (and LEGACY_X2EXTRACT) once consumers request c0./c2. IDs directly.
+# A POOL model that is retired must also be removed here, or config generation fails.
+LEGACY_PAIRS = [
+    ("pair01", "gemma-26b", "gemma-e4b"),
+    ("pair02", "gemma-26b", "qwen3.5-9b"),
+    ("pair03", "gemma-e4b", "qwen3.5-9b"),
+    ("pair04", "gemma-26b", "qwen3.5-4b"),
+    ("pair05", "gemma-e4b", "qwen3.5-4b"),
+    ("pair06", "gemma-26b", "ternary"),
+    ("pair07", "ternary", "gemma-e4b"),
+    ("pair08", "ternary", "qwen3.5-9b"),
+    ("pair09", "ternary", "qwen3.5-4b"),
+    ("pair10", "gemma-26b", "qwythos-v2"),
+    ("pair11", "gemma-e4b", "qwythos-v2"),
+    ("pair12", "qwen3.5-9b", "qwythos-v2"),
+    ("pair13", "qwen3.5-4b", "qwythos-v2"),
+    ("pair14", "ternary", "qwythos-v2"),
+    ("pair15", "gemma-26b", "fablevibes"),
+    ("pair16", "gemma-e4b", "fablevibes"),
+    ("pair17", "qwen3.5-9b", "fablevibes"),
+    ("pair18", "qwen3.5-4b", "fablevibes"),
+    ("pair19", "ternary", "fablevibes"),
+    ("pair20", "qwythos-v2", "fablevibes"),
+    ("pair21", "gemma-26b", "qwen3.8-27b"),
+    ("pair22", "qwen3.8-27b", "gemma-e4b"),
+    ("pair23", "qwen3.8-27b", "qwen3.5-9b"),
+    ("pair24", "qwen3.8-27b", "qwen3.5-4b"),
+    ("pair25", "ternary", "qwen3.8-27b"),
+    ("pair26", "qwen3.8-27b", "qwythos-v2"),
+    ("pair27", "qwen3.8-27b", "fablevibes"),
+    ("pair28", "gemma-26b", "muse-glimmer"),
+    ("pair29", "muse-glimmer", "gemma-e4b"),
+    ("pair30", "muse-glimmer", "qwen3.5-9b"),
+    ("pair31", "muse-glimmer", "qwen3.5-4b"),
+    ("pair32", "ternary", "muse-glimmer"),
+    ("pair33", "muse-glimmer", "qwythos-v2"),
+    ("pair34", "muse-glimmer", "fablevibes"),
+    ("pair35", "qwen3.8-27b", "muse-glimmer"),
+]
+# x2extract was qwen3.5-4b on both cards, hand-written because the pairs generator refused
+# same-model pairs. Its parameters were a byte-faithful copy of the pooled qwen3.5-4b, so the
+# per-card entries are the same servers. (alias, card label, POOL tok)
+LEGACY_X2EXTRACT = [
+    ("x2extract.qwen3.5-4b-a", "c0", "qwen3.5-4b"),
+    ("x2extract.qwen3.5-4b-b", "c2", "qwen3.5-4b"),
+]
+
+
+def aliases_block(aliases):
+    if not aliases:
+        return ""
+    return "    aliases:\n" + "".join(f'      - "{a}"\n' for a in aliases)
+
+
 def setparams_filter(**kwargs):
     """Render a llama-swap `filters.setParams.chat_template_kwargs` block.
 
@@ -340,7 +396,7 @@ THINK_FILTER = setparams_filter(enable_thinking=False)
 
 
 def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTIL, ttl=TTL,
-               climit=REQUEST_LIMIT, extra=()):
+               climit=REQUEST_LIMIT, extra=(), aliases=()):
     # NOTE: seqs (--max-num-seqs) costs no VRAM. The KV pool is sized once at startup
     # from util; this only caps how many sequences may share it. Oversubscribing
     # degrades via preemption/recompute, never OOM.
@@ -365,13 +421,18 @@ def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTI
         f"    proxy: http://127.0.0.1:${{PORT}}\n"
         f"    ttl: {ttl}\n"
         f"    concurrencyLimit: {climit}\n"
+        # vLLM rejects any `model` other than its --served-model-name, and llama-swap forwards
+        # the REQUESTED name unchanged, so a request via an alias would 404 without this
+        # rewrite back to the real ID. (llama-server ignores the name, so GGUF entries don't.)
+        f'    useModelName: "{model_id}"\n'
+        f"{aliases_block(aliases)}"
     )
     if think_off:
         e += THINK_FILTER
     return e
 
 
-def fork_entry(model_id, gpus, ttl=TTL):
+def fork_entry(model_id, gpus, ttl=TTL, aliases=()):
     # Ternary-Bonsai via the PrismML llama.cpp fork image (see Dockerfile.bonsai).
     # The entrypoint discovers weights + applies vision/DSpark/tool flags; listens on 8080.
     return (
@@ -389,13 +450,14 @@ def fork_entry(model_id, gpus, ttl=TTL):
         f"    checkEndpoint: /health\n"
         f"    ttl: {ttl}\n"
         f"    concurrencyLimit: {FORK_LIMIT}\n"
+        f"{aliases_block(aliases)}"
     )
 
 
 def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
                mmproj=None, draft=None, spec_type=None, draft_max=None, split_mode=None,
                tensor_split=None, cache_type=None, params=None, template_kwargs=None,
-               sampling=None):
+               sampling=None, aliases=()):
     # Standard GGUF via the gguf-serve.sh entrypoint (present in BOTH images): it
     # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
     # cache, then serves the local file with llama-server (this build's llama-server has
@@ -455,16 +517,17 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         f"    checkEndpoint: /health\n"
         f"    ttl: {ttl}\n"
         f"    concurrencyLimit: {par * GGUF_LIMIT_MULT}\n"
+        f"{aliases_block(aliases)}"
     )
     if params:
         e += setparams_filter(**params)
     return e
 
 
-def member_entry(spec, model_id, card, ttl=TTL):
+def member_entry(spec, model_id, card, ttl=TTL, aliases=()):
     b = spec["backend"]
     if b == "fork":
-        return fork_entry(model_id, card, ttl=ttl)
+        return fork_entry(model_id, card, ttl=ttl, aliases=aliases)
     if b == "gguf":
         # Forward the optional GGUF knobs the same way ungrouped_gguf_entry() does. Until
         # qwen3.8-27b joined POOL every pooled GGUF was a plain single-file model on the
@@ -478,10 +541,10 @@ def member_entry(spec, model_id, card, ttl=TTL):
                           spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
                           cache_type=spec.get("cache_type"), params=spec.get("params"),
                           template_kwargs=spec.get("template_kwargs"),
-                          sampling=spec.get("sampling"))
+                          sampling=spec.get("sampling"), aliases=aliases)
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
-                      ttl=ttl, extra=spec.get("extra", ()))
+                      ttl=ttl, extra=spec.get("extra", ()), aliases=aliases)
 
 
 def ungrouped_gguf_entry(spec):
@@ -498,39 +561,42 @@ def ungrouped_gguf_entry(spec):
                       sampling=spec.get("sampling"))
 
 
-def main():
-    # A pair is only worth generating if the two members are worth running SIDE BY SIDE. One
-    # predicate covers that: pair everything EXCEPT same family AND same role.
-    #
-    #   same family + same role       -> DROP. Near-duplicates; nothing is learned by co-loading
-    #                                    qwen3.5-4b next to qwen3.5-9b, and for any given
-    #                                    request one of them is simply the better choice.
-    #   same family + different role  -> KEEP. gemma-26b (anchor) + gemma-e4b (fast) is the
-    #                                    complementary case: a heavy/high-KV model sharing the
-    #                                    box with a small high-concurrency one.
-    #   different family + same role  -> KEEP. This is the head-to-head the whole pairs config
-    #                                    exists for: strong-vs-strong (gemma-26b + qwen3.8-27b)
-    #                                    and fast-vs-fast (gemma-e4b + qwen3.5-4b) ACROSS
-    #                                    families.
-    #
-    # Replaces the previous all-C(n,2) enumeration, which also emitted every same-family
-    # near-duplicate. Ordering stays (later member, earlier member) so APPENDING a POOL member
-    # is additive to the numbering; RETIRING one still renumbers, which this change does once.
-    def worth_pairing(a, b):
-        return not (a["family"] == b["family"] and a["role"] == b["role"])
+def legacy_aliases():
+    """Map (card label, POOL tok) -> old callsigns that now resolve to that card entry."""
+    toks = {spec["tok"] for spec in POOL}
+    out = {}
 
-    combos = sorted(itertools.combinations(range(len(POOL)), 2), key=lambda p: (p[1], p[0]))
-    pairs = [(i, j) for (i, j) in combos if worth_pairing(POOL[i], POOL[j])]
-    dropped = [(POOL[i]["tok"], POOL[j]["tok"])
-               for (i, j) in combos if not worth_pairing(POOL[i], POOL[j])]
+    def add(label, tok, alias):
+        if tok not in toks:
+            sys.exit(f"legacy alias {alias!r} targets {tok!r}, which is not in POOL")
+        out.setdefault((label, tok), []).append(alias)
+
+    for spec in POOL:
+        # Bare names used to be standalone entries on 3090 #0.
+        add("c0", spec["tok"], spec["tok"])
+    for pair, a, b in LEGACY_PAIRS:
+        add("c0", a, f"{pair}.{a}")
+        add("c2", b, f"{pair}.{b}")
+    for alias, label, tok in LEGACY_X2EXTRACT:
+        add(label, tok, alias)
+    return out
+
+
+def main():
+    # The generated YAML has non-ASCII comments; on Windows the default stdout would mangle
+    # them and write CRLF line endings.
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+    aliases = legacy_aliases()
 
     out = []
-    out.append("# llama-swap PAIRS config (GENERATED by gen_pairs_config.py — do not hand-edit).")
-    out.append("# Each pairNN is a co-load group: two single-card models, one per 3090, serving")
-    out.append("# concurrently. Callsign = pairNN.<model> (roles are assigned by the consuming")
-    out.append("# system; split on the FIRST '.' to get the pair id). Only one pair (or one solo")
-    out.append("# model) is resident at a time; requesting another swaps it in.")
-    out.append("# Regenerate: python3 gen_pairs_config.py > config.pairs.yaml")
+    out.append("# llama-swap config (GENERATED by gen_config.py — do not hand-edit).")
+    out.append("# Every single-card model is defined once per 3090: c0.<model> (3090 #0) and")
+    out.append("# c2.<model> (3090 #2). The matrix router lets any c0 entry run alongside any c2")
+    out.append("# entry, and a request evicts only the model on the card it needs. Models that")
+    out.append("# need both cards are in no matrix set, so they run alone.")
+    out.append("# Old callsigns (pairNN.<model>, x2extract.*, bare <model>) are aliases of the")
+    out.append("# card entry they used to load on — transitional; see LEGACY_PAIRS.")
+    out.append("# Regenerate: python3 gen_config.py > config.yaml")
     out.append("#")
     out.append("# HF AUTH: deliberately NOT passed as -e HF_TOKEN/-e HUGGING_FACE_HUB_TOKEN.")
     out.append("# llama-swap expands ${env.*} at spawn time and echoes the fully expanded")
@@ -542,60 +608,48 @@ def main():
     out.append("")
     out.append("healthCheckTimeout: 900")
     out.append("logLevel: info")
+    out.append("# List aliases in /v1/models so consumers that discover callsigns there keep")
+    out.append("# seeing the old pairNN ids during the transition.")
+    out.append("includeAliasesInList: true")
     out.append("")
-    if dropped:
-        out.append("# Pairs deliberately NOT generated (same family AND same role — near-duplicates):")
-        for a, b in dropped:
-            out.append(f"#   {a} + {b}")
-        out.append("")
     out.append("models:")
     out.append("")
 
-    groups = []
-    for k, (i, j) in enumerate(pairs, start=1):
-        pair = f"pair{k:02d}"
-        # The anchor takes 3090 #0 when the roles differ, so the heavy member's card is
-        # predictable across pairs; equal-role pairs fall back to POOL order.
-        a, b = POOL[i], POOL[j]
-        if a["role"] == "fast" and b["role"] == "anchor":
-            a, b = b, a
-        id_a = f"{pair}.{a['tok']}"      # -> 3090 #0
-        id_b = f"{pair}.{b['tok']}"      # -> 3090 #2
-        out.append(f"  # ===== {pair}: {a['tok']} ({a['role']}, #0)  +  {b['tok']} ({b['role']}, #2) =====")
-        out.append(member_entry(a, id_a, CARD0))
-        out.append(member_entry(b, id_b, CARD2))
-        groups.append((pair, id_a, id_b))
+    card_ids = {}
+    for label, uuid in CARDS:
+        out.append(f"  # ===== {label}: single-card models on {uuid} =====")
+        card_ids[label] = []
+        for spec in POOL:
+            model_id = f"{label}.{spec['tok']}"
+            ttl = spec.get("card_ttl", {}).get(label, TTL)
+            out.append(member_entry(spec, model_id, uuid, ttl=ttl,
+                                    aliases=aliases.get((label, spec["tok"]), ())))
+            card_ids[label].append(model_id)
 
-    out.append("  # ===== Standalone entries (ungrouped): load one pooled model solo =====")
-    out.append("  # Callsign = the base token (no pairNN prefix). Requesting one loads it alone")
-    out.append("  # (exclusive swap unloads whatever else is resident). TP=1 on 3090 #0.")
-    for spec in POOL:
-        # `standalone_ttl` applies to the bare `<tok>` entry ONLY, not to its pairNN members.
-        # muse-glimmer needs it: as the on-call standby its standalone entry must never
-        # idle-unload (ttl 0), while its pair members should age out on the normal TTL.
-        out.append(member_entry(spec, spec["tok"], CARD0,
-                                ttl=spec.get("standalone_ttl", TTL)))
-
-    out.append("  # ===== Solo big models (TP=2, own both 3090s — no partner possible) =====")
+    out.append("  # ===== Solo big models (TP=2, own both 3090s — in no matrix set) =====")
     for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:
         out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=TTL_SOLO))
 
-    out.append("  # ===== Ungrouped GGUF entries (no pairNN membership; see UNGROUPED_GGUF) =====")
+    out.append("  # ===== Whole-box GGUF entries (both 3090s — in no matrix set; see UNGROUPED_GGUF) =====")
     for spec in UNGROUPED_GGUF:
         out.append(ungrouped_gguf_entry(spec))
 
+    # One set: any card-0 model AND any card-2 model. Subsets are implied, so a single card
+    # alone is allowed too. A model in no set (the whole-box entries) can only run alone.
+    # No evict_costs: the cards are disjoint slots, so for any request there is exactly one
+    # cheapest eviction and costs could never change the outcome.
     out.append("")
-    out.append("# Each pair is its own group: members co-load and stay together (swap:false);")
-    out.append("# loading a pair/solo unloads the others (exclusive).")
-    out.append("groups:")
-    for (pair, id_a, id_b) in groups:
-        out.append(f"  {pair}:")
-        out.append(f"    swap: false")
-        out.append(f"    exclusive: true")
-        out.append(f"    persistent: false")
-        out.append(f"    members:")
-        out.append(f'      - "{id_a}"')
-        out.append(f'      - "{id_b}"')
+    out.append("routing:")
+    out.append("  router:")
+    out.append("    use: matrix")
+    out.append("    settings:")
+    out.append("      matrix:")
+    out.append("        sets:")
+    out.append("          cards: >-")
+    for n, (label, _) in enumerate(CARDS):
+        out.append(f"            {'& ' if n else ''}({' | '.join(card_ids[label][:1])}")
+        out.extend(f"              | {mid}" for mid in card_ids[label][1:])
+        out.append("            )")
 
     print("\n".join(out))
 

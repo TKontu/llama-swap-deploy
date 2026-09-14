@@ -2,12 +2,17 @@
 # On-call standby poller for llama-swap.
 #
 # Keeps ONCALL_MODEL resident whenever the box has genuinely stopped working, without
-# ever blocking another model. It relies on two properties of the generated config:
+# ever blocking another model. It relies on two properties of the generated config's
+# matrix router:
 #
-#   1. Every pairNN group and every solo entry is `exclusive: true`, so a request to any
-#      other model evicts the on-call model immediately. Nothing here has to unload it.
-#   2. Symmetrically, the wakeup request below evicts whatever is squatting on the cards.
-#      That is why this script never calls POST /api/models/unload.
+#   1. A request for any other card-0 model, or any whole-box model, evicts the on-call
+#      model immediately. Nothing here has to unload it.
+#   2. Symmetrically, the wakeup request below evicts whatever is squatting on card 0 (or
+#      a whole-box model); a model on card 2 stays loaded. That is why this script never
+#      calls POST /api/models/unload.
+#
+# ONCALL_MODEL must be the REAL model ID, not an alias: /running reports real IDs, so the
+# "already resident" check below would never match an alias and would re-wake every time.
 #
 # The on-call model carries `ttl: 0` (never idle-unload) so it stays put once loaded.
 #
@@ -21,7 +26,7 @@
 set -eu
 
 LLAMASWAP_URL="${LLAMASWAP_URL:-http://127.0.0.1:9292}"
-ONCALL_MODEL="${ONCALL_MODEL:-muse-glimmer}"
+ONCALL_MODEL="${ONCALL_MODEL:-c0.muse-glimmer}"
 IDLE_SECONDS="${IDLE_SECONDS:-3600}"
 IDLE_PCT="${IDLE_PCT:-5}"
 POLL_SECONDS="${POLL_SECONDS:-60}"

@@ -47,8 +47,8 @@ services:
       retries: 3
 
   # Keeps ONCALL_MODEL resident whenever the box has stopped working, without ever
-  # blocking another model — a request to anything else evicts it via the exclusive
-  # groups, and the wakeup request itself evicts whatever is squatting. See
+  # blocking another model — the matrix router evicts it for any other card-0 or
+  # whole-box model, and the wakeup request itself evicts whatever is on card 0. See
   # scripts/oncall-wakeup.sh and README → "On-call standby model".
   #
   # Reuses the llama-swap image (the script is baked in, and curl/awk are present) so
@@ -65,7 +65,8 @@ services:
     entrypoint: ["/usr/local/bin/oncall-wakeup.sh"]
     environment:
       - LLAMASWAP_URL=http://127.0.0.1:9292
-      - ONCALL_MODEL=muse-glimmer
+      # Real model ID, not an alias — the poller matches it against /running.
+      - ONCALL_MODEL=c0.muse-glimmer
       # Both 3090s must sit below IDLE_PCT for this long before the model is woken.
       # This becomes the effective replacement delay for an idle model, so it is
       # deliberately long — the 5 h / 10 h TTLs still govern unloading.
