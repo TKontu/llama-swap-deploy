@@ -63,7 +63,7 @@ README GPU inventory). Plan impact in `SPEC-bigmoe.md` §12.
 ## Candidate whole-box models — planned, not implemented (2026-09-14)
 
 Plan and sizing in `SPEC-bigmoe.md` §11 (**sized for 2× 3090 — see §12 for the A2000
-re-evaluation**). In recommended order:
+re-evaluation**). All at native maximum context (§14). In recommended order:
 
 - [ ] **Qwen3-Coder-Next** (80B/3B, `llamacpp-mainline`, no §2 prerequisites). Decide between
   `UD-Q4_K_S` (42.9 GiB, fully on GPU, thin margin) and `Q4_K_M` (45.2 GiB) with `n_cpu_moe` of
@@ -108,6 +108,9 @@ Needs CI / the host:
 - [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF to `/fast/gguf/…` (README → DeepSeek-V4-Flash).
 - [ ] Cold start `deepseek-v4-flash`. Confirm the log shows `deepseek4`, the DSpark block size
   of 5, **sparse FA** enabled, and experts on CPU. Record VRAM per card and container RSS.
+- [ ] **Context is 1M (native, SPEC §14).** Record the KV / DSV4 state buffer sizes from the
+  startup log (predicted ~7 GiB f16, ~13 GiB if f32). Probe a long prompt (e.g. 200k tokens) for
+  coherence and time its prefill. On OOM: `cache_type=q8_0`, then 384K, then drop the drafter.
 - [ ] **Walk `n_cpu_moe` down from 43** until ~44 GiB VRAM total; rebalance `tensor_split`,
   because the GPU expert layers land on card 2 first.
 - [ ] SPEC §8 baselines on a cold box: decode (>=8 tok/s), decode with DSpark (>=1.4x, else drop

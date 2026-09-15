@@ -354,13 +354,24 @@ UNGROUPED_GGUF = [
     #
     # batch 4096 / ubatch 1024 rather than 2048/512: below llama.cpp's op-offload threshold,
     # prefill for CPU-resident weights runs on the CPU (12 Zen 2 cores), the worst path here.
+    #
+    # ctx=1048576 = the native maximum. Context is cheap on this architecture — read from
+    # src/llama-kv-cache-dsv4.cpp at v0.4.0, not assumed:
+    #   * every layer's RAW KV is a 128-token sliding window (set_swa_pattern(0)), constant-size;
+    #     that covers the compress_ratio=0 layers and all 3 drafter layers
+    #   * what grows is the compressed cache: one 512-dim entry per 4 tokens (21 CSA layers, plus
+    #     128-dim indexer keys) or per 128 tokens (20 HCA layers)
+    #   * => ~7 GiB at f16 for 1M tokens (~13 GiB if stored f32); the attention mask is
+    #     min(window) + top_k, so compute buffers do not scale with context either
+    # Every GiB of that pushes ~1 GiB of experts to RAM (216 GiB available). The practical limit
+    # is prefill speed with experts in RAM, not memory: a very long prompt takes a long time.
     # storage="fast": 144.4 GiB does not fit the 88 G left on /models; it lives on /fast.
     dict(tok="deepseek-v4-flash", bigmoe=True, image=LLAMACPP_V4, cards=[CARD0, CARD2],
          ttl=TTL_BIGMOE, storage="fast", repo="unsloth/DeepSeek-V4-Flash-0731-GGUF",
          # 5 shards, 144.4 GiB. Name the FIRST shard; gguf-serve.sh fetches the rest.
          hf_file="UD-Q4_K_XL/DeepSeek-V4-Flash-0731-UD-Q4_K_XL-00001-of-00005.gguf",
          draft="dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf", spec_type="draft-dspark", draft_max=3,
-         ctx=65536, par=1, split_mode="layer", tensor_split="1,1",
+         ctx=1048576, par=1, split_mode="layer", tensor_split="1,1",
          n_cpu_moe=43, numa="distribute", threads=12, batch=4096, ubatch=1024,
          sampling=DEEPSEEK_V4_SAMPLING),
 ]

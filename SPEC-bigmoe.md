@@ -94,7 +94,7 @@ more than ~4 bits — while doubling the per-token read that decode speed is bou
 not go above Q4-class here. Q3 and below are genuinely lossy for this model; treat the Q3
 entry as a capacity fallback, not a quality tier.
 
-Context: V4-Flash's CSA+HCA stack costs roughly a tenth of V3.2's KV at 1M. 64k in one
+Context (**superseded 2026-09-15: native 1M, see §14**): V4-Flash's CSA+HCA stack costs roughly a tenth of V3.2's KV at 1M. 64k in one
 slot is the starting point; raise it only after §8 baselines exist, since the constraint
 here is weights, not context.
 
@@ -474,3 +474,46 @@ For **2× 3090 + DDR4 only**, at 128k context:
 
 DeepSeek-V4-Flash now waits only on the image build (CI) and the remaining host checks: P3/P4,
 fixed memory, and the `/fast` download.
+
+## 14. Context: native maximum for the big models (2026-09-15)
+
+Decision: every big model runs at its **native maximum context**, one slot. This replaces §5's
+"start at 64k and raise after baselines".
+
+| Model | Context | KV at that context (f16) | RAM @ max, 2× 3090 + DDR4 | Status |
+|---|---|---|---|---|
+| DeepSeek-V4-Flash | **1,048,576** | ~7 GiB (~13 if f32) | ~122–128 GiB (+10 overhead) | **implemented** |
+| Qwen3-Coder-Next | 262,144 | 5.9 GiB | ~5–8 GiB | planned |
+| gpt-oss-120b | 131,072 | 4.5 GiB | ~17–20 GiB | planned |
+| Mistral Small 4 | 256K per the card (GGUF says 1M) | ~5.5 GiB | ~27–29 GiB | planned; verify the limit |
+| GLM-5.3-Flash | 1,048,576 | ~12 GiB (estimate) | ~156 GiB | planned; blocked on llama.cpp |
+
+All fit the 216 GiB VM.
+
+### DeepSeek-V4-Flash KV, from the v0.4.0 source
+
+Read from `src/models/deepseek4.cpp` and `src/llama-kv-cache-dsv4.cpp`:
+
+- `set_swa_pattern(0)` makes **every** layer's raw KV a sliding window of `n_swa=128` tokens.
+  - The `compress_ratio=0` layers (2 in the main model, all 3 in the DSpark drafter) are
+    therefore constant-size.
+  - This rules out the worry that uncompressed layers would scale with context.
+- The compressed caches scale with context:
+  - `ceil(ctx/ratio)` rows × `n_embd_head=512`, one shared K/V vector per row, for 21 CSA
+    layers (ratio 4, plus 128-dim indexer keys) and 20 HCA layers (ratio 128).
+  - That is ~6.9 KB/token at f16 → **~6.7 GiB at 1M**, or ~13 GiB if llama.cpp keeps these
+    rows at f32.
+  - The startup log prints the buffer sizes; record them in TODO.md.
+- Compute buffers do not grow with context. The attention mask is
+  `min(raw window, n_swa) + top_k` wide.
+
+Costs and risks:
+
+- ~7–13 GiB of VRAM → roughly 2–4 fewer expert layers on GPU than at 64k → somewhat slower decode.
+- **Prefill is the practical limit.** §8 targets ≥100 tok/s at 8k. At that rate a
+  500k-token prompt takes over an hour of prefill.
+  - Capacity for the whole context, not an expectation of filling it interactively.
+- If the first load OOMs anyway, fall back in this order:
+  1. `cache_type=q8_0` (halves KV)
+  2. 393216 (384K, DeepSeek's minimum for "Think Max")
+  3. dropping the drafter

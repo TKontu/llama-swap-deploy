@@ -491,12 +491,18 @@ prerequisites (RAM, BIOS, NUMA, disk) and acceptance targets are in
 
 | Model ID | GPUs | Quant | On disk | Context |
 |---|---|---|---|---|
-| `deepseek-v4-flash` | both 3090s + RAM | `UD-Q4_K_XL`, 5 shards | 144.4 GiB | 65536, 1 slot |
+| `deepseek-v4-flash` | both 3090s + RAM | `UD-Q4_K_XL`, 5 shards | 144.4 GiB | 1048576 (native), 1 slot |
 
 It uses `unsloth/DeepSeek-V4-Flash-0731-GGUF` (the 0731 checkpoint, which ships the DSpark
 drafter), the DSpark drafter on the GPUs, and `ttl: 8 h`. Like the other whole-box entries it is
 in no matrix set, so it runs alone and **any** card request evicts it. Only the on-call
 poller is told to leave it alone.
+
+**Context is the native 1M.** It costs little VRAM (~7–13 GiB). Each layer's raw KV is a
+128-token window, and only the 4×- and 128×-compressed caches grow with context. That VRAM
+pushes a similar amount of experts to RAM, so decode is a little slower than it would be at
+64k. The real limit is prefill: a prompt of several hundred thousand tokens takes a long time
+with experts in RAM.
 
 There is no Q3 fallback entry. The spec drafted one for the case where the VM cannot reach
 200 GiB of RAM (P2), but Q3 is genuinely lossy for this model. If P2 slips, add
