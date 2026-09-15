@@ -33,8 +33,8 @@ POLL_SECONDS="${POLL_SECONDS:-60}"
 # Comma-separated model IDs the poller must never evict (RAM-offload MoE; see SPEC-bigmoe.md
 # §6). Empty = no-op. gen_config.py keeps the compose value in sync with the config.
 BIGMOE_MODELS="${BIGMOE_MODELS:-}"
-# Match GPUs by UUID, not index: the README warns indices reorder across reboots, and the
-# A2000 (id=1) must never be considered here. Defaults are the two 3090s (CARD0, CARD2).
+# Match GPUs by UUID, not index: indices DO reorder (they did on 2026-09-15), and the A2000s
+# must never be considered here. Defaults are the two 3090s (CARD0, CARD2).
 GPU_UUIDS="${GPU_UUIDS:-GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb}"
 
 quiet=0

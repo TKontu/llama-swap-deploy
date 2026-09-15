@@ -20,8 +20,10 @@ import os
 import re
 import sys
 
-CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 #0
-CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 #2
+# The labels are card identities bound to UUIDs, named after the 3090s' indices at migration.
+# Since 2026-09-15 nvidia-smi lists CARD0 as index 1 and CARD2 as index 0 — irrelevant here.
+CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 "c0"
+CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 "c2"
 # (label, uuid). The label prefixes the model ID; card order here is also the order of the
 # `&` terms in the matrix set.
 CARDS = [("c0", CARD0), ("c2", CARD2)]

@@ -38,17 +38,29 @@ only customization we carry is a 2-line Dockerfile that adds the `docker` CLI.
 
 ## Hardware
 
-| Idx | GPU | VRAM | UUID | PCI |
-|-----|-----|------|------|-----|
-| 0 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:10` |
-| 1 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:11` |
-| 2 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:1B` |
+| Idx | Name | VRAM | UUID | PCI | Config label |
+|-----|------|------|------|-----|--------------|
+| 0 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:10` | `c2` (`CARD2`) |
+| 1 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:11` | `c0` (`CARD0`) |
+| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | unused |
+| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | unused |
+| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | unused |
+
+As of 2026-09-15 (driver 595.84, CUDA 13.2): two more A2000s, and the cards reordered. The
+`c0`/`c2` labels are **card identities bound to UUIDs**, named after the indices the 3090s had
+at migration. They no longer match `nvidia-smi` indices, and they don't need to — that is
+the whole point of pinning by UUID.
+
+The config does not use the A2000s yet; `SPEC-bigmoe.md` §12 plans how.
 
 ### Interconnect — the dominant constraint
 
 - **No NVLink** (`nvidia-smi nvlink -s` → all links inactive; A2000 has no NVLink).
-- `nvidia-smi topo -m` → **`PIX`** between all three (single PCIe switch, no host-bridge
-  hop) — the best PCIe topology, but **still PCIe**, not NVLink.
+- `nvidia-smi topo -m` → **`PIX`** between all five, one NUMA node, CPU affinity 0-15
+  (single PCIe switch, no host-bridge hop) — the best PCIe topology, but **still PCIe**, not
+  NVLink. This is measured **inside the VM**: passthrough topology can be virtualized, and
+  GPU 4 sits on a different bus (`08:`). Treat the physical path as unverified until checked
+  on the Proxmox host.
 
 **Implication:** a tensor-parallel model does an all-reduce **every layer** over PCIe.
 That's already a tax on a single TP=2 model. Running **two TP-active models at once** makes

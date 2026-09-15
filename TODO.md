@@ -28,9 +28,24 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## Hardware change: 2× 3090 + 3× A2000 (2026-09-15)
+
+Both 3090 UUIDs unchanged → config and poller unaffected; `nvidia-smi` indices reordered (see
+README GPU inventory). Plan impact in `SPEC-bigmoe.md` §12.
+
+- [ ] **Decide the A2000 role** before any §11 work: small-model slots, extra VRAM for split
+  models, or both via GPU-set-derived matrix sets (§12 proposal).
+- [ ] Re-size the §11 candidates against ~80.5 GiB of VRAM. Qwen3-Coder-Next, gpt-oss-120b and
+  Mistral Small 4 likely fit fully on GPU, which removes their RAM offload.
+- [ ] Re-evaluate DeepSeek-V4-Flash with the A2000s: ~80 GiB left in RAM may make P2 (200 GiB
+  VM) unnecessary. Measure before resizing the VM.
+- [ ] Check the physical PCIe topology on the Proxmox host (VM shows `PIX`; GPU 4 is on `08:`).
+- [ ] Measure A2000 usable VRAM and decode speed for a layer split, to replace §12's estimates.
+
 ## Candidate whole-box models — planned, not implemented (2026-09-14)
 
-Plan and sizing in `SPEC-bigmoe.md` §11. In recommended order:
+Plan and sizing in `SPEC-bigmoe.md` §11 (**sized for 2× 3090 — see §12 for the A2000
+re-evaluation**). In recommended order:
 
 - [ ] **Qwen3-Coder-Next** (80B/3B, `llamacpp-mainline`, no §2 prerequisites). Decide between
   `UD-Q4_K_S` (42.9 GiB, fully on GPU, thin margin) and `Q4_K_M` (45.2 GiB) with `n_cpu_moe` of

@@ -45,13 +45,20 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
   `/root/.cache/huggingface`).
 - Portainer installed and pointed at this host's Docker.
 
-### GPU inventory (as of migration)
+### GPU inventory
 
-| Idx | Name | VRAM | UUID | PCI |
-|-----|------|------|------|-----|
-| 0 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:10` |
-| 1 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:11` |
-| 2 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:1B` |
+| Idx | Name | VRAM | UUID | PCI | Config label |
+|-----|------|------|------|-----|--------------|
+| 0 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:10` | `c2` (`CARD2`) |
+| 1 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:11` | `c0` (`CARD0`) |
+| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | unused |
+| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | unused |
+| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | unused |
+
+As of 2026-09-15 (driver 595.84, CUDA 13.2): two more A2000s, and the cards reordered. The
+`c0`/`c2` labels are **card identities bound to UUIDs**, named after the indices the 3090s had
+at migration. They no longer match `nvidia-smi` indices, and they don't need to — that is
+the whole point of pinning by UUID.
 
 > **No NVLink.** TP=2 across the two 3090s runs over **PCIe** — see ARCHITECTURE for the
 > performance implications. Pin GPUs by **UUID** (indices can reorder across reboots).
@@ -548,7 +555,7 @@ blocking another model. Three parts:
   **both 3090s** sit below `IDLE_PCT` for `IDLE_SECONDS`, it sends a 1-token request, which
   evicts whatever is on card 0 (or a whole-box model) and loads `c0.muse-glimmer`. A model
   on card 2 stays loaded. It matches GPUs by **UUID**, not index, so a reboot reordering the
-  cards can't make it watch the A2000.
+  cards can't make it watch an A2000.
 - **Except** when a `BIGMOE_MODELS` model is resident (see DeepSeek-V4-Flash below): the
   poller checks `/running` first and skips the wakeup, and it also skips if `/running` can't
   be read. A RAM-offload MoE reads as idle on the GPUs while it is generating.
