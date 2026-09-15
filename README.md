@@ -43,6 +43,28 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 - The vLLM image already in use: `vllm/vllm-openai:v0.26.0`.
 - Model cache dir on host: `/models/hf-cache` (mounted into every container at
   `/root/.cache/huggingface`).
+- Fast model storage on host: `/fast` (mirrored NVMe, 738 G). Large GGUFs go under
+  `/fast/gguf` — see "Model storage" below.
+
+### Model storage
+
+| Mount | Size (2026-09-15) | Holds |
+|---|---|---|
+| `/models` | 787 G, **88 G free** | the HF cache (`/models/hf-cache`): vLLM safetensors, existing GGUFs, the HF token |
+| `/fast` | 738 G, 730 G free | large GGUFs, under `/fast/gguf/<org>_<repo>/` |
+
+A GGUF entry in `gen_config.py` opts in with `storage="fast"`. That adds
+`-v /fast/gguf:/fast-gguf -e GGUF_DIR=/fast-gguf` to its `docker run`, and `gguf-serve.sh` then
+reads and downloads the weights there. The `/models/hf-cache` mount stays on every container,
+so the HF token keeps working. The `hf` CLI's small chunk cache also still lands on `/models`.
+
+Disk speed decides **cold-load time**, since the weights are memory-mapped. Once a model is
+loaded, decode reads RAM, not disk — unless the model is larger than RAM, in which case it
+pages from disk on every token and slows to a crawl.
+
+Currently on `/fast`: `deepseek-v4-flash`. The planned large candidates (SPEC-bigmoe §11)
+should go there too. Don't symlink from `/models` into `/fast`: containers only see paths
+that are mounted into them.
 - Portainer installed and pointed at this host's Docker.
 
 ### GPU inventory
@@ -487,8 +509,11 @@ There is no Q3 fallback entry. The spec drafted one for the case where the VM ca
    ```bash
    hf download unsloth/DeepSeek-V4-Flash-0731-GGUF \
      --include "UD-Q4_K_XL/*" "dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf" \
-     --local-dir /models/hf-cache/gguf/unsloth_DeepSeek-V4-Flash-0731-GGUF
+     --local-dir /fast/gguf/unsloth_DeepSeek-V4-Flash-0731-GGUF
    ```
+
+   It goes on `/fast` (the entry has `storage="fast"`): 155 GB does not fit the 88 G left on
+   `/models`.
 
    (`--include` is safe here because no positional filenames are given.) `gguf-serve.sh` can
    fetch every shard of a split model from its first shard's name, but a first load that has

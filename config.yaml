@@ -641,7 +641,9 @@ models:
       -e GGUF_THREADS=12
       -e GGUF_BATCH=4096
       -e GGUF_UBATCH=1024
+      -e GGUF_DIR=/fast-gguf
       -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
       -p ${PORT}:8080
       ghcr.io/tkontu/llamacpp-v4:latest
       --alias ${MODEL_ID}

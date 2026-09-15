@@ -2,7 +2,8 @@
 
 Status: implemented in config (2026-09-14) — host prerequisites and §8 acceptance pending.
 See §10 for where the implementation deviates from this draft, §11 for planned candidates,
-and §12 for how the 2026-09-15 hardware change (three A2000s) alters the plan.
+§12 for how the 2026-09-15 hardware change (three A2000s) alters the plan, and §13 for storage
+and an unconfirmed RAM figure.
 Target repo: `TKontu/llama-swap-deploy`
 First model: DeepSeek-V4-Flash (284B total / 13B active, native MXFP4 experts)
 
@@ -27,7 +28,7 @@ not model, and most of this spec is about making that safe rather than about the
 | P2 | Inference VM RAM raised 128 GiB → 200 GiB, fixed, ballooning off | Proxmox | yes |
 | P3 | BIOS memory interleave set to **NPS1** | BMC | yes |
 | P4 | `kernel.numa_balancing=0` on the inference VM | host | yes |
-| P5 | ≥180 GiB free on `/models` (NVMe) for weights | host | yes |
+| P5 | ≥180 GiB free on `/models` (NVMe) for weights — **moved to `/fast`, satisfied** (§13) | host | done |
 | P6 | llama.cpp build with DeepSeek-V4 support (see §3) | CI | yes |
 
 P3/P4 are not optional polish. With ~150 GiB of expert tensors spread across all eight
@@ -416,3 +417,53 @@ Open points:
 - **Power and heat.** Three A2000s add ~210 W at full load; the A2000s already idle at 50–59 °C.
 - **Physical PCIe.** `topo -m` inside the VM says `PIX` everywhere, but GPU 4 is on bus `08:`.
   Check the physical topology on the Proxmox host before relying on it.
+
+## 13. Storage (`/fast`) and the VM RAM figure (2026-09-15)
+
+### Storage — implemented
+
+`df -h` on the inference VM:
+
+| Mount | Size | Used | Free | Role |
+|---|---|---|---|---|
+| `/models` (`/dev/sdb`) | 787 G | 660 G | **88 G** | HF cache: vLLM weights, existing GGUFs, HF token |
+| `/fast` (`/dev/sdc`, mirrored NVMe) | 738 G | — | 730 G | large GGUFs (`/fast/gguf`) |
+
+- **P5 failed on `/models`.** 88 G free cannot hold DeepSeek-V4-Flash (144.4 GiB), never mind
+  the §11 candidates (~505 GiB together). `/fast` holds all of them with ~225 G to spare.
+- **Mechanism:** a spec-level `storage="fast"` in `gen_config.py`.
+  - It mounts `/fast/gguf` at `/fast-gguf` and sets `GGUF_DIR`, which `gguf-serve.sh` already honoured.
+  - `/models/hf-cache` stays mounted, so the HF token file still resolves.
+  - An unknown storage name fails generation.
+- `deepseek-v4-flash` uses it. Every §11 candidate should too.
+- Disk speed matters for **cold load**: the weights are mmap'd and faulted in from disk.
+  - After load, decode reads the page cache; `--mlock` stays off, so the page
+    cache remains reclaimable.
+  - If a model's CPU-resident part exceeds free RAM, pages are evicted and re-read from
+    disk every token. That works on NVMe but is roughly an order of magnitude slower
+    (~3–7 GB/s against DDR4's ~100 GB/s): a fallback, not a plan.
+
+Checks before relying on it (TODO.md):
+
+- `lsblk -o NAME,SIZE,ROTA,MODEL,TRAN`, and a sequential read of a large GGUF from each mount.
+- Both mounts are virtual disks. If `/fast` is backed by ZFS on the Proxmox host, the host's
+  ARC caches the same pages the VM caches — set `primarycache=metadata` on that dataset/zvol,
+  or budget host RAM for the double cache.
+
+### RAM — the VM may have ~92 GiB, not 128 GiB (unconfirmed)
+
+The default tmpfs sizes are fractions of RAM: `/dev/shm` and `/tmp` at 46 G (50%),
+`/run/user/1000` at 9.2 G (10%). Both imply **~92 GiB**, while §2 P2 assumes 128 GiB today.
+Confirm with `free -g`. If it is ~92 GiB, then for **2× 3090 + DDR4 only**:
+
+| Model | RAM for offload @128k | + ~10 GiB overhead | Fits ~92 GiB? |
+|---|---|---|---|
+| Qwen3-Coder-Next | ~2–5 GiB | ~15 GiB | yes |
+| gpt-oss-120b | ~17–20 GiB | ~30 GiB | yes |
+| Mistral Small 4 | ~25–27 GiB | ~37 GiB | yes |
+| DeepSeek-V4-Flash | ~116 GiB | ~126 GiB | **no** — needs P2 (200 GiB) |
+| GLM-5.3-Flash | ~146 GiB | ~156 GiB | **no** — needs P2, and llama.cpp support |
+
+§12's "~80 GiB of DeepSeek in RAM fits the current 128 GiB VM" (with the A2000s) becomes
+"does not fit ~92 GiB with the recommended headroom". P2 is back to blocking for DeepSeek under
+either GPU layout until RAM is confirmed.

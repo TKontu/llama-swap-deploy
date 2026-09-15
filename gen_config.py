@@ -354,8 +354,9 @@ UNGROUPED_GGUF = [
     #
     # batch 4096 / ubatch 1024 rather than 2048/512: below llama.cpp's op-offload threshold,
     # prefill for CPU-resident weights runs on the CPU (12 Zen 2 cores), the worst path here.
+    # storage="fast": 144.4 GiB does not fit the 88 G left on /models; it lives on /fast.
     dict(tok="deepseek-v4-flash", bigmoe=True, image=LLAMACPP_V4, cards=[CARD0, CARD2],
-         ttl=TTL_BIGMOE, repo="unsloth/DeepSeek-V4-Flash-0731-GGUF",
+         ttl=TTL_BIGMOE, storage="fast", repo="unsloth/DeepSeek-V4-Flash-0731-GGUF",
          # 5 shards, 144.4 GiB. Name the FIRST shard; gguf-serve.sh fetches the rest.
          hf_file="UD-Q4_K_XL/DeepSeek-V4-Flash-0731-UD-Q4_K_XL-00001-of-00005.gguf",
          draft="dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf", spec_type="draft-dspark", draft_max=3,
@@ -525,8 +526,19 @@ def gguf_knobs(spec):
     return {key: spec[key] for key, _ in GGUF_ENV if key in spec}
 
 
+# Where GGUF weights live, per entry (`storage=` on a spec). Default: the shared HF cache on
+# /models, which is 89% full (2026-09-15). "fast" = /fast, a mirrored-NVMe volume with room for
+# the large candidates. It is mounted IN ADDITION to /models/hf-cache, not instead of it, so the
+# HF token at /models/hf-cache/token (README → "HuggingFace auth") still reaches the `hf` CLI.
+# gguf-serve.sh already places files under $GGUF_DIR/<org>_<repo>. (host dir, container dir)
+STORAGE = {
+    "fast": ("/fast/gguf", "/fast-gguf"),
+}
+
+
 def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
-               params=None, template_kwargs=None, sampling=None, aliases=(), **knobs):
+               params=None, template_kwargs=None, sampling=None, aliases=(), storage=None,
+               **knobs):
     # Standard GGUF via the gguf-serve.sh entrypoint (present in every llama.cpp image): it
     # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
     # cache, then serves the local file with llama-server (this build's llama-server has
@@ -542,6 +554,13 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         sys.exit(f"{model_id}: n_cpu_moe and ot are mutually exclusive")
     opt = "".join(f"      -e {env}={knobs[key]}\n"
                   for key, env in GGUF_ENV if knobs.get(key) is not None)
+    mounts = ""
+    if storage is not None:
+        if storage not in STORAGE:
+            sys.exit(f"{model_id}: unknown storage {storage!r} (known: {sorted(STORAGE)})")
+        host_dir, container_dir = STORAGE[storage]
+        opt += f"      -e GGUF_DIR={container_dir}\n"
+        mounts = f"      -v {host_dir}:{container_dir}\n"
     if template_kwargs:
         # SERVER-SIDE DEFAULTS for the jinja chat template, NOT a forced override. This is
         # llama-server's own --chat-template-kwargs, reached via its LLAMA_ARG_* env alias so
@@ -570,6 +589,7 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         f"      -e GGUF_PARALLEL={par}\n"
         f"{opt}"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
+        f"{mounts}"
         f"      -p ${{PORT}}:8080\n"
         f"      {image}\n"
         f"      --alias ${{MODEL_ID}}\n"
@@ -595,7 +615,8 @@ def member_entry(spec, model_id, card, ttl=TTL, aliases=()):
                           spec.get("par", GGUF_PARALLEL), ttl=ttl,
                           image=spec.get("image", BONSAI), params=spec.get("params"),
                           template_kwargs=spec.get("template_kwargs"),
-                          sampling=spec.get("sampling"), aliases=aliases, **gguf_knobs(spec))
+                          sampling=spec.get("sampling"), aliases=aliases,
+                          storage=spec.get("storage"), **gguf_knobs(spec))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
                       ttl=ttl, extra=spec.get("extra", ()), aliases=aliases)
@@ -606,7 +627,8 @@ def ungrouped_gguf_entry(spec):
                       spec["ctx"], spec.get("par", 1), ttl=spec.get("ttl", TTL),
                       image=spec.get("image", BONSAI), params=spec.get("params"),
                       template_kwargs=spec.get("template_kwargs"),
-                      sampling=spec.get("sampling"), **gguf_knobs(spec))
+                      sampling=spec.get("sampling"), storage=spec.get("storage"),
+                      **gguf_knobs(spec))
 
 
 def check_bigmoe_compose():

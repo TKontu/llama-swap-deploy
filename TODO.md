@@ -28,6 +28,22 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## Storage `/fast` + RAM check (2026-09-15)
+
+`/models` has 88 G free, too little for the large GGUFs. `/fast` (mirrored NVMe, 730 G free) now
+holds them via `storage="fast"` in `gen_config.py` (SPEC-bigmoe §13).
+
+- [ ] `mkdir -p /fast/gguf` on the host (docker would create it as root on first use; creating
+  it first keeps ownership predictable).
+- [ ] **`free -g`** — tmpfs sizes imply ~92 GiB of RAM, not the 128 GiB the spec assumes. If
+  confirmed, DeepSeek-V4-Flash needs P2 even with the A2000s (§13 table).
+- [ ] `lsblk -o NAME,SIZE,ROTA,MODEL,TRAN` and a sequential-read test on `/models` vs `/fast`.
+  Record the cold-load time for the first `/fast` model.
+- [ ] If `/fast` is ZFS-backed on Proxmox: `primarycache=metadata` on it, or budget host RAM
+  for the ARC double-cache.
+- [ ] Optional: move the existing large GGUFs (Muse-Glimmer ~38 GB, Qwen3.8 ~44 GB) to `/fast`
+  with `storage="fast"` to free `/models`. Move the files first, then regenerate.
+
 ## Hardware change: 2× 3090 + 3× A2000 (2026-09-15)
 
 Both 3090 UUIDs unchanged → config and poller unaffected; `nvidia-smi` indices reordered (see
@@ -87,7 +103,7 @@ Needs CI / the host:
 - [ ] **Spec prerequisites P2–P5**: VM RAM 200 GiB fixed / ballooning off, BIOS NPS1,
   `kernel.numa_balancing=0`, >=180 GiB free on `/models`. P3/P4 may be no-ops on one NUMA node
   (SPEC §10) — measure rather than assume.
-- [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF (README → DeepSeek-V4-Flash).
+- [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF to `/fast/gguf/…` (README → DeepSeek-V4-Flash).
 - [ ] Cold start `deepseek-v4-flash`. Confirm the log shows `deepseek4`, the DSpark block size
   of 5, **sparse FA** enabled, and experts on CPU. Record VRAM per card and container RSS.
 - [ ] **Walk `n_cpu_moe` down from 43** until ~44 GiB VRAM total; rebalance `tensor_split`,
