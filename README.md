@@ -513,17 +513,33 @@ There is no Q3 fallback entry. The spec drafted one for the case where the VM ca
 2. **Download the weights** on the host. At ~155 GB, never let a cold start do it:
 
    ```bash
-   hf download unsloth/DeepSeek-V4-Flash-0731-GGUF \
-     --include "UD-Q4_K_XL/*" "dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf" \
-     --local-dir /fast/gguf/unsloth_DeepSeek-V4-Flash-0731-GGUF
+   mkdir -p /fast/gguf
+   docker run --rm --entrypoint hf \
+     -v /models/hf-cache:/root/.cache/huggingface \
+     -v /fast/gguf:/fast-gguf \
+     -e HF_XET_CACHE=/fast-gguf/.xet-cache \
+     ghcr.io/tkontu/llamacpp-v4:latest \
+     download unsloth/DeepSeek-V4-Flash-0731-GGUF \
+       --include "UD-Q4_K_XL/*" \
+       --include "dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf" \
+       --local-dir /fast-gguf/unsloth_DeepSeek-V4-Flash-0731-GGUF
    ```
 
    It goes on `/fast` (the entry has `storage="fast"`): 155 GB does not fit the 88 G left on
    `/models`.
 
-   (`--include` is safe here because no positional filenames are given.) `gguf-serve.sh` can
-   fetch every shard of a split model from its first shard's name, but a first load that has
-   to download 155 GB will blow `healthCheckTimeout`.
+   - **`--include` takes ONE pattern per flag.** `--include "A" "B"` makes `B` a positional
+     filename, and `hf` then *ignores* `--include` and downloads only `B`.
+   - **Download through the image, not the host's `hf`.** The image has a current
+     `huggingface_hub` with `hf_xet` and sees the token at `/models/hf-cache/token`. A distro
+     `hf` without `hf_xet`, unauthenticated, falls back to plain HTTP (~11 MB/s measured —
+     about 4 h for this model).
+   - `HF_XET_CACHE` keeps the Xet chunk cache on `/fast` instead of `/models`.
+   - Files end up owned by root, which is what the model containers run as.
+
+   Re-running skips files that are already complete. `gguf-serve.sh` can fetch every shard of a
+   split model from its first shard's name, but a first load that has to download 155 GB will
+   blow `healthCheckTimeout`.
 3. **Tune `n_cpu_moe`.** It starts at `43` = every layer's experts in RAM, the safe first load.
    Walk it down in `gen_config.py` until VRAM sits at ~44 GiB across both cards. With
    `-sm layer`, the GPU-resident expert layers are the *last* ones, which land on card 2, so
