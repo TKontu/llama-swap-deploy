@@ -3,7 +3,7 @@
 Status: implemented in config (2026-09-14) — host prerequisites and §8 acceptance pending.
 See §10 for where the implementation deviates from this draft, §11 for planned candidates,
 §12 for how the 2026-09-15 hardware change (three A2000s) alters the plan, and §13 for storage
-and an unconfirmed RAM figure.
+and the confirmed VM RAM (216 GiB).
 Target repo: `TKontu/llama-swap-deploy`
 First model: DeepSeek-V4-Flash (284B total / 13B active, native MXFP4 experts)
 
@@ -25,7 +25,7 @@ not model, and most of this spec is about making that safe rather than about the
 | # | Item | Owner | Blocking? |
 |---|------|-------|-----------|
 | P1 | TrueNAS stays on the Dell; not migrated to this host | done | — |
-| P2 | Inference VM RAM raised 128 GiB → 200 GiB, fixed, ballooning off | Proxmox | yes |
+| P2 | Inference VM RAM raised 128 GiB → 200 GiB, fixed, ballooning off — **RAM done: 216 GiB** (§13); fixed/ballooning-off unverified | Proxmox | verify only |
 | P3 | BIOS memory interleave set to **NPS1** | BMC | yes |
 | P4 | `kernel.numa_balancing=0` on the inference VM | host | yes |
 | P5 | ≥180 GiB free on `/models` (NVMe) for weights — **moved to `/fast`, satisfied** (§13) | host | done |
@@ -247,7 +247,7 @@ DeepSeek at all-experts-on-CPU and walks down.
 
 **Recommended order:** Qwen3-Coder-Next → gpt-oss-120b → Mistral Small 4 → (DeepSeek-V4-Flash,
 once P2–P5 land) → GLM-5.3-Flash once llama.cpp merges support. The first three need no new
-image and no VM change, and at most ~25 GiB of RAM — they fit today's 128 GiB VM. So they can
+image and no VM change, and at most ~25 GiB of RAM — they fit even a 128 GiB VM (the VM has 216 GiB, §13). So they can
 ship before any §2 prerequisite, and they exercise the RAM-offload path (`GGUF_N_CPU_MOE`, the
 poller skip) at low stakes before DeepSeek does.
 
@@ -373,11 +373,11 @@ Consequences for the plan:
    multi-GPU splits: no `n_cpu_moe`, no CPU compute. Because GPU utilisation is a valid idle
    signal again, they also don't need `bigmoe=True`.
 2. **DeepSeek-V4-Flash may no longer need P2.** ~80 GiB of CPU-resident experts fits the
-   *current* 128 GiB VM, since pages for GPU-offloaded tensors are reclaimable after load.
-   P2 moves from blocking to "measure first". Decode should also improve, since fewer layers
+   old 128 GiB VM size, since pages for GPU-offloaded tensors are reclaimable after load.
+   (Moot: the VM has 216 GiB, §13.) Decode should also improve, since fewer layers
    are RAM-bound. Still unmeasured.
 3. **GLM-5.3-Flash** remains blocked on llama.cpp support. The A2000s cut its RAM need from
-   ~145 to ~107 GiB, which makes it fit a 128 GiB VM only barely — P2 still applies.
+   ~145 to ~107 GiB, which would fit a 128 GiB VM only barely. Moot at 216 GiB (§13).
 
 ### The design question the A2000s open (decide before implementing)
 
@@ -450,20 +450,27 @@ Checks before relying on it (TODO.md):
   ARC caches the same pages the VM caches — set `primarycache=metadata` on that dataset/zvol,
   or budget host RAM for the double cache.
 
-### RAM — the VM may have ~92 GiB, not 128 GiB (unconfirmed)
+### RAM — 216 GiB (confirmed 2026-09-15)
 
-The default tmpfs sizes are fractions of RAM: `/dev/shm` and `/tmp` at 46 G (50%),
-`/run/user/1000` at 9.2 G (10%). Both imply **~92 GiB**, while §2 P2 assumes 128 GiB today.
-Confirm with `free -g`. If it is ~92 GiB, then for **2× 3090 + DDR4 only**:
+`free -g`: 216 GiB total, 212 GiB available, 7 GiB swap. **P2's 200 GiB is met.** An earlier
+estimate of ~92 GiB, inferred from tmpfs sizes, was wrong. Those sizes (`/dev/shm` and `/tmp`
+46 G) are fixed when the filesystem is mounted, so they reflect RAM at boot rather than now.
 
-| Model | RAM for offload @128k | + ~10 GiB overhead | Fits ~92 GiB? |
+That mismatch is itself worth checking. A VM that booted with ~92 GiB and now reports 216 GiB
+suggests **memory hotplug or a balloon** on the Proxmox side. P2 asks for fixed memory with
+ballooning off, because a balloon reclaiming guest memory under a 145 GiB mmap'd model turns
+into page-cache eviction and disk re-reads mid-decode. Check `balloon: 0` and the `memory:` /
+`hotplug:` lines in the VM config.
+
+For **2× 3090 + DDR4 only**, at 128k context:
+
+| Model | RAM for offload | + ~10 GiB overhead | Fits 216 GiB? |
 |---|---|---|---|
 | Qwen3-Coder-Next | ~2–5 GiB | ~15 GiB | yes |
 | gpt-oss-120b | ~17–20 GiB | ~30 GiB | yes |
 | Mistral Small 4 | ~25–27 GiB | ~37 GiB | yes |
-| DeepSeek-V4-Flash | ~116 GiB | ~126 GiB | **no** — needs P2 (200 GiB) |
-| GLM-5.3-Flash | ~146 GiB | ~156 GiB | **no** — needs P2, and llama.cpp support |
+| DeepSeek-V4-Flash | ~116 GiB | ~126 GiB | **yes**, ~90 GiB spare |
+| GLM-5.3-Flash | ~146 GiB | ~156 GiB | **yes**, ~60 GiB spare; still blocked on llama.cpp |
 
-§12's "~80 GiB of DeepSeek in RAM fits the current 128 GiB VM" (with the A2000s) becomes
-"does not fit ~92 GiB with the recommended headroom". P2 is back to blocking for DeepSeek under
-either GPU layout until RAM is confirmed.
+DeepSeek-V4-Flash now waits only on the image build (CI) and the remaining host checks: P3/P4,
+fixed memory, and the `/fast` download.

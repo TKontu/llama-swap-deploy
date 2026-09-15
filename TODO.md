@@ -35,8 +35,10 @@ holds them via `storage="fast"` in `gen_config.py` (SPEC-bigmoe §13).
 
 - [ ] `mkdir -p /fast/gguf` on the host (docker would create it as root on first use; creating
   it first keeps ownership predictable).
-- [ ] **`free -g`** — tmpfs sizes imply ~92 GiB of RAM, not the 128 GiB the spec assumes. If
-  confirmed, DeepSeek-V4-Flash needs P2 even with the A2000s (§13 table).
+- [x] **`free -g`: 216 GiB** (2026-09-15). P2's RAM target is met; every planned model fits,
+  including DeepSeek-V4-Flash and GLM-5.3-Flash with 2× 3090 only (SPEC §13).
+- [ ] **Verify memory is fixed.** The tmpfs sizes (46 G) suggest the VM booted with ~92 GiB and
+  grew, i.e. hotplug or a balloon. Check `balloon: 0` / `hotplug:` in the Proxmox VM config.
 - [ ] `lsblk -o NAME,SIZE,ROTA,MODEL,TRAN` and a sequential-read test on `/models` vs `/fast`.
   Record the cold-load time for the first `/fast` model.
 - [ ] If `/fast` is ZFS-backed on Proxmox: `primarycache=metadata` on it, or budget host RAM
@@ -100,7 +102,7 @@ Needs CI / the host:
   `llama-server` target, `build/bin` output, UI now OFF by default), but it has not been
   compiled. This PR changes `gguf-serve.sh`, so it also rebuilds `llamacpp-mainline` and
   `bonsai-llama` — same binaries, new entrypoint.
-- [ ] **Spec prerequisites P2–P5**: VM RAM 200 GiB fixed / ballooning off, BIOS NPS1,
+- [ ] **Spec prerequisites P2–P5**: VM RAM 200 GiB fixed / ballooning off (216 GiB present; fixed unverified), BIOS NPS1,
   `kernel.numa_balancing=0`, >=180 GiB free on `/models`. P3/P4 may be no-ops on one NUMA node
   (SPEC §10) — measure rather than assume.
 - [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF to `/fast/gguf/…` (README → DeepSeek-V4-Flash).
