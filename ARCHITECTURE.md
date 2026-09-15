@@ -38,17 +38,29 @@ only customization we carry is a 2-line Dockerfile that adds the `docker` CLI.
 
 ## Hardware
 
-| Idx | GPU | VRAM | UUID | PCI |
-|-----|-----|------|------|-----|
-| 0 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:10` |
-| 1 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:11` |
-| 2 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:1B` |
+| Idx | Name | VRAM | UUID | PCI | Config label |
+|-----|------|------|------|-----|--------------|
+| 0 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:10` | `c2` (`CARD2`) |
+| 1 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:11` | `c0` (`CARD0`) |
+| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | unused |
+| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | unused |
+| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | unused |
+
+As of 2026-09-15 (driver 595.84, CUDA 13.2): two more A2000s, and the cards reordered. The
+`c0`/`c2` labels are **card identities bound to UUIDs**, named after the indices the 3090s had
+at migration. They no longer match `nvidia-smi` indices, and they don't need to — that is
+the whole point of pinning by UUID.
+
+The config does not use the A2000s yet; `SPEC-bigmoe.md` §12 plans how.
 
 ### Interconnect — the dominant constraint
 
 - **No NVLink** (`nvidia-smi nvlink -s` → all links inactive; A2000 has no NVLink).
-- `nvidia-smi topo -m` → **`PIX`** between all three (single PCIe switch, no host-bridge
-  hop) — the best PCIe topology, but **still PCIe**, not NVLink.
+- `nvidia-smi topo -m` → **`PIX`** between all five, one NUMA node, CPU affinity 0-15
+  (single PCIe switch, no host-bridge hop) — the best PCIe topology, but **still PCIe**, not
+  NVLink. This is measured **inside the VM**: passthrough topology can be virtualized, and
+  GPU 4 sits on a different bus (`08:`). Treat the physical path as unverified until checked
+  on the Proxmox host.
 
 **Implication:** a tensor-parallel model does an all-reduce **every layer** over PCIe.
 That's already a tax on a single TP=2 model. Running **two TP-active models at once** makes
@@ -146,14 +158,15 @@ cache blocks" failure.
 | GGUF, mainstream arch | llama.cpp | bundled `llama-server` child process |
 | GGUF, exotic (e.g. `Ternary-Bonsai-27B`) | **PrismML llama.cpp fork** | `cmd: docker run …` of a fork image (custom kernels) |
 | GGUF, newer arch (e.g. `Muse-Glimmer-30B`) | **mainline llama.cpp, pinned build** | `cmd: docker run …` of `Dockerfile.llamacpp` |
+| GGUF, weights larger than VRAM (`DeepSeek-V4-Flash`) | **mainline llama.cpp, newer pin**, experts in host RAM | same Dockerfile, `llamacpp-v4` image |
 
 `Ternary-Bonsai-27B` is a hybrid-attention, multimodal, ternary-quantized model built for
 a **PrismML fork of llama.cpp** — vLLM 0.25.1 cannot serve it. This is a concrete reason
 the backend-agnostic design matters.
 
-### Why there are TWO llama.cpp images
+### Why there are THREE llama.cpp images (from two Dockerfiles)
 
-This is the non-obvious bit. They are not redundant and neither can replace the other:
+This is the non-obvious bit. They are not redundant and none can replace another:
 
 - `Dockerfile.bonsai` builds **PrismML's `prism` fork**, which carries the Q2_0_g128 ternary
   and hybrid-attention CUDA kernels `Ternary-Bonsai-27B` needs. Mainline does not have them.
@@ -161,8 +174,14 @@ This is the non-obvious bit. They are not redundant and neither can replace the 
   2026-07-31, so it predates any architecture merged after that — `Muse-Glimmer-30B` landed
   in mainline on 2026-08-10 (`ggml-org/llama.cpp#26841`, build `b10353`) and fails on the
   fork with an unknown-architecture error.
+- The same `Dockerfile.llamacpp` is built a **second time at a newer pin** (`v0.4.0`) as
+  `llamacpp-v4`, for DeepSeek-V4-Flash. `b10362` can already load `deepseek4` and DSpark, but
+  `v0.4.0` adds CUDA sparse flash-attention for DSV4 (`#27970`). A separate pin rather than a
+  bump, because `b10362` is what Muse-Glimmer's ATEM tool calling and Qwen3.8 were validated
+  on — one new model should not re-open two working ones. The pins are rows in the
+  `llamacpp-image` workflow matrix; a further pin is another row, not another Dockerfile.
 
-Both images share `docker/gguf-serve.sh` as their entrypoint, so moving a model between them
+All images share `docker/gguf-serve.sh` as their entrypoint, so moving a model between them
 means changing only `image:` in the generated config. Pin the mainline tag rather than
 tracking a rolling one, for the same reason the vLLM image is pinned to `v0.26.0`. When
 adding a GGUF model, the question to answer first is *which image can actually load it* —
@@ -192,8 +211,8 @@ check when its architecture was merged against the fork's branch date.
 ## Security note
 
 Mounting `/var/run/docker.sock` grants the llama-swap container root-equivalent control of
-the host Docker. It is needed to spawn model containers: all 22 models launch via
-`docker run` (10 vLLM, 12 llama.cpp).
+the host Docker. It is needed to spawn model containers: all 24 models launch via
+`docker run` (10 vLLM, 14 llama.cpp).
 
 ### What an API caller can and cannot do
 
@@ -211,7 +230,7 @@ would make the spawn commands host-editable.
 
 Deliberate. Single-tenant box on a trusted LAN, and llama-swap's API key would need an
 `Authorization` header added to the three `curl` calls in `scripts/oncall-wakeup.sh`
-(lines 44, 84, 90) and to every client. **Network reachability is the compensating
+(lines 51, 92, 115) and to every client. **Network reachability is the compensating
 control**, so it has to be an actual firewall rule rather than a convention.
 
 ### Hardening, ranked by value-per-effort
@@ -246,4 +265,4 @@ mounts. See README → *HuggingFace auth*. `/running` was the only leaking route
 Note this closed the *disclosure*, not the exposure: `:9292` is still unauthenticated on
 the LAN, and the socket mount still makes it root-equivalent. Enabling llama-swap's API
 key remains worthwhile — it needs an `Authorization` header added to the three `curl`
-calls in `scripts/oncall-wakeup.sh` (lines 44, 84, 90) and to any client config.
+calls in `scripts/oncall-wakeup.sh` (lines 51, 92, 115) and to any client config.

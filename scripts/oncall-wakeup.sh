@@ -30,14 +30,21 @@ ONCALL_MODEL="${ONCALL_MODEL:-c0.muse-glimmer}"
 IDLE_SECONDS="${IDLE_SECONDS:-3600}"
 IDLE_PCT="${IDLE_PCT:-5}"
 POLL_SECONDS="${POLL_SECONDS:-60}"
-# Match GPUs by UUID, not index: the README warns indices reorder across reboots, and the
-# A2000 (id=1) must never be considered here. Defaults are the two 3090s (CARD0, CARD2).
+# Comma-separated model IDs the poller must never evict (RAM-offload MoE; see SPEC-bigmoe.md
+# §6). Empty = no-op. gen_config.py keeps the compose value in sync with the config.
+BIGMOE_MODELS="${BIGMOE_MODELS:-}"
+# Match GPUs by UUID, not index: indices DO reorder (they did on 2026-09-15), and the A2000s
+# must never be considered here. Defaults are the two 3090s (CARD0, CARD2).
 GPU_UUIDS="${GPU_UUIDS:-GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb}"
 
 quiet=0
 fails=0
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) oncall: $*"; }
+
+# is_resident <running-json> <model-id>. Fixed-string match on the quoted ID: model IDs
+# contain dots, which a regex grep would treat as wildcards.
+is_resident() { echo "$1" | grep -qF "\"$2\""; }
 
 # Highest utilisation across the watched GPUs, or "" if metrics are unavailable.
 peak_gpu_util() {
@@ -81,8 +88,26 @@ while :; do
     # Reset first: a failed wake must not retry every poll against a ~19 GB cold start.
     quiet=0
 
-    if curl -sf -m 10 "$LLAMASWAP_URL/running" | grep -q "\"$ONCALL_MODEL\""; then
+    # Fail closed: if we cannot see what is loaded, we cannot rule out a bigmoe model.
+    if ! running="$(curl -sf -m 10 "$LLAMASWAP_URL/running")"; then
+        log "/running unavailable — not waking (retry after another ${IDLE_SECONDS}s idle)"
+        continue
+    fi
+
+    if is_resident "$running" "$ONCALL_MODEL"; then
         log "'$ONCALL_MODEL' already resident — nothing to do"
+        continue
+    fi
+
+    # GPU utilisation is not an idle signal for a RAM-offload MoE: while it decodes, the
+    # cards mostly wait on host memory and read as idle. Waking here would kill a running
+    # generation and throw away a ~145 GiB load for a 17 GB standby. See SPEC-bigmoe.md §6.
+    bigmoe=""
+    for m in $(echo "$BIGMOE_MODELS" | tr ',' ' '); do
+        if is_resident "$running" "$m"; then bigmoe="$m"; break; fi
+    done
+    if [ -n "$bigmoe" ]; then
+        log "'$bigmoe' is resident (BIGMOE_MODELS) — not evicting it"
         continue
     fi
 

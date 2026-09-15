@@ -621,6 +621,41 @@ models:
     ttl: 36000
     concurrencyLimit: 4
 
+  "deepseek-v4-flash":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e GGUF_REPO=unsloth/DeepSeek-V4-Flash-0731-GGUF
+      -e GGUF_FILE=UD-Q4_K_XL/DeepSeek-V4-Flash-0731-UD-Q4_K_XL-00001-of-00005.gguf
+      -e GGUF_CTX=1048576
+      -e GGUF_PARALLEL=1
+      -e GGUF_DRAFT=dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf
+      -e GGUF_SPEC_TYPE=draft-dspark
+      -e GGUF_DRAFT_MAX=3
+      -e GGUF_SPLIT_MODE=layer
+      -e GGUF_TENSOR_SPLIT=1,1
+      -e GGUF_N_CPU_MOE=43
+      -e GGUF_NUMA=distribute
+      -e GGUF_THREADS=12
+      -e GGUF_BATCH=4096
+      -e GGUF_UBATCH=1024
+      -e GGUF_DIR=/fast-gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
+      -p ${PORT}:8080
+      ghcr.io/tkontu/llamacpp-v4:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 1.0
+      --min-p 0.01
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 28800
+    concurrencyLimit: 4
+
 
 routing:
   router:

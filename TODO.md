@@ -28,6 +28,100 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## Storage `/fast` + RAM check (2026-09-15)
+
+`/models` has 88 G free, too little for the large GGUFs. `/fast` (mirrored NVMe, 730 G free) now
+holds them via `storage="fast"` in `gen_config.py` (SPEC-bigmoe §13).
+
+- [ ] `mkdir -p /fast/gguf` on the host (docker would create it as root on first use; creating
+  it first keeps ownership predictable).
+- [x] **`free -g`: 216 GiB** (2026-09-15). P2's RAM target is met; every planned model fits,
+  including DeepSeek-V4-Flash and GLM-5.3-Flash with 2× 3090 only (SPEC §13).
+- [ ] **Verify memory is fixed.** The tmpfs sizes (46 G) suggest the VM booted with ~92 GiB and
+  grew, i.e. hotplug or a balloon. Check `balloon: 0` / `hotplug:` in the Proxmox VM config.
+- [ ] `lsblk -o NAME,SIZE,ROTA,MODEL,TRAN` and a sequential-read test on `/models` vs `/fast`.
+  Record the cold-load time for the first `/fast` model.
+- [ ] If `/fast` is ZFS-backed on Proxmox: `primarycache=metadata` on it, or budget host RAM
+  for the ARC double-cache.
+- [ ] Optional: move the existing large GGUFs (Muse-Glimmer ~38 GB, Qwen3.8 ~44 GB) to `/fast`
+  with `storage="fast"` to free `/models`. Move the files first, then regenerate.
+
+## Hardware change: 2× 3090 + 3× A2000 (2026-09-15)
+
+Both 3090 UUIDs unchanged → config and poller unaffected; `nvidia-smi` indices reordered (see
+README GPU inventory). Plan impact in `SPEC-bigmoe.md` §12.
+
+- [ ] **Decide the A2000 role** before any §11 work: small-model slots, extra VRAM for split
+  models, or both via GPU-set-derived matrix sets (§12 proposal).
+- [ ] Re-size the §11 candidates against ~80.5 GiB of VRAM. Qwen3-Coder-Next, gpt-oss-120b and
+  Mistral Small 4 likely fit fully on GPU, which removes their RAM offload.
+- [ ] Re-evaluate DeepSeek-V4-Flash with the A2000s: ~80 GiB left in RAM may make P2 (200 GiB
+  VM) unnecessary. Measure before resizing the VM.
+- [ ] Check the physical PCIe topology on the Proxmox host (VM shows `PIX`; GPU 4 is on `08:`).
+- [ ] Measure A2000 usable VRAM and decode speed for a layer split, to replace §12's estimates.
+
+## Candidate whole-box models — planned, not implemented (2026-09-14)
+
+Plan and sizing in `SPEC-bigmoe.md` §11 (**sized for 2× 3090 — see §12 for the A2000
+re-evaluation**). All at native maximum context (§14). In recommended order:
+
+- [ ] **Qwen3-Coder-Next** (80B/3B, `llamacpp-mainline`, no §2 prerequisites). Decide between
+  `UD-Q4_K_S` (42.9 GiB, fully on GPU, thin margin) and `Q4_K_M` (45.2 GiB) with `n_cpu_moe` of
+  ~2–4, by measured tok/s. `Q4_K_M` does NOT fit fully on the GPUs.
+- [ ] **gpt-oss-120b** (117B/5.1B, MXFP4 59.0 GiB, ~15–18 GiB in RAM, `llamacpp-mainline`).
+  A/B the EAGLE3 drafter. `bigmoe=True` unless measured decode GPU util clears `IDLE_PCT`.
+- [ ] **Mistral Small 4** (119B/6.5B, UD-Q4_K_M 68.7 GiB + mmproj, ~23–25 GiB in RAM,
+  `llamacpp-mainline`). Verify the real context limit: the GGUF says 1M, the model is described as 256K.
+- [ ] **GLM-5.3-Flash** — blocked: `glm5next` is not in mainline llama.cpp (PRs #27752 / #27754
+  / #27773 / #27917 open). Revisit on merge, and re-download the GGUF from after the merge.
+  186.0 GiB at UD-Q4_K_XL: larger than P5's disk figure, and tight in a 200 GiB VM.
+
+## DeepSeek-V4-Flash / bigmoe (2026-09-14)
+
+Implements `SPEC-bigmoe.md` (see its §10 for deviations from the draft). One whole-box entry,
+`deepseek-v4-flash` (UD-Q4_K_XL), on a new `llamacpp-v4` image (same Dockerfile at `v0.4.0`).
+**22 -> 23 models.** Verified locally:
+
+- [x] `llama-swap -validate` (v255) passes. The routing test with dummy upstreams passes:
+  a bigmoe request clears both cards; a card request evicts it.
+- [x] Config diff vs. the matrix-refactor output is purely additive (one entry). The
+  `GGUF_ENV` refactor of `gen_config.py` leaves every existing entry byte-identical.
+- [x] `gguf-serve.sh` with stubbed `hf`/`llama-server`, under both bash-sh and **dash**:
+  - a first-shard name fetches all N shards (including 00012, which a shell would misread as
+    octal); a cached re-run fetches nothing
+  - `GGUF_N_CPU_MOE` + `GGUF_OT` exits 1; a glob-laden `-ot` regex passes through literally
+  - a plain single-file entry produces the same argv as before
+- [x] `oncall-wakeup.sh` under dash against a fake llama-swap, all 7 cases pass:
+  - no wake while either bigmoe ID is resident, or while `/running` is down
+  - still wakes when only card models are loaded; "already resident" still works
+  - `c0Xmuse-glimmer` does not match `c0.muse-glimmer`
+
+Needs CI / the host:
+
+- [ ] **CI builds `llamacpp-v4` at `v0.4.0`.** The CMake layout matches `b10362` (same
+  `llama-server` target, `build/bin` output, UI now OFF by default), but it has not been
+  compiled. This PR changes `gguf-serve.sh`, so it also rebuilds `llamacpp-mainline` and
+  `bonsai-llama` — same binaries, new entrypoint.
+- [ ] **Spec prerequisites P2–P5**: VM RAM 200 GiB fixed / ballooning off (216 GiB present; fixed unverified), BIOS NPS1,
+  `kernel.numa_balancing=0`, >=180 GiB free on `/models`. P3/P4 may be no-ops on one NUMA node
+  (SPEC §10) — measure rather than assume.
+- [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF to `/fast/gguf/…` (README → DeepSeek-V4-Flash).
+- [ ] Cold start `deepseek-v4-flash`. Confirm the log shows `deepseek4`, the DSpark block size
+  of 5, **sparse FA** enabled, and experts on CPU. Record VRAM per card and container RSS.
+- [ ] **Context is 1M (native, SPEC §14).** Record the KV / DSV4 state buffer sizes from the
+  startup log (predicted ~7 GiB f16, ~13 GiB if f32). Probe a long prompt (e.g. 200k tokens) for
+  coherence and time its prefill. On OOM: `cache_type=q8_0`, then 384K, then drop the drafter.
+- [ ] **Walk `n_cpu_moe` down from 43** until ~44 GiB VRAM total; rebalance `tensor_split`,
+  because the GPU expert layers land on card 2 first.
+- [ ] SPEC §8 baselines on a cold box: decode (>=8 tok/s), decode with DSpark (>=1.4x, else drop
+  the drafter and reclaim 10 GiB), 8k prefill (>=100 tok/s), peak VRAM/RSS, warm/cold load,
+  and evict -> `c0.muse-glimmer` ready (<=60 s).
+- [ ] On-call: with `deepseek-v4-flash` resident and idle GPUs, confirm the poller logs
+  "is resident (BIGMOE_MODELS) — not evicting it" and fires no request.
+- [ ] Probe tool calling (DSML) and thinking control (`enable_thinking:false`,
+  `reasoning_effort:max`).
+- [ ] Only if P2 slips: add a `UD-Q3_K_M` entry (119.3 GiB) as a capacity fallback.
+
 ## Matrix routing refactor (2026-09-14)
 
 `pairNN` groups replaced by per-card entries (`c0.<model>`, `c2.<model>`) and one matrix set.

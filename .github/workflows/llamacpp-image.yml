@@ -1,8 +1,13 @@
 name: llamacpp-image
 
-# Builds the pinned mainline llama.cpp image (Muse-Glimmer-30B and any future model the
-# PrismML fork can't load) and pushes it to GHCR. This is a CUDA compile, so it only runs
-# when its own files change or on manual dispatch — NOT on every push.
+# Builds the pinned mainline llama.cpp images from ONE Dockerfile and pushes them to GHCR.
+# Each image is a different LLAMACPP_TAG pin, so a model can move to a newer llama.cpp without
+# re-testing every model on the older pin:
+#   llamacpp-mainline  b10362  Muse-Glimmer-30B, Qwen3.8-27B
+#   llamacpp-v4        v0.4.0  DeepSeek-V4-Flash (CUDA sparse FA for DSV4, #27970)
+# If a third pin is ever needed, add a matrix row here — not another Dockerfile.
+# This is a CUDA compile, so it only runs when its own files change or on manual dispatch —
+# NOT on every push.
 
 on:
   push:
@@ -15,11 +20,20 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/llamacpp-mainline   # separate package from bonsai
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: llamacpp-mainline   # separate package from bonsai
+            llamacpp_tag: b10362
+          - image: llamacpp-v4
+            llamacpp_tag: v0.4.0
+    env:
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.image }}
     timeout-minutes: 120
     permissions:
       contents: read
@@ -68,15 +82,18 @@ jobs:
         with:
           context: .
           file: Dockerfile.llamacpp
+          build-args: |
+            LLAMACPP_TAG=${{ matrix.llamacpp_tag }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-image cache scope: the two pins would otherwise overwrite each other's layers.
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
       - name: Summary
         run: |
-          echo "### Mainline llama.cpp image pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${{ matrix.image }} (llama.cpp ${{ matrix.llamacpp_tag }}) pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

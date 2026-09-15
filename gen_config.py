@@ -16,10 +16,14 @@ kept as ALIASES of the matching card entry — see LEGACY_PAIRS.
 Regenerate:  python3 gen_config.py > config.yaml
 """
 import json
+import os
+import re
 import sys
 
-CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 #0
-CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 #2
+# The labels are card identities bound to UUIDs, named after the 3090s' indices at migration.
+# Since 2026-09-15 nvidia-smi lists CARD0 as index 1 and CARD2 as index 0 — irrelevant here.
+CARD0 = "GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"   # 3090 "c0"
+CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 "c2"
 # (label, uuid). The label prefixes the model ID; card order here is also the order of the
 # `&` terms in the matrix set.
 CARDS = [("c0", CARD0), ("c2", CARD2)]
@@ -29,6 +33,11 @@ BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 # the PrismML fork carries ternary kernels mainline lacks, but its branch head (2026-07-31)
 # predates newer architectures — Muse-Glimmer needs b10353+. Neither image serves both.
 LLAMACPP = "ghcr.io/tkontu/llamacpp-mainline:latest"
+# Mainline llama.cpp at a NEWER pin (v0.4.0), same Dockerfile.llamacpp, for DeepSeek-V4-Flash.
+# b10362 can already load deepseek4 + DSpark, but v0.4.0 adds CUDA sparse flash-attention for
+# DSV4 (#27970). Kept as a separate image so Muse-Glimmer and Qwen3.8 stay on the build they
+# were validated against — see SPEC-bigmoe.md §3.
+LLAMACPP_V4 = "ghcr.io/tkontu/llamacpp-v4:latest"
 
 # Uniform concurrency across the whole pool: two co-loaded models are only as fast as the
 # slower one, so per-model admission limits just create bottlenecks. For vLLM this is
@@ -69,6 +78,7 @@ GGUF_PARALLEL = 8
 # by hand (POST /api/models/unload) if a model misbehaves.
 TTL = 18000        # 5 h  — per-card pool entries
 TTL_SOLO = 36000   # 10 h — TP=2 solo models (slowest to reload, own both cards)
+TTL_BIGMOE = 28800 # 8 h  — RAM-offload MoE (~145 GiB cold load off NVMe; see SPEC-bigmoe.md)
 
 # Single-card pool — every model here must fit ONE 3090, because it is emitted on both.
 # Each entry is a dict keyed by "backend":
@@ -166,6 +176,12 @@ MUSE_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=64, min_p=0.0)
 # top_k 20, min_p 0.0, presence_penalty 0.0. Callers who disable thinking should override to
 # the card's instruct values (temp 0.7, top_p 0.80, presence_penalty 1.5) per request.
 QWEN38_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0)
+
+# DeepSeek-V4-Flash: the card recommends temperature 1.0, top_p 1.0 (0.95 for agentic use), and
+# unsloth's llama.cpp commands add min_p 0.01. top_k is left at llama.cpp's default (40), as in
+# unsloth's own commands. Thinking ("Think High") is the template default and is left alone:
+# the template's modes are non-think/high/max, with no cheap tier to default down to.
+DEEPSEEK_V4_SAMPLING = sampling_args(temp=1.0, top_p=1.0, min_p=0.01)
 
 POOL = [
     # 65536: measured 19882 MiB @ 16800 and 20552 MiB @ 32768 (TP=1, kv_seqs 1,
@@ -316,6 +332,48 @@ UNGROUPED_GGUF = [
          mmproj="mmproj-F16.gguf",
          ctx=262144, par=1, split_mode="layer", tensor_split="1,1",
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
+    # DeepSeek-V4-Flash (284B total / 13B active) — the first model whose weights do not fit
+    # in VRAM at all. Routed experts live in host RAM (--n-cpu-moe); attention, shared experts,
+    # KV and the drafter sit on the 3090s. Sized against the ~200 GiB inference-VM RAM, not the
+    # 48 GiB of VRAM. Full rationale, prerequisites and acceptance targets: SPEC-bigmoe.md.
+    #
+    # `bigmoe=True` marks a model the on-call poller must never evict: GPU utilisation is not
+    # an idle signal while the cards wait on RAM. gen_config.py checks these IDs against
+    # BIGMOE_MODELS in docker-compose.yml and refuses to generate if they drift.
+    #
+    # Repo: the 0731 checkpoint, because it is the one that ships a DSpark drafter
+    # (dspark-…-Q8_0.gguf, 10.1 GiB, general.architecture=dflash, dflash.block_size=5,
+    # target_layers=[41,42,43]). The drafter goes on the GPUs (-ngld 99), so it counts against
+    # the VRAM budget. draft_max=3 matches unsloth's command and llama.cpp's default; v0.4.0
+    # clamps to the block size rather than asserting. A/B it per SPEC §8 before keeping it.
+    #
+    # n_cpu_moe=43 = every layer's experts in RAM (deepseek4.block_count=43). That is the safe
+    # first load; walk it DOWN until VRAM sits at ~44 GiB across both cards. With -sm layer the
+    # GPU-resident expert layers are the LAST ones, which land on card 2 — rebalance -ts
+    # (tensor_split) as N drops, or card 2 fills first.
+    #
+    # batch 4096 / ubatch 1024 rather than 2048/512: below llama.cpp's op-offload threshold,
+    # prefill for CPU-resident weights runs on the CPU (12 Zen 2 cores), the worst path here.
+    #
+    # ctx=1048576 = the native maximum. Context is cheap on this architecture — read from
+    # src/llama-kv-cache-dsv4.cpp at v0.4.0, not assumed:
+    #   * every layer's RAW KV is a 128-token sliding window (set_swa_pattern(0)), constant-size;
+    #     that covers the compress_ratio=0 layers and all 3 drafter layers
+    #   * what grows is the compressed cache: one 512-dim entry per 4 tokens (21 CSA layers, plus
+    #     128-dim indexer keys) or per 128 tokens (20 HCA layers)
+    #   * => ~7 GiB at f16 for 1M tokens (~13 GiB if stored f32); the attention mask is
+    #     min(window) + top_k, so compute buffers do not scale with context either
+    # Every GiB of that pushes ~1 GiB of experts to RAM (216 GiB available). The practical limit
+    # is prefill speed with experts in RAM, not memory: a very long prompt takes a long time.
+    # storage="fast": 144.4 GiB does not fit the 88 G left on /models; it lives on /fast.
+    dict(tok="deepseek-v4-flash", bigmoe=True, image=LLAMACPP_V4, cards=[CARD0, CARD2],
+         ttl=TTL_BIGMOE, storage="fast", repo="unsloth/DeepSeek-V4-Flash-0731-GGUF",
+         # 5 shards, 144.4 GiB. Name the FIRST shard; gguf-serve.sh fetches the rest.
+         hf_file="UD-Q4_K_XL/DeepSeek-V4-Flash-0731-UD-Q4_K_XL-00001-of-00005.gguf",
+         draft="dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf", spec_type="draft-dspark", draft_max=3,
+         ctx=1048576, par=1, split_mode="layer", tensor_split="1,1",
+         n_cpu_moe=43, numa="distribute", threads=12, batch=4096, ubatch=1024,
+         sampling=DEEPSEEK_V4_SAMPLING),
 ]
 
 # TRANSITIONAL compatibility aliases for callsigns of the old pairs config, frozen at its last
@@ -454,32 +512,66 @@ def fork_entry(model_id, gpus, ttl=TTL, aliases=()):
     )
 
 
+# Optional spec keys that map 1:1 onto gguf-serve.sh env vars, in emission order. Both entry
+# paths (pooled and ungrouped) forward exactly this list, so a knob added here cannot be
+# silently dropped by one of them.
+GGUF_ENV = [
+    ("mmproj", "GGUF_MMPROJ"),
+    ("draft", "GGUF_DRAFT"),
+    ("spec_type", "GGUF_SPEC_TYPE"),
+    ("draft_max", "GGUF_DRAFT_MAX"),
+    ("split_mode", "GGUF_SPLIT_MODE"),
+    ("tensor_split", "GGUF_TENSOR_SPLIT"),
+    ("cache_type", "GGUF_CACHE_TYPE"),
+    # MoE CPU offload (whole-box models whose experts live in host RAM)
+    ("n_cpu_moe", "GGUF_N_CPU_MOE"),
+    ("ot", "GGUF_OT"),
+    ("numa", "GGUF_NUMA"),
+    ("threads", "GGUF_THREADS"),
+    ("batch", "GGUF_BATCH"),
+    ("ubatch", "GGUF_UBATCH"),
+]
+
+
+def gguf_knobs(spec):
+    return {key: spec[key] for key, _ in GGUF_ENV if key in spec}
+
+
+# Where GGUF weights live, per entry (`storage=` on a spec). Default: the shared HF cache on
+# /models, which is 89% full (2026-09-15). "fast" = /fast, a mirrored-NVMe volume with room for
+# the large candidates. It is mounted IN ADDITION to /models/hf-cache, not instead of it, so the
+# HF token at /models/hf-cache/token (README → "HuggingFace auth") still reaches the `hf` CLI.
+# gguf-serve.sh already places files under $GGUF_DIR/<org>_<repo>. (host dir, container dir)
+STORAGE = {
+    "fast": ("/fast/gguf", "/fast-gguf"),
+}
+
+
 def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
-               mmproj=None, draft=None, spec_type=None, draft_max=None, split_mode=None,
-               tensor_split=None, cache_type=None, params=None, template_kwargs=None,
-               sampling=None, aliases=()):
-    # Standard GGUF via the gguf-serve.sh entrypoint (present in BOTH images): it
+               params=None, template_kwargs=None, sampling=None, aliases=(), storage=None,
+               **knobs):
+    # Standard GGUF via the gguf-serve.sh entrypoint (present in every llama.cpp image): it
     # downloads the file(s) with the `hf` CLI (HTTPS + gated + Xet) into the mounted
     # cache, then serves the local file with llama-server (this build's llama-server has
     # no HTTPS itself). GGUF_CTX is PER SLOT; gguf-serve.sh multiplies it by
     # GGUF_PARALLEL for -c, so KV VRAM here scales linearly with parallelism (unlike vLLM).
-    # The optional args map 1:1 onto gguf-serve.sh's GGUF_* env vars; omitting them all
-    # reproduces the original single-file, single-GPU command exactly.
-    opt = ""
-    if mmproj:
-        opt += f"      -e GGUF_MMPROJ={mmproj}\n"
-    if draft:
-        opt += f"      -e GGUF_DRAFT={draft}\n"
-    if spec_type:
-        opt += f"      -e GGUF_SPEC_TYPE={spec_type}\n"
-    if draft_max:
-        opt += f"      -e GGUF_DRAFT_MAX={draft_max}\n"
-    if split_mode:
-        opt += f"      -e GGUF_SPLIT_MODE={split_mode}\n"
-    if tensor_split:
-        opt += f"      -e GGUF_TENSOR_SPLIT={tensor_split}\n"
-    if cache_type:
-        opt += f"      -e GGUF_CACHE_TYPE={cache_type}\n"
+    # `knobs` are the GGUF_ENV keys; omitting them all reproduces the original single-file,
+    # single-GPU command exactly.
+    unknown = set(knobs) - {key for key, _ in GGUF_ENV}
+    if unknown:
+        sys.exit(f"{model_id}: unknown GGUF option(s) {sorted(unknown)}")
+    if knobs.get("n_cpu_moe") is not None and knobs.get("ot"):
+        # gguf-serve.sh refuses this at container start; fail at generation time instead.
+        sys.exit(f"{model_id}: n_cpu_moe and ot are mutually exclusive")
+    opt = "".join(f"      -e {env}={knobs[key]}\n"
+                  for key, env in GGUF_ENV if knobs.get(key) is not None)
+    mounts = ""
+    if storage is not None:
+        if storage not in STORAGE:
+            sys.exit(f"{model_id}: unknown storage {storage!r} (known: {sorted(STORAGE)})")
+        host_dir, container_dir = STORAGE[storage]
+        opt += f"      -e GGUF_DIR={container_dir}\n"
+        mounts = f"      -v {host_dir}:{container_dir}\n"
     if template_kwargs:
         # SERVER-SIDE DEFAULTS for the jinja chat template, NOT a forced override. This is
         # llama-server's own --chat-template-kwargs, reached via its LLAMA_ARG_* env alias so
@@ -508,6 +600,7 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         f"      -e GGUF_PARALLEL={par}\n"
         f"{opt}"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
+        f"{mounts}"
         f"      -p ${{PORT}}:8080\n"
         f"      {image}\n"
         f"      --alias ${{MODEL_ID}}\n"
@@ -529,19 +622,12 @@ def member_entry(spec, model_id, card, ttl=TTL, aliases=()):
     if b == "fork":
         return fork_entry(model_id, card, ttl=ttl, aliases=aliases)
     if b == "gguf":
-        # Forward the optional GGUF knobs the same way ungrouped_gguf_entry() does. Until
-        # qwen3.8-27b joined POOL every pooled GGUF was a plain single-file model on the
-        # bonsai image, so these were silently dropped — a pooled member with an mmproj or a
-        # non-default image would have been generated WITHOUT them and served text-only (or
-        # failed to load) with nothing in the config to show why.
         return gguf_entry(model_id, card, spec["repo"], spec["hf_file"], spec["ctx"],
                           spec.get("par", GGUF_PARALLEL), ttl=ttl,
-                          image=spec.get("image", BONSAI),
-                          mmproj=spec.get("mmproj"), draft=spec.get("draft"),
-                          spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
-                          cache_type=spec.get("cache_type"), params=spec.get("params"),
+                          image=spec.get("image", BONSAI), params=spec.get("params"),
                           template_kwargs=spec.get("template_kwargs"),
-                          sampling=spec.get("sampling"), aliases=aliases)
+                          sampling=spec.get("sampling"), aliases=aliases,
+                          storage=spec.get("storage"), **gguf_knobs(spec))
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
                       spec.get("eager", False), spec.get("think_off", False),
                       ttl=ttl, extra=spec.get("extra", ()), aliases=aliases)
@@ -550,15 +636,23 @@ def member_entry(spec, model_id, card, ttl=TTL, aliases=()):
 def ungrouped_gguf_entry(spec):
     return gguf_entry(spec["tok"], ",".join(spec["cards"]), spec["repo"], spec["hf_file"],
                       spec["ctx"], spec.get("par", 1), ttl=spec.get("ttl", TTL),
-                      image=spec.get("image", BONSAI),
-                      mmproj=spec.get("mmproj"), draft=spec.get("draft"),
-                      spec_type=spec.get("spec_type"), draft_max=spec.get("draft_max"),
-                      split_mode=spec.get("split_mode"),
-                      tensor_split=spec.get("tensor_split"),
-                      cache_type=spec.get("cache_type"),
-                      params=spec.get("params"),
+                      image=spec.get("image", BONSAI), params=spec.get("params"),
                       template_kwargs=spec.get("template_kwargs"),
-                      sampling=spec.get("sampling"))
+                      sampling=spec.get("sampling"), storage=spec.get("storage"),
+                      **gguf_knobs(spec))
+
+
+def check_bigmoe_compose():
+    """The on-call poller skips its wakeup while any BIGMOE_MODELS model is resident. That list
+    lives in docker-compose.yml, so a bigmoe entry added here without it would be evicted
+    mid-generation the first time the cards read as idle. Refuse to generate on drift."""
+    ids = {spec["tok"] for spec in UNGROUPED_GGUF if spec.get("bigmoe")}
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docker-compose.yml")
+    m = re.search(r"^\s*-\s*BIGMOE_MODELS=(.*)$", open(path, encoding="utf-8").read(), re.M)
+    declared = {x.strip() for x in (m.group(1) if m else "").split(",") if x.strip()}
+    if declared != ids:
+        sys.exit(f"BIGMOE_MODELS in docker-compose.yml is {sorted(declared)}, "
+                 f"but bigmoe entries are {sorted(ids)}; update the compose file")
 
 
 def legacy_aliases():
@@ -586,6 +680,7 @@ def main():
     # The generated YAML has non-ASCII comments; on Windows the default stdout would mangle
     # them and write CRLF line endings.
     sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+    check_bigmoe_compose()
     aliases = legacy_aliases()
 
     out = []
