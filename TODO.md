@@ -106,13 +106,18 @@ Needs CI / the host:
   `kernel.numa_balancing=0`, >=180 GiB free on `/models`. P3/P4 may be no-ops on one NUMA node
   (SPEC §10) — measure rather than assume.
 - [ ] **Pre-download** `UD-Q4_K_XL/*` + the dspark GGUF to `/fast/gguf/…` (README → DeepSeek-V4-Flash).
-- [ ] Cold start `deepseek-v4-flash`. Confirm the log shows `deepseek4`, the DSpark block size
-  of 5, **sparse FA** enabled, and experts on CPU. Record VRAM per card and container RSS.
-- [ ] **Context is 1M (native, SPEC §14).** Record the KV / DSV4 state buffer sizes from the
-  startup log (predicted ~7 GiB f16, ~13 GiB if f32). Probe a long prompt (e.g. 200k tokens) for
-  coherence and time its prefill. On OOM: `cache_type=q8_0`, then 384K, then drop the drafter.
-- [ ] **Walk `n_cpu_moe` down from 43** until ~44 GiB VRAM total; rebalance `tensor_split`,
-  because the GPU expert layers land on card 2 first.
+- [x] Cold start + tuning **done 2026-09-16** (SPEC §15): 12.5 tok/s decode, 304 tok/s prefill,
+  21.9 + 22.2 GiB VRAM, ~155 GiB page cache. Shipped `n_cpu_moe=36`, `tensor_split="6,1"`,
+  **no drafter** (it measured slower than using its VRAM for experts).
+- [ ] Time a COLD load (drop caches or reboot) — only the ~7 s warm reload is measured.
+- [ ] **Context is 1M (native, SPEC §14)** and allocates fine, but only ~6k tokens have been
+  pushed through it. Probe a long prompt (e.g. 200k) for coherence and prefill time. On OOM at a
+  later config change: raise `n_cpu_moe`, then `cache_type=q8_0`, then drop to 384K.
+- [x] **Drafter on an A2000: blocked upstream** (llama.cpp#26475, open). A coupled DSpark/DFlash
+  drafter cannot have a device to itself; `-ts` is indexed by absolute device id, not by
+  `--device` order. See SPEC §15. Revisit only if that issue closes.
+- [ ] Identify the **4871 MiB in use on A2000 GPU 3** — nothing in the config touches the
+  A2000s (`nvidia-smi` process list, `docker ps`).
 - [ ] SPEC §8 baselines on a cold box: decode (>=8 tok/s), decode with DSpark (>=1.4x, else drop
   the drafter and reclaim 10 GiB), 8k prefill (>=100 tok/s), peak VRAM/RSS, warm/cold load,
   and evict -> `c0.muse-glimmer` ready (<=60 s).

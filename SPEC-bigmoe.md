@@ -1,6 +1,6 @@
 # SPEC: hybrid CPU/GPU MoE backend (`bigmoe`)
 
-Status: implemented in config (2026-09-14) — host prerequisites and §8 acceptance pending.
+Status: DEPLOYED and measured on the host (2026-09-16) — §8 acceptance met, see §15.
 See §10 for where the implementation deviates from this draft, §11 for planned candidates,
 §12 for how the 2026-09-15 hardware change (three A2000s) alters the plan, and §13 for storage
 and the confirmed VM RAM (216 GiB).
@@ -517,3 +517,76 @@ Costs and risks:
   1. `cache_type=q8_0` (halves KV)
   2. 393216 (384K, DeepSeek's minimum for "Think Max")
   3. dropping the drafter
+
+## 15. Measured on the host (2026-09-16)
+
+Deployed via PR #23/#24, llama-swap v255+ with the matrix router, `llamacpp-v4` (llama.cpp
+v0.4.0, build `b1-5266f24`), weights on `/fast`.
+
+### §8 acceptance criteria
+
+| Metric | Target | Measured | Verdict |
+|---|---|---|---|
+| Decode, single stream | ≥ 8 tok/s | **12.5** (greedy, 300 tok) | pass |
+| Decode with DSpark | ≥ 1.4× the above | **0.91×** (11.35 with drafter) | **fail — drafter dropped** |
+| Prefill, 8k prompt | ≥ 100 tok/s | **304** (6k prompt) | pass |
+| Peak VRAM | ≤ 44 GiB | 21.9 + 22.2 = **44.1 GiB** | at target |
+| Peak container RSS | ≤ 180 GiB | ~155 GiB, as reclaimable page cache | pass |
+| Warm load | ≤ 90 s | **~7 s** | pass |
+| Evict → standby ready | ≤ 60 s | not yet measured | open |
+
+Cold load (first read of 144 GiB off `/fast`) was not timed separately; warm reload is ~7 s.
+
+### Tuning runs (greedy, `temperature 0`, 300 tokens, "Write 300 words about PCIe.")
+
+| Config | tok/s | VRAM c0 / c2 | Note |
+|---|---|---|---|
+| n_cpu_moe 43, drafter, ts 1,1 | 11.35 | 17.3 / 15.8 | the shipped starting point |
+| n_cpu_moe 43, drafter, `--load-mode none` | 10.94 | — | slower; 3 min load; 138 GiB unreclaimable |
+| n_cpu_moe 41, drafter, ts 1,1 | 10.57 | — | acceptance fell to 43% |
+| n_cpu_moe 39, no drafter, ts 1.3,1 | 12.34 | 11.4 / 22.9 | lopsided |
+| n_cpu_moe 39, no drafter, ts 13,1 | 11.76 | 23.0 / 10.7 | lopsided the other way |
+| n_cpu_moe 37, no drafter, ts 8,1 | OOM | — | compute buffers, card 0 |
+| **n_cpu_moe 36, no drafter, ts 6,1** | **12.50** | **21.9 / 22.2** | **shipped** |
+
+What the runs establish:
+
+1. **The DSpark drafter does not pay for itself.** 10.1 GiB of VRAM spent on it yields 11.35
+   tok/s; the same VRAM as expert layers yields 12.5. Acceptance was 43–51% with a mean draft
+   length of 2.3–2.5, well below the 1.5–1.9× the model card advertises.
+2. **`--load-mode none` is wrong for this box**, despite llama.cpp's own warning. The page cache
+   is already warm (216 GiB RAM), so mmap wins; and the flag moved 138 GiB into shared memory.
+3. **`tensor_split` is not optional** once `n_cpu_moe` drops. Layers are assigned in order, so
+   GPU-resident expert layers land on the last card. `6,1` balances 36/43.
+4. **Shaving more CPU layers stops helping.** 36 and 39 measure the same, so expert compute on
+   12 threads is a co-bottleneck with memory bandwidth. Faster decode needs more GPU-resident
+   *experts* (the A2000s, §12) or more CPU threads, not a lower `n_cpu_moe`.
+5. **Speculative-decoding A/Bs need `temperature 0`.** At temp 1.0 the drafted tokens differ
+   run to run and swing throughput by ±7%, more than the effects being measured.
+
+### Rejected: the drafter on an A2000 (blocked upstream)
+
+The obvious rescue for the drafter — park its 10.1 GiB on an idle A2000 and keep the 7 expert
+layers on the 3090s — does not work on llama.cpp v0.4.0:
+
+- `--spec-draft-device CUDA2` (drafter alone on the A2000) aborts in `graph_reserve`:
+  `pre-allocated tensor (output.weight) in a buffer (CUDA1) that cannot run the operation`.
+  A coupled drafter (DSpark/DFlash hooks into the target's layers) cannot own a device.
+- That is **ggml-org/llama.cpp#26475**, open since 2026-08-02 and reported against this exact
+  model. The thread's workaround (give the drafter's device a slice of the target) either
+  reintroduces the crash or splits the target across a slow device.
+- `--device` order and `--tensor-split` order are NOT the same thing: `-ts` is indexed by
+  absolute device number, so reordering `--device` to put the A2000 first does not move the
+  split weights with it. That attempt OOMed CUDA1 at 17.6 GiB.
+
+Revisit only if #26475 closes. The upside is bounded: the drafter was worth ≤10% even when its
+VRAM was free, against 12.5 tok/s without it. The A2000s are better spent on §12.
+
+### Still open
+
+- Cold-load time from `/fast`, and the evict → `c0.muse-glimmer` path (§8's last row).
+- The poller's BIGMOE skip, observed live with DeepSeek resident and the GPUs idle.
+- Long-context probe (the 1M context is allocated but only ~6k tokens have been pushed through).
+- Tool calling (DSML) and the thinking controls.
+- **An unexplained 4871 MiB allocation on A2000 GPU 3**, present throughout. Not ours — nothing
+  in the config touches the A2000s.

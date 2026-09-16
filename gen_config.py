@@ -341,19 +341,31 @@ UNGROUPED_GGUF = [
     # an idle signal while the cards wait on RAM. gen_config.py checks these IDs against
     # BIGMOE_MODELS in docker-compose.yml and refuses to generate if they drift.
     #
-    # Repo: the 0731 checkpoint, because it is the one that ships a DSpark drafter
-    # (dspark-…-Q8_0.gguf, 10.1 GiB, general.architecture=dflash, dflash.block_size=5,
-    # target_layers=[41,42,43]). The drafter goes on the GPUs (-ngld 99), so it counts against
-    # the VRAM budget. draft_max=3 matches unsloth's command and llama.cpp's default; v0.4.0
-    # clamps to the block size rather than asserting. A/B it per SPEC §8 before keeping it.
+    # NO DSpark drafter: MEASURED on the host 2026-09-16, greedy, 300 tokens. The drafter
+    # (10.1 GiB on the GPUs) gave 11.35 tok/s; spending that VRAM on expert layers instead gives
+    # 12.3-12.5 tok/s. Acceptance was only 43-51% (mean draft len 2.3-2.5), and it varied enough
+    # between runs to swamp other effects. The files stay in the repo if it is ever revisited.
     #
-    # n_cpu_moe=43 = every layer's experts in RAM (deepseek4.block_count=43). That is the safe
-    # first load; walk it DOWN until VRAM sits at ~44 GiB across both cards. With -sm layer the
-    # GPU-resident expert layers are the LAST ones, which land on card 2 — rebalance -ts
-    # (tensor_split) as N drops, or card 2 fills first.
+    # n_cpu_moe=36 / tensor_split="6,1": MEASURED balanced at 21.9 + 22.2 GiB of the ~23.3 GiB
+    # per card, 12.5 tok/s. Facts behind the two knobs:
+    #   * llama.cpp assigns layers in order, so the 7 GPU-resident expert layers are the LAST
+    #     ones and all land on the second card. -ts moves the boundary: "6,1" puts layers 0-36
+    #     on card 0. Without it (ts 1,1) card 1 hit OOM while card 0 sat half empty.
+    #   * 37 with ts "8,1" OOMs (compute buffers, card 0); 36/"6,1" is the fitted point.
+    #   * 36 vs 39 CPU layers measured the SAME (12.3 vs 12.34) — decode is not purely
+    #     DDR4-bandwidth-bound, CPU-side expert compute on 12 threads is a co-bottleneck. Do not
+    #     expect more from shaving layers alone.
+    # Fall back to n_cpu_moe=38 (ts "6,1") if a future context or batch change OOMs; the speed
+    # cost is within noise.
     #
     # batch 4096 / ubatch 1024 rather than 2048/512: below llama.cpp's op-offload threshold,
     # prefill for CPU-resident weights runs on the CPU (12 Zen 2 cores), the worst path here.
+    # Measured 304 tok/s prefill on a 6k prompt, against the SPEC §8 target of 100.
+    #
+    # llama.cpp warns "tensor overrides to CPU are used with mmap enabled - consider using
+    # --load-mode none". IGNORE IT here: measured 10.94 vs 11.35 tok/s (slower), it turned a ~6 s
+    # warm start into ~3 min, and it moved 138 GiB from reclaimable page cache into shared
+    # memory, dropping `free -g` available from 201 to 61 GiB.
     #
     # ctx=1048576 = the native maximum. Context is cheap on this architecture — read from
     # src/llama-kv-cache-dsv4.cpp at v0.4.0, not assumed:
@@ -370,9 +382,8 @@ UNGROUPED_GGUF = [
          ttl=TTL_BIGMOE, storage="fast", repo="unsloth/DeepSeek-V4-Flash-0731-GGUF",
          # 5 shards, 144.4 GiB. Name the FIRST shard; gguf-serve.sh fetches the rest.
          hf_file="UD-Q4_K_XL/DeepSeek-V4-Flash-0731-UD-Q4_K_XL-00001-of-00005.gguf",
-         draft="dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf", spec_type="draft-dspark", draft_max=3,
-         ctx=1048576, par=1, split_mode="layer", tensor_split="1,1",
-         n_cpu_moe=43, numa="distribute", threads=12, batch=4096, ubatch=1024,
+         ctx=1048576, par=1, split_mode="layer", tensor_split="6,1",
+         n_cpu_moe=36, numa="distribute", threads=12, batch=4096, ubatch=1024,
          sampling=DEEPSEEK_V4_SAMPLING),
 ]
 

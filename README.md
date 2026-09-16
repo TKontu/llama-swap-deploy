@@ -493,10 +493,23 @@ prerequisites (RAM, BIOS, NUMA, disk) and acceptance targets are in
 |---|---|---|---|---|
 | `deepseek-v4-flash` | both 3090s + RAM | `UD-Q4_K_XL`, 5 shards | 144.4 GiB | 1048576 (native), 1 slot |
 
-It uses `unsloth/DeepSeek-V4-Flash-0731-GGUF` (the 0731 checkpoint, which ships the DSpark
-drafter), the DSpark drafter on the GPUs, and `ttl: 8 h`. Like the other whole-box entries it is
-in no matrix set, so it runs alone and **any** card request evicts it. Only the on-call
-poller is told to leave it alone.
+**Measured on the host, 2026-09-16** (greedy, 300 tokens): **12.5 tok/s** decode, **304 tok/s**
+prefill on a 6k prompt, 21.9 + 22.2 GiB VRAM, ~155 GiB of weights in page cache. SPEC §8 asked
+for ≥8 and ≥100.
+
+It uses `unsloth/DeepSeek-V4-Flash-0731-GGUF` (the 0731 checkpoint) and `ttl: 8 h`. Like the
+other whole-box entries it is in no matrix set, so it runs alone and **any** card request evicts
+it. Only the on-call poller is told to leave it alone.
+
+**No speculative drafter.** The repo ships a DSpark drafter, but it measured *slower* than
+using its 10.1 GiB of VRAM for expert layers: 11.35 vs 12.5 tok/s, at 43–51% acceptance.
+
+**Tuning knobs, as fitted:** `n_cpu_moe=36` keeps 36 of 43 layers' experts in RAM; the other 7
+sit on the cards. `tensor_split="6,1"` is what balances them — llama.cpp assigns layers in
+order, so the GPU-resident expert layers are the last ones and would otherwise all land on the
+second card (which OOMs while the first sits half empty). `n_cpu_moe=37` with `ts 8,1` does not
+fit. 36 vs 39 measured the same, so CPU-side expert compute is a co-bottleneck with DDR4
+bandwidth; shaving more layers alone will not help.
 
 **Context is the native 1M.** It costs little VRAM (~7–13 GiB). Each layer's raw KV is a
 128-token window, and only the 4×- and 128×-compressed caches grow with context. That VRAM
@@ -540,10 +553,9 @@ There is no Q3 fallback entry. The spec drafted one for the case where the VM ca
    Re-running skips files that are already complete. `gguf-serve.sh` can fetch every shard of a
    split model from its first shard's name, but a first load that has to download 155 GB will
    blow `healthCheckTimeout`.
-3. **Tune `n_cpu_moe`.** It starts at `43` = every layer's experts in RAM, the safe first load.
-   Walk it down in `gen_config.py` until VRAM sits at ~44 GiB across both cards. With
-   `-sm layer`, the GPU-resident expert layers are the *last* ones, which land on card 2, so
-   rebalance `tensor_split` as N drops.
+3. **`n_cpu_moe` / `tensor_split` are already fitted** (36 / `6,1`, measured 2026-09-16). Retune
+   only if the quant, context or batch sizes change: raise `n_cpu_moe` on an OOM, and keep the
+   two cards balanced with `tensor_split` (first number = card 0's share of layers).
 
 Knobs, all `GGUF_*` env vars on `gguf-serve.sh` and inert when unset: `GGUF_N_CPU_MOE` (or
 `GGUF_OT`, mutually exclusive — the script refuses both), `GGUF_NUMA`, `GGUF_THREADS`,
