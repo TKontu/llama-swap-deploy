@@ -631,12 +631,9 @@ models:
       -e GGUF_FILE=UD-Q4_K_XL/DeepSeek-V4-Flash-0731-UD-Q4_K_XL-00001-of-00005.gguf
       -e GGUF_CTX=1048576
       -e GGUF_PARALLEL=1
-      -e GGUF_DRAFT=dspark-DeepSeek-V4-Flash-0731-Q8_0.gguf
-      -e GGUF_SPEC_TYPE=draft-dspark
-      -e GGUF_DRAFT_MAX=3
       -e GGUF_SPLIT_MODE=layer
-      -e GGUF_TENSOR_SPLIT=1,1
-      -e GGUF_N_CPU_MOE=43
+      -e GGUF_TENSOR_SPLIT=6,1
+      -e GGUF_N_CPU_MOE=36
       -e GGUF_NUMA=distribute
       -e GGUF_THREADS=12
       -e GGUF_BATCH=4096
