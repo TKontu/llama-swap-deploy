@@ -564,6 +564,24 @@ What the runs establish:
 5. **Speculative-decoding A/Bs need `temperature 0`.** At temp 1.0 the drafted tokens differ
    run to run and swing throughput by ±7%, more than the effects being measured.
 
+### Rejected: the drafter on an A2000 (blocked upstream)
+
+The obvious rescue for the drafter — park its 10.1 GiB on an idle A2000 and keep the 7 expert
+layers on the 3090s — does not work on llama.cpp v0.4.0:
+
+- `--spec-draft-device CUDA2` (drafter alone on the A2000) aborts in `graph_reserve`:
+  `pre-allocated tensor (output.weight) in a buffer (CUDA1) that cannot run the operation`.
+  A coupled drafter (DSpark/DFlash hooks into the target's layers) cannot own a device.
+- That is **ggml-org/llama.cpp#26475**, open since 2026-08-02 and reported against this exact
+  model. The thread's workaround (give the drafter's device a slice of the target) either
+  reintroduces the crash or splits the target across a slow device.
+- `--device` order and `--tensor-split` order are NOT the same thing: `-ts` is indexed by
+  absolute device number, so reordering `--device` to put the A2000 first does not move the
+  split weights with it. That attempt OOMed CUDA1 at 17.6 GiB.
+
+Revisit only if #26475 closes. The upside is bounded: the drafter was worth ≤10% even when its
+VRAM was free, against 12.5 tok/s without it. The A2000s are better spent on §12.
+
 ### Still open
 
 - Cold-load time from `/fast`, and the evict → `c0.muse-glimmer` path (§8's last row).

@@ -113,6 +113,9 @@ Needs CI / the host:
 - [ ] **Context is 1M (native, SPEC §14)** and allocates fine, but only ~6k tokens have been
   pushed through it. Probe a long prompt (e.g. 200k) for coherence and prefill time. On OOM at a
   later config change: raise `n_cpu_moe`, then `cache_type=q8_0`, then drop to 384K.
+- [x] **Drafter on an A2000: blocked upstream** (llama.cpp#26475, open). A coupled DSpark/DFlash
+  drafter cannot have a device to itself; `-ts` is indexed by absolute device id, not by
+  `--device` order. See SPEC §15. Revisit only if that issue closes.
 - [ ] Identify the **4871 MiB in use on A2000 GPU 3** — nothing in the config touches the
   A2000s (`nvidia-smi` process list, `docker ps`).
 - [ ] SPEC §8 baselines on a cold box: decode (>=8 tok/s), decode with DSpark (>=1.4x, else drop
