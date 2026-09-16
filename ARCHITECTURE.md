@@ -42,16 +42,19 @@ only customization we carry is a 2-line Dockerfile that adds the `docker` CLI.
 |-----|------|------|------|-----|--------------|
 | 0 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:10` | `c2` (`CARD2`) |
 | 1 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:11` | `c0` (`CARD0`) |
-| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | unused |
-| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | unused |
-| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | unused |
+| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | **off-limits** |
+| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | **off-limits** |
+| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | **off-limits** |
+
+**The three A2000s are dedicated to other, non-LLM workloads. This deployment must never use
+them** — only the two 3090s. (That is also what the ~4.8 GiB resident on GPU 3 is.)
 
 As of 2026-09-15 (driver 595.84, CUDA 13.2): two more A2000s, and the cards reordered. The
 `c0`/`c2` labels are **card identities bound to UUIDs**, named after the indices the 3090s had
 at migration. They no longer match `nvidia-smi` indices, and they don't need to — that is
 the whole point of pinning by UUID.
 
-The config does not use the A2000s yet; `SPEC-bigmoe.md` §12 plans how.
+The config uses only the two 3090s, by UUID. The A2000s belong to other workloads.
 
 ### Interconnect — the dominant constraint
 
@@ -139,16 +142,15 @@ Target layout for the primary co-load pair:
 |------|----------|----------------------------|--------|
 | 3090 #2 (`094f1ca3`) | `Qwen3.6-35B-A3B` rank 1 (TP) | 0.58 | ~14 GB |
 | 3090 #0 (`a8c640ca`) | `Qwen3.6-35B-A3B` rank 0 (TP) **+** small model | 0.58 + 0.30 | ~14 + ~7 = 21 GB |
-| A2000 (`690062e6`) | (free / GGUF or a tiny model) | — | — |
+| A2000s | (not available — other workloads) | — | — |
 
 Rule: on any **shared** card, the sum of the co-resident models'
 `--gpu-memory-utilization` must stay **< 1.0** (leave headroom, e.g. ≤ 0.90 total). vLLM
 grabs `util × total` up front, so correct sizing prevents the "No available memory for the
 cache blocks" failure.
 
-> Alternative layout to consider (see TODO): put the small/GGUF model on the **A2000** so
-> the 35B owns both 3090s exclusively — trades the small model's speed for the big model's,
-> and removes shared-card contention.
+> (Historical: an earlier note suggested moving small models onto the A2000. That is no longer
+> possible — the A2000s are dedicated to non-LLM workloads.)
 
 ## Backend matrix
 
