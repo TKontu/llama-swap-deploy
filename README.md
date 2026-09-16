@@ -73,9 +73,12 @@ that are mounted into them.
 |-----|------|------|------|-----|--------------|
 | 0 | RTX 3090 | 24 GB | `GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb` | `06:10` | `c2` (`CARD2`) |
 | 1 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:11` | `c0` (`CARD0`) |
-| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | unused |
-| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | unused |
-| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | unused |
+| 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | **off-limits** |
+| 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | **off-limits** |
+| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | **off-limits** |
+
+**The three A2000s are dedicated to other, non-LLM workloads. This deployment must never use
+them** — only the two 3090s. (That is also what the ~4.8 GiB resident on GPU 3 is.)
 
 As of 2026-09-15 (driver 595.84, CUDA 13.2): two more A2000s, and the cards reordered. The
 `c0`/`c2` labels are **card identities bound to UUIDs**, named after the indices the 3090s had

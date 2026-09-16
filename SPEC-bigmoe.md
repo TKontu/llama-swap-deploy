@@ -2,7 +2,7 @@
 
 Status: DEPLOYED and measured on the host (2026-09-16) — §8 acceptance met, see §15.
 See §10 for where the implementation deviates from this draft, §11 for planned candidates,
-§12 for how the 2026-09-15 hardware change (three A2000s) alters the plan, and §13 for storage
+§12 for why the three A2000s are not available to this deployment, §13 for storage
 and the confirmed VM RAM (216 GiB).
 Target repo: `TKontu/llama-swap-deploy`
 First model: DeepSeek-V4-Flash (284B total / 13B active, native MXFP4 experts)
@@ -333,90 +333,22 @@ See §5 and §10. The "~161 GB" in the draft is 144.4 GiB for the 0731 `UD-Q4_K_
 - Per model, record in TODO.md: VRAM per card, container RSS, decode tok/s, 8k prefill tok/s,
   cold/warm load, and a coherence + tool-call probe.
 
-## 12. Hardware change: three A2000s (2026-09-15) — plan re-evaluation, NOT implemented
+## 12. Hardware change: three A2000s (2026-09-15) — NOT available to this deployment
 
-The box now has **2× RTX 3090 + 3× RTX A2000 12GB** (was 2× 3090 + 1× A2000). Both 3090 UUIDs
-are unchanged, so the config and poller still work as-is; only `nvidia-smi` indices moved. See
-the README GPU inventory.
+The box now has 2× RTX 3090 + 3× RTX A2000 12GB (was 2× 3090 + 1× A2000). Both 3090 UUIDs are
+unchanged, so the config and poller were unaffected; only `nvidia-smi` indices moved.
 
-### What the A2000s are worth
+**The A2000s are dedicated to other, non-LLM workloads and must not be used here.** One of them
+already carries ~4.8 GiB of someone else's allocation. Every model in this repo pins the two
+3090s by UUID, which is what keeps that separation honest.
 
-| | RTX 3090 | RTX A2000 12GB | Host RAM (§8) |
-|---|---|---|---|
-| Usable memory | ~23.3 GiB | ~11.3 GiB (est.) | ~200 GiB VM (P2) |
-| Memory bandwidth | ~936 GB/s | ~288 GB/s | ~100–130 GB/s (unmeasured) |
-| Compute | full | roughly a third | 16 vCPUs (VM), 12-core Zen 2 host |
+Consequences for the rest of this spec:
 
-- **VRAM: ~46.6 → ~80.5 GiB** across all five cards.
-- An A2000 is roughly **3× slower per GB than a 3090, but faster than host RAM**. Unlike RAM,
-  its expert layers are computed on a GPU, not on the 12-core CPU.
-- For `-sm layer` (pipeline) splits, per-token time is the sum across devices. Moving layers
-  from RAM to an A2000 is a clear win; moving them from a 3090 to an A2000 is a loss.
-- Only activations cross PCIe in a pipeline split, so the A2000s' x8 links barely matter
-  there. Do **not** use them for tensor parallelism.
-- The VM reports CPU affinity 0-15 (16 vCPUs) and one NUMA node. That supports §10's note that
-  `--numa distribute` and P3/P4 likely change little.
-
-### Effect on the §11 candidates (estimates, to be replaced by measurement)
-
-| Model | Before (2× 3090) | With the A2000s |
-|---|---|---|
-| Qwen3-Coder-Next | `UD-Q4_K_S` at a thin margin, or `Q4_K_M` with ~3 GiB in RAM | `Q4_K_M` / `UD-Q4_K_XL` fully on GPU with **one** A2000 (~58 GiB), no RAM |
-| gpt-oss-120b | ~15–18 GiB in RAM | fully on GPU with **two** A2000s (~69 GiB) |
-| Mistral Small 4 | ~23–25 GiB in RAM | fully on GPU with **all three** A2000s (~80 GiB, ~10 GiB headroom) |
-| DeepSeek-V4-Flash | ~22 GiB of experts on GPU, `n_cpu_moe` ~36, ~115 GiB in RAM | ~58 GiB of experts on GPU, `n_cpu_moe` ~25, **~80 GiB in RAM** |
-| GLM-5.3-Flash | ~145 GiB in RAM | ~107 GiB in RAM; still blocked on llama.cpp |
-
-Consequences for the plan:
-
-1. **Three of the four §11 candidates no longer need RAM offload at all.** They become plain
-   multi-GPU splits: no `n_cpu_moe`, no CPU compute. Because GPU utilisation is a valid idle
-   signal again, they also don't need `bigmoe=True`.
-2. **DeepSeek-V4-Flash may no longer need P2.** ~80 GiB of CPU-resident experts fits the
-   old 128 GiB VM size, since pages for GPU-offloaded tensors are reclaimable after load.
-   (Moot: the VM has 216 GiB, §13.) Decode should also improve, since fewer layers
-   are RAM-bound. Still unmeasured.
-3. **GLM-5.3-Flash** remains blocked on llama.cpp support. The A2000s cut its RAM need from
-   ~145 to ~107 GiB, which would fit a 128 GiB VM only barely. Moot at 216 GiB (§13).
-
-### The design question the A2000s open (decide before implementing)
-
-The A2000s can serve two conflicting roles:
-
-- **(a) Card slots for small models.** Each A2000 becomes a slot next to `c0`/`c2`
-  (`a2.<model>`, `a3.<model>`, `a4.<model>`) for models that fit ~11 GiB. From today's POOL
-  that means `qwen3.5-4b`, `qwen3.5-9b`, `gemma-e4b`, `qwythos-v2` and `ternary`, not
-  `fablevibes` (Q6_K 11.3 GiB). vLLM entries there get a KV pool of roughly half a 3090's.
-- **(b) Extra VRAM for big models.** A split model claims some or all A2000s, as in the table
-  above.
-
-The matrix router can express both at once, if each entry declares the GPU set it occupies:
-
-- A model may run alongside any other models whose GPU sets are **disjoint** from its own.
-  Example: a 3090-pair model plus small models on the A2000s it does not use.
-- A model using all five cards runs alone.
-
-Proposal for when this is implemented:
-
-- Give every entry a `gpus` set.
-- Have `gen_config.py` **derive** the matrix sets from GPU-set disjointness, instead of
-  hand-writing the `(c0 …) & (c2 …)` expression.
-- The solver then evicts exactly the models whose cards a request needs, generalising what
-  PR #22 did for two cards.
-- Expression size grows with the product of per-slot alternatives. llama-swap solves matrix
-  expressions symbolically since v244, but confirm with `llama-swap -validate` and the
-  dummy-upstream routing test.
-
-Open points:
-
-- **Which models get A2000 slots.** A slot is only worth it for a model someone runs
-  concurrently with the 3090 workloads.
-- **The on-call poller** watches the two 3090s only. That stays right while the standby lives
-  on `c0`. A split model spanning A2000s needs no poller change unless it is RAM-offloaded
-  (`bigmoe`).
-- **Power and heat.** Three A2000s add ~210 W at full load; the A2000s already idle at 50–59 °C.
-- **Physical PCIe.** `topo -m` inside the VM says `PIX` everywhere, but GPU 4 is on bus `08:`.
-  Check the physical topology on the Proxmox host before relying on it.
+- The VRAM budget stays **~46.6 GiB** (two 3090s). §11's sizing already assumes that.
+- Models cannot be "rescued" onto an A2000: not the DSpark drafter (§15, also blocked upstream),
+  and not the §11 candidates' RAM spill.
+- Faster decode for RAM-offload models has to come from host RAM bandwidth, CPU threads, or a
+  smaller quant — not from more GPUs.
 
 ## 13. Storage (`/fast`) and the VM RAM figure (2026-09-15)
 
@@ -560,7 +492,8 @@ What the runs establish:
    GPU-resident expert layers land on the last card. `6,1` balances 36/43.
 4. **Shaving more CPU layers stops helping.** 36 and 39 measure the same, so expert compute on
    12 threads is a co-bottleneck with memory bandwidth. Faster decode needs more GPU-resident
-   *experts* (the A2000s, §12) or more CPU threads, not a lower `n_cpu_moe`.
+   *experts* (impossible — only two 3090s are available, §12) or more CPU threads, not a lower
+   `n_cpu_moe`.
 5. **Speculative-decoding A/Bs need `temperature 0`.** At temp 1.0 the drafted tokens differ
    run to run and swing throughput by ±7%, more than the effects being measured.
 
@@ -580,7 +513,7 @@ layers on the 3090s — does not work on llama.cpp v0.4.0:
   split weights with it. That attempt OOMed CUDA1 at 17.6 GiB.
 
 Revisit only if #26475 closes. The upside is bounded: the drafter was worth ≤10% even when its
-VRAM was free, against 12.5 tok/s without it. The A2000s are better spent on §12.
+VRAM was free, against 12.5 tok/s without it. And the A2000s are not ours to use (§12).
 
 ### Still open
 
@@ -588,5 +521,3 @@ VRAM was free, against 12.5 tok/s without it. The A2000s are better spent on §1
 - The poller's BIGMOE skip, observed live with DeepSeek resident and the GPUs idle.
 - Long-context probe (the 1M context is allocated but only ~6k tokens have been pushed through).
 - Tool calling (DSML) and the thinking controls.
-- **An unexplained 4871 MiB allocation on A2000 GPU 3**, present throughout. Not ours — nothing
-  in the config touches the A2000s.

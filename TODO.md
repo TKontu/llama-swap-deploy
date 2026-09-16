@@ -49,21 +49,16 @@ holds them via `storage="fast"` in `gen_config.py` (SPEC-bigmoe §13).
 ## Hardware change: 2× 3090 + 3× A2000 (2026-09-15)
 
 Both 3090 UUIDs unchanged → config and poller unaffected; `nvidia-smi` indices reordered (see
-README GPU inventory). Plan impact in `SPEC-bigmoe.md` §12.
+README GPU inventory). **The A2000s are dedicated to other, non-LLM workloads and are not
+available to this deployment** (SPEC §12) — the ~4.8 GiB resident on GPU 3 is one of those.
+Nothing to do; every entry pins the 3090s by UUID.
 
-- [ ] **Decide the A2000 role** before any §11 work: small-model slots, extra VRAM for split
-  models, or both via GPU-set-derived matrix sets (§12 proposal).
-- [ ] Re-size the §11 candidates against ~80.5 GiB of VRAM. Qwen3-Coder-Next, gpt-oss-120b and
-  Mistral Small 4 likely fit fully on GPU, which removes their RAM offload.
-- [ ] Re-evaluate DeepSeek-V4-Flash with the A2000s: ~80 GiB left in RAM may make P2 (200 GiB
-  VM) unnecessary. Measure before resizing the VM.
 - [ ] Check the physical PCIe topology on the Proxmox host (VM shows `PIX`; GPU 4 is on `08:`).
-- [ ] Measure A2000 usable VRAM and decode speed for a layer split, to replace §12's estimates.
 
 ## Candidate whole-box models — planned, not implemented (2026-09-14)
 
-Plan and sizing in `SPEC-bigmoe.md` §11 (**sized for 2× 3090 — see §12 for the A2000
-re-evaluation**). All at native maximum context (§14). In recommended order:
+Plan and sizing in `SPEC-bigmoe.md` §11 (2× 3090 + DDR4; the A2000s are not available, §12).
+All at native maximum context (§14). In recommended order:
 
 - [ ] **Qwen3-Coder-Next** (80B/3B, `llamacpp-mainline`, no §2 prerequisites). Decide between
   `UD-Q4_K_S` (42.9 GiB, fully on GPU, thin margin) and `Q4_K_M` (45.2 GiB) with `n_cpu_moe` of
@@ -116,8 +111,6 @@ Needs CI / the host:
 - [x] **Drafter on an A2000: blocked upstream** (llama.cpp#26475, open). A coupled DSpark/DFlash
   drafter cannot have a device to itself; `-ts` is indexed by absolute device id, not by
   `--device` order. See SPEC §15. Revisit only if that issue closes.
-- [ ] Identify the **4871 MiB in use on A2000 GPU 3** — nothing in the config touches the
-  A2000s (`nvidia-smi` process list, `docker ps`).
 - [ ] SPEC §8 baselines on a cold box: decode (>=8 tok/s), decode with DSpark (>=1.4x, else drop
   the drafter and reclaim 10 GiB), 8k prefill (>=100 tok/s), peak VRAM/RSS, warm/cold load,
   and evict -> `c0.muse-glimmer` ready (<=60 s).
