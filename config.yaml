@@ -83,26 +83,6 @@ models:
     ttl: 18000
     concurrencyLimit: 32
 
-  "c0.fablevibes":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 16
-
   "c0.qwen3.8-27b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -219,26 +199,6 @@ models:
     ttl: 18000
     concurrencyLimit: 32
 
-  "c2.fablevibes":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --entrypoint gguf-serve.sh
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -e GGUF_REPO=tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF
-      -e GGUF_FILE=Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf
-      -e GGUF_CTX=8192
-      -e GGUF_PARALLEL=4
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 16
-
   "c2.qwen3.8-27b":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -317,24 +277,6 @@ models:
       setParams:
         chat_template_kwargs:
           enable_thinking: false
-
-  "Qwythos-9B-Claude-Mythos-5-1M":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model empero-ai/Qwythos-9B-Claude-Mythos-5-1M
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 2 --gpu-memory-utilization 0.9
-      --max-model-len 256000 --max-num-seqs 1
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 36000
-    concurrencyLimit: 256
-    useModelName: "Qwythos-9B-Claude-Mythos-5-1M"
 
   # ===== Whole-box GGUF entries (both 3090s — in no matrix set; see UNGROUPED_GGUF) =====
   "Muse-Glimmer-30B-split":
@@ -439,14 +381,12 @@ routing:
             (c0.gemma-26b
               | c0.gemma-e4b
               | c0.qwythos-v2
-              | c0.fablevibes
               | c0.qwen3.8-27b
               | c0.muse-glimmer
             )
             & (c2.gemma-26b
               | c2.gemma-e4b
               | c2.qwythos-v2
-              | c2.fablevibes
               | c2.qwen3.8-27b
               | c2.muse-glimmer
             )

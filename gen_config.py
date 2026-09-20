@@ -191,10 +191,6 @@ POOL = [
     dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
     dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
-    # Xet-backed repo (~11.3 GB Q6_K). llama-server -hf downloads via HTTP; if Xet blocks
-    # that, we pre-download with the `hf` CLI (+hf_xet) instead. See README.
-    # Q6_K weights are ~11.3 GB of the 24 GB card, so it gets fewer slots than qwythos.
-    dict(tok="fablevibes",  backend="gguf", repo="tvall43/Qwen3.6-14B-A3B-FableVibes-GGUF", hf_file="Qwen3.6-14B-A3B-FableVibes-Q6_K.gguf", ctx=8192, par=4),
     # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
     # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
     # general.architecture=qwen35 and the mmproj clip.projector_type=qwen3vl_merger, BOTH of
@@ -270,7 +266,6 @@ POOL = [
 # TODO.md's dmesg check confirms the crash is resolved.
 SOLO = [
     ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True,  True),
-    ("Qwythos-9B-Claude-Mythos-5-1M", "empero-ai/Qwythos-9B-Claude-Mythos-5-1M", 256000, 1, 0.90, False, False),
 ]
 
 # Whole-box GGUF entries — span BOTH 3090s, so they are not in POOL and appear in no matrix
