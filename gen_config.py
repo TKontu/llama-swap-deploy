@@ -183,6 +183,16 @@ QWEN38_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=20, min_p=0.0, prese
 # the template's modes are non-think/high/max, with no cheap tier to default down to.
 DEEPSEEK_V4_SAMPLING = sampling_args(temp=1.0, top_p=1.0, min_p=0.01)
 
+# Qwen3-Coder-Next: temperature 1.0, top_p 0.95, top_k 40 — read off the upstream
+# Qwen/Qwen3-Coder-Next generation_config.json (2026-09-20), not the model card. It names no
+# min_p, so pass 0.0 explicitly: llama.cpp's own default is 0.05, which truncates the tail.
+# Nothing to set on the template side — the chat template embedded in the GGUF has no
+# reasoning_effort / enable_thinking branch at all (this is a non-thinking model), so there is
+# no QWEN3_CODER_NEXT_TEMPLATE_KWARGS to pair with this. Its tool-call format is Qwen3-Coder's
+# XML (<tool_call><function=name><parameter=k>), not JSON: --jinja is always passed by
+# gguf-serve.sh, but confirm b10362 parses it back into OpenAI tool_calls on first deploy.
+QWEN3_CODER_NEXT_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=40, min_p=0.0)
+
 POOL = [
     # 65536: measured 19882 MiB @ 16800 and 20552 MiB @ 32768 (TP=1, kv_seqs 1,
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
@@ -412,6 +422,59 @@ UNGROUPED_GGUF = [
          ctx=1048576, par=1, split_mode="layer", tensor_split="6,1",
          n_cpu_moe=36, numa="distribute", threads=12, batch=4096, ubatch=1024,
          sampling=DEEPSEEK_V4_SAMPLING),
+    # Qwen3-Coder-Next (80B total / 3B active) at Q6_K_L — the SPEC §11.1 candidate, but at a
+    # 6-bit quant instead of the Q4 that section sizes for, which turns it from the GPU-only
+    # entry §11.1 planned into a RAM-offload one shaped like deepseek-v4-flash. Non-thinking,
+    # tool-calling. `qwen3next` has been in mainline since well before b10362, so it runs on the
+    # existing LLAMACPP image — no new build, no §2 prerequisites.
+    #
+    # bartowski, not unsloth: unsloth publishes nothing above Q4_K_M for this model (UD-Q4_K_S
+    # 42.9 and Q4_K_M 45.2 GiB, both already staged on /fast). Q6_K_L is 2 shards, 61.4 GiB,
+    # with Q8_0 embeddings/output. Keep the Q4s on disk until this is measured against them:
+    # §11.1's whole argument is that Q4_K_S fits the cards outright, and ~30 GiB of experts in
+    # RAM may well cost more tok/s than Q6 buys in quality.
+    #
+    # Sizing below is DERIVED, not measured — the arch metadata is read off the staged Q4_K_M
+    # (same architecture): 48 layers, 512 experts top-10, full_attention_interval=4,
+    # head_count_kv=2, key_length=value_length=256.
+    #   * experts are 77.3 B of the 79.7 B params -> ~59 GiB of the 61.4, i.e. ~1.23 GiB per
+    #     layer; everything else (attention, GDN, shared experts, embeddings) is ~2.4 GiB
+    #   * KV: only 12 of 48 layers cache, at 2 heads * (256+256) * 2 B = 24 KiB/token f16
+    #     -> 262144 tokens = 6.0 GiB. The 36 Gated DeltaNet layers hold a constant ~75 MiB/slot.
+    #   * 46.6 GiB two-card budget - 6.0 (KV) - 2.4 (non-expert) - ~2.5 (compute) = ~35.7 GiB
+    #     of experts on the cards = ~29 layers -> n_cpu_moe ~19 is the expected fitted point.
+    # n_cpu_moe=24 is the STARTING value, because §5 walks DOWN from a safe fit, never up:
+    # ~29.5 GiB of experts in RAM, which the 216 GiB host does not notice. Walk it down 2 at a
+    # time and keep the lowest value that survives a full 262144-token prompt.
+    #
+    # tensor_split="5,2" pairs with n_cpu_moe=24 and must be retuned with it. llama.cpp assigns
+    # layers in order, so the CPU-expert layers are the FIRST N and -ts has to hand card 0 more
+    # layers to compensate. Unlike deepseek-v4-flash, the offloaded layers here are NOT close to
+    # free on the GPU (their attention, shared expert and KV stay), so balance both terms:
+    #     0.175 * L0 + 1.23 * (L0 - N) = 1.405 * (48 - L0)
+    # where 0.175 GiB/layer is non-expert weights + KV averaged over all 48. At N=24 that gives
+    # L0 = 34.5 of 48, i.e. ~2.5:1; at N=19, ~2.3:1 ("7,3"). Check both cards in nvidia-smi
+    # after every change — an unbalanced -ts OOMs one card with the other half empty.
+    #
+    # batch 4096 / ubatch 1024 as on deepseek-v4-flash and for the same measured reason: with
+    # experts in RAM, a smaller batch drops prefill below llama.cpp's op-offload threshold and
+    # runs it on the 12 Zen 2 cores, the worst path available. (Upstream deployment notes for
+    # this model suggest 2048/2048; that number is not measured on this host, 4096/1024 is.)
+    #
+    # bigmoe=True: with half the layers' experts in RAM the cards read as idle while it decodes,
+    # and the on-call poller would evict it mid-generation. Drop the flag ONLY if measured decode
+    # GPU utilisation clears IDLE_PCT — and take it out of BIGMOE_MODELS in docker-compose.yml
+    # in the same commit, or gen_config.py refuses to generate.
+    #
+    # Context is the native 262144 (§14); the 6.0 GiB above is already the full-context KV, so
+    # there is no cheaper context tier worth carrying.
+    dict(tok="qwen3-coder-next", bigmoe=True, image=LLAMACPP, cards=[CARD0, CARD2],
+         ttl=TTL_BIGMOE, storage="fast", repo="bartowski/Qwen_Qwen3-Coder-Next-GGUF",
+         # 2 shards, 61.4 GiB. Name the FIRST shard; gguf-serve.sh fetches the rest.
+         hf_file="Qwen_Qwen3-Coder-Next-Q6_K_L/Qwen_Qwen3-Coder-Next-Q6_K_L-00001-of-00002.gguf",
+         ctx=262144, par=1, split_mode="layer", tensor_split="5,2",
+         n_cpu_moe=24, numa="distribute", threads=12, batch=4096, ubatch=1024,
+         sampling=QWEN3_CODER_NEXT_SAMPLING),
 ]
 
 
