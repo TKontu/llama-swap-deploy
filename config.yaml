@@ -3,8 +3,7 @@
 # c2.<model> (3090 #2). The matrix router lets any c0 entry run alongside any c2
 # entry, and a request evicts only the model on the card it needs. Models that
 # need both cards are in no matrix set, so they run alone.
-# Old callsigns (pairNN.<model>, x2extract.*, bare <model>) are aliases of the
-# card entry they used to load on — transitional; see LEGACY_PAIRS.
+# Address models by card id: c0.<model> / c2.<model>, or the whole-box id.
 # Regenerate: python3 gen_config.py > config.yaml
 #
 # HF AUTH: deliberately NOT passed as -e HF_TOKEN/-e HUGGING_FACE_HUB_TOKEN.
@@ -17,8 +16,8 @@
 
 healthCheckTimeout: 900
 logLevel: info
-# List aliases in /v1/models so consumers that discover callsigns there keep
-# seeing the old pairNN ids during the transition.
+# No aliases are defined any more, so this only affects how /v1/models
+# renders; left on so the listing shape does not change for consumers.
 includeAliasesInList: true
 
 models:
@@ -41,16 +40,6 @@ models:
     ttl: 18000
     concurrencyLimit: 256
     useModelName: "c0.gemma-26b"
-    aliases:
-      - "gemma-26b"
-      - "pair01.gemma-26b"
-      - "pair02.gemma-26b"
-      - "pair04.gemma-26b"
-      - "pair06.gemma-26b"
-      - "pair10.gemma-26b"
-      - "pair15.gemma-26b"
-      - "pair21.gemma-26b"
-      - "pair28.gemma-26b"
     filters:
       setParams:
         chat_template_kwargs:
@@ -73,93 +62,6 @@ models:
     ttl: 18000
     concurrencyLimit: 256
     useModelName: "c0.gemma-e4b"
-    aliases:
-      - "gemma-e4b"
-      - "pair03.gemma-e4b"
-      - "pair05.gemma-e4b"
-      - "pair11.gemma-e4b"
-      - "pair16.gemma-e4b"
-
-  "c0.qwen3.5-9b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    useModelName: "c0.qwen3.5-9b"
-    aliases:
-      - "qwen3.5-9b"
-      - "pair12.qwen3.5-9b"
-      - "pair17.qwen3.5-9b"
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "c0.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    useModelName: "c0.qwen3.5-4b"
-    aliases:
-      - "qwen3.5-4b"
-      - "pair13.qwen3.5-4b"
-      - "pair18.qwen3.5-4b"
-      - "x2extract.qwen3.5-4b-a"
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "c0.ternary":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 8
-    aliases:
-      - "ternary"
-      - "pair07.ternary"
-      - "pair08.ternary"
-      - "pair09.ternary"
-      - "pair14.ternary"
-      - "pair19.ternary"
-      - "pair25.ternary"
-      - "pair32.ternary"
 
   "c0.qwythos-v2":
     cmd: |
@@ -180,9 +82,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 32
-    aliases:
-      - "qwythos-v2"
-      - "pair20.qwythos-v2"
 
   "c0.fablevibes":
     cmd: |
@@ -203,8 +102,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 16
-    aliases:
-      - "fablevibes"
 
   "c0.qwen3.8-27b":
     cmd: |
@@ -232,14 +129,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 16
-    aliases:
-      - "qwen3.8-27b"
-      - "pair22.qwen3.8-27b"
-      - "pair23.qwen3.8-27b"
-      - "pair24.qwen3.8-27b"
-      - "pair26.qwen3.8-27b"
-      - "pair27.qwen3.8-27b"
-      - "pair35.qwen3.8-27b"
 
   "c0.muse-glimmer":
     cmd: |
@@ -268,13 +157,6 @@ models:
     checkEndpoint: /health
     ttl: 0
     concurrencyLimit: 4
-    aliases:
-      - "muse-glimmer"
-      - "pair29.muse-glimmer"
-      - "pair30.muse-glimmer"
-      - "pair31.muse-glimmer"
-      - "pair33.muse-glimmer"
-      - "pair34.muse-glimmer"
 
   # ===== c2: single-card models on GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb =====
   "c2.gemma-26b":
@@ -316,89 +198,6 @@ models:
     ttl: 18000
     concurrencyLimit: 256
     useModelName: "c2.gemma-e4b"
-    aliases:
-      - "pair01.gemma-e4b"
-      - "pair07.gemma-e4b"
-      - "pair22.gemma-e4b"
-      - "pair29.gemma-e4b"
-
-  "c2.qwen3.5-9b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 16384 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    useModelName: "c2.qwen3.5-9b"
-    aliases:
-      - "pair02.qwen3.5-9b"
-      - "pair03.qwen3.5-9b"
-      - "pair08.qwen3.5-9b"
-      - "pair23.qwen3.5-9b"
-      - "pair30.qwen3.5-9b"
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "c2.qwen3.5-4b":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      vllm/vllm-openai:v0.26.0
-      --model cyankiwi/Qwen3.5-4B-AWQ-4bit
-      --served-model-name ${MODEL_ID}
-      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 32768 --max-num-seqs 64
-      --enable-prefix-caching
-      --mamba-cache-mode align
-      --port 8000
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    ttl: 18000
-    concurrencyLimit: 256
-    useModelName: "c2.qwen3.5-4b"
-    aliases:
-      - "pair04.qwen3.5-4b"
-      - "pair05.qwen3.5-4b"
-      - "pair09.qwen3.5-4b"
-      - "pair24.qwen3.5-4b"
-      - "pair31.qwen3.5-4b"
-      - "x2extract.qwen3.5-4b-b"
-    filters:
-      setParams:
-        chat_template_kwargs:
-          enable_thinking: false
-
-  "c2.ternary":
-    cmd: |
-      docker run --rm --name ${MODEL_ID}
-      --pull=always
-      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
-      -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
-      ghcr.io/tkontu/bonsai-llama:latest
-      --alias ${MODEL_ID}
-    cmdStop: docker stop ${MODEL_ID}
-    proxy: http://127.0.0.1:${PORT}
-    checkEndpoint: /health
-    ttl: 18000
-    concurrencyLimit: 8
-    aliases:
-      - "pair06.ternary"
 
   "c2.qwythos-v2":
     cmd: |
@@ -419,14 +218,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 32
-    aliases:
-      - "pair10.qwythos-v2"
-      - "pair11.qwythos-v2"
-      - "pair12.qwythos-v2"
-      - "pair13.qwythos-v2"
-      - "pair14.qwythos-v2"
-      - "pair26.qwythos-v2"
-      - "pair33.qwythos-v2"
 
   "c2.fablevibes":
     cmd: |
@@ -447,15 +238,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 16
-    aliases:
-      - "pair15.fablevibes"
-      - "pair16.fablevibes"
-      - "pair17.fablevibes"
-      - "pair18.fablevibes"
-      - "pair19.fablevibes"
-      - "pair20.fablevibes"
-      - "pair27.fablevibes"
-      - "pair34.fablevibes"
 
   "c2.qwen3.8-27b":
     cmd: |
@@ -483,9 +265,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 16
-    aliases:
-      - "pair21.qwen3.8-27b"
-      - "pair25.qwen3.8-27b"
 
   "c2.muse-glimmer":
     cmd: |
@@ -514,10 +293,6 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 4
-    aliases:
-      - "pair28.muse-glimmer"
-      - "pair32.muse-glimmer"
-      - "pair35.muse-glimmer"
 
   # ===== Solo big models (TP=2, own both 3090s — in no matrix set) =====
   "Qwen3.6-35B-A3B-AWQ-4bit":
@@ -663,9 +438,6 @@ routing:
           cards: >-
             (c0.gemma-26b
               | c0.gemma-e4b
-              | c0.qwen3.5-9b
-              | c0.qwen3.5-4b
-              | c0.ternary
               | c0.qwythos-v2
               | c0.fablevibes
               | c0.qwen3.8-27b
@@ -673,9 +445,6 @@ routing:
             )
             & (c2.gemma-26b
               | c2.gemma-e4b
-              | c2.qwen3.5-9b
-              | c2.qwen3.5-4b
-              | c2.ternary
               | c2.qwythos-v2
               | c2.fablevibes
               | c2.qwen3.8-27b

@@ -11,8 +11,8 @@ Models that need BOTH cards (SOLO vLLM TP=2, UNGROUPED_GGUF splits) appear in no
 which llama-swap defines as "can only run alone": requesting one clears both cards, and any
 card request evicts it.
 
-Callsigns from the old pairs config (`pairNN.<model>`, `x2extract.*`, bare `<model>`) are
-kept as ALIASES of the matching card entry — see LEGACY_PAIRS.
+Models are addressed only by their card ids: `c0.<model>` / `c2.<model>`, or the
+whole-box model id. The old pairNN / x2extract / bare-name aliases are retired.
 Regenerate:  python3 gen_config.py > config.yaml
 """
 import json
@@ -190,25 +190,6 @@ POOL = [
     # ~98k is the theoretical fp16-KV ceiling — do not raise further without fp8 KV.
     dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
     dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
-    # BF16-INT4 replaces AWQ-4bit: linear_attn (GDN) layers stay unquantized BF16 —
-    # safer for this family. Shard naming verified 2026-08-04 against the known
-    # silent-failure mode (ignore list vs shards BOTH use the split in_proj_qkv/z/b/a
-    # names, and no linear_attn.*weight_scale exists → the ignore list matches; a
-    # mismatch would make vLLM skip-load those layers and serve incoherent output).
-    # Still run a coherence prompt on first load rather than trusting a clean start.
-    # think=True: without the filter the 9B burns hundreds of output tokens in its
-    # thinking phase even at temperature 0 (verified on first load, 2026-08-04) —
-    # short-max_tokens requests never reach an answer.
-    dict(tok="qwen3.5-9b",  backend="vllm", repo="cyankiwi/Qwen3.5-9B-AWQ-BF16-INT4",             mml=16384, think_off=True, extra=APC_ALIGN),
-    # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
-    # i.e. ~150 KiB/token, so the util-0.90 pool (~18 GiB after weights) holds ~120k tokens
-    # — far more than one 32768-token sequence. Raising mml costs no VRAM, same as seqs.
-    # No --enforce-eager: it was inherited from the old Qwen3.5-4B-AWQ-4bit-shortkv entry,
-    # where disabling CUDA graphs reclaimed their VRAM reserve. That no longer applies at
-    # util 0.95, and eager costs the most on small models (launch overhead dominates decode).
-    # The documented Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
-    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
-    dict(tok="ternary",     backend="fork"),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Xet-backed repo (~11.3 GB Q6_K). llama-server -hf downloads via HTTP; if Xet blocks
     # that, we pre-download with the `hf` CLI (+hf_xet) instead. See README.
@@ -387,58 +368,6 @@ UNGROUPED_GGUF = [
          sampling=DEEPSEEK_V4_SAMPLING),
 ]
 
-# TRANSITIONAL compatibility aliases for callsigns of the old pairs config, frozen at its last
-# numbering (pair01-pair35) plus the hand-written x2extract group. Each old pair put its first
-# member on 3090 #0 and its second on #2, so `pairNN.<a>` -> `c0.<a>` and `pairNN.<b>` ->
-# `c2.<b>` routes every old callsign to the SAME card it used to load on.
-#
-# Semantics differ in one way: requesting a pairNN member no longer evicts the other card.
-# Delete this table (and LEGACY_X2EXTRACT) once consumers request c0./c2. IDs directly.
-# A POOL model that is retired must also be removed here, or config generation fails.
-LEGACY_PAIRS = [
-    ("pair01", "gemma-26b", "gemma-e4b"),
-    ("pair02", "gemma-26b", "qwen3.5-9b"),
-    ("pair03", "gemma-e4b", "qwen3.5-9b"),
-    ("pair04", "gemma-26b", "qwen3.5-4b"),
-    ("pair05", "gemma-e4b", "qwen3.5-4b"),
-    ("pair06", "gemma-26b", "ternary"),
-    ("pair07", "ternary", "gemma-e4b"),
-    ("pair08", "ternary", "qwen3.5-9b"),
-    ("pair09", "ternary", "qwen3.5-4b"),
-    ("pair10", "gemma-26b", "qwythos-v2"),
-    ("pair11", "gemma-e4b", "qwythos-v2"),
-    ("pair12", "qwen3.5-9b", "qwythos-v2"),
-    ("pair13", "qwen3.5-4b", "qwythos-v2"),
-    ("pair14", "ternary", "qwythos-v2"),
-    ("pair15", "gemma-26b", "fablevibes"),
-    ("pair16", "gemma-e4b", "fablevibes"),
-    ("pair17", "qwen3.5-9b", "fablevibes"),
-    ("pair18", "qwen3.5-4b", "fablevibes"),
-    ("pair19", "ternary", "fablevibes"),
-    ("pair20", "qwythos-v2", "fablevibes"),
-    ("pair21", "gemma-26b", "qwen3.8-27b"),
-    ("pair22", "qwen3.8-27b", "gemma-e4b"),
-    ("pair23", "qwen3.8-27b", "qwen3.5-9b"),
-    ("pair24", "qwen3.8-27b", "qwen3.5-4b"),
-    ("pair25", "ternary", "qwen3.8-27b"),
-    ("pair26", "qwen3.8-27b", "qwythos-v2"),
-    ("pair27", "qwen3.8-27b", "fablevibes"),
-    ("pair28", "gemma-26b", "muse-glimmer"),
-    ("pair29", "muse-glimmer", "gemma-e4b"),
-    ("pair30", "muse-glimmer", "qwen3.5-9b"),
-    ("pair31", "muse-glimmer", "qwen3.5-4b"),
-    ("pair32", "ternary", "muse-glimmer"),
-    ("pair33", "muse-glimmer", "qwythos-v2"),
-    ("pair34", "muse-glimmer", "fablevibes"),
-    ("pair35", "qwen3.8-27b", "muse-glimmer"),
-]
-# x2extract was qwen3.5-4b on both cards, hand-written because the pairs generator refused
-# same-model pairs. Its parameters were a byte-faithful copy of the pooled qwen3.5-4b, so the
-# per-card entries are the same servers. (alias, card label, POOL tok)
-LEGACY_X2EXTRACT = [
-    ("x2extract.qwen3.5-4b-a", "c0", "qwen3.5-4b"),
-    ("x2extract.qwen3.5-4b-b", "c2", "qwen3.5-4b"),
-]
 
 
 def aliases_block(aliases):
@@ -666,25 +595,6 @@ def check_bigmoe_compose():
                  f"but bigmoe entries are {sorted(ids)}; update the compose file")
 
 
-def legacy_aliases():
-    """Map (card label, POOL tok) -> old callsigns that now resolve to that card entry."""
-    toks = {spec["tok"] for spec in POOL}
-    out = {}
-
-    def add(label, tok, alias):
-        if tok not in toks:
-            sys.exit(f"legacy alias {alias!r} targets {tok!r}, which is not in POOL")
-        out.setdefault((label, tok), []).append(alias)
-
-    for spec in POOL:
-        # Bare names used to be standalone entries on 3090 #0.
-        add("c0", spec["tok"], spec["tok"])
-    for pair, a, b in LEGACY_PAIRS:
-        add("c0", a, f"{pair}.{a}")
-        add("c2", b, f"{pair}.{b}")
-    for alias, label, tok in LEGACY_X2EXTRACT:
-        add(label, tok, alias)
-    return out
 
 
 def main():
@@ -692,7 +602,10 @@ def main():
     # them and write CRLF line endings.
     sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     check_bigmoe_compose()
-    aliases = legacy_aliases()
+    # Legacy callsigns retired 2026-09-20: pairNN.*, x2extract.* and bare POOL
+    # names are gone. Three days of llama-swap logs showed every consumer
+    # already requesting c0./c2. ids directly, which was the stated condition
+    # for deleting them. Entries now carry no aliases.
 
     out = []
     out.append("# llama-swap config (GENERATED by gen_config.py — do not hand-edit).")
@@ -700,8 +613,7 @@ def main():
     out.append("# c2.<model> (3090 #2). The matrix router lets any c0 entry run alongside any c2")
     out.append("# entry, and a request evicts only the model on the card it needs. Models that")
     out.append("# need both cards are in no matrix set, so they run alone.")
-    out.append("# Old callsigns (pairNN.<model>, x2extract.*, bare <model>) are aliases of the")
-    out.append("# card entry they used to load on — transitional; see LEGACY_PAIRS.")
+    out.append("# Address models by card id: c0.<model> / c2.<model>, or the whole-box id.")
     out.append("# Regenerate: python3 gen_config.py > config.yaml")
     out.append("#")
     out.append("# HF AUTH: deliberately NOT passed as -e HF_TOKEN/-e HUGGING_FACE_HUB_TOKEN.")
@@ -714,8 +626,8 @@ def main():
     out.append("")
     out.append("healthCheckTimeout: 900")
     out.append("logLevel: info")
-    out.append("# List aliases in /v1/models so consumers that discover callsigns there keep")
-    out.append("# seeing the old pairNN ids during the transition.")
+    out.append("# No aliases are defined any more, so this only affects how /v1/models")
+    out.append("# renders; left on so the listing shape does not change for consumers.")
     out.append("includeAliasesInList: true")
     out.append("")
     out.append("models:")
@@ -728,8 +640,7 @@ def main():
         for spec in POOL:
             model_id = f"{label}.{spec['tok']}"
             ttl = spec.get("card_ttl", {}).get(label, TTL)
-            out.append(member_entry(spec, model_id, uuid, ttl=ttl,
-                                    aliases=aliases.get((label, spec["tok"]), ())))
+            out.append(member_entry(spec, model_id, uuid, ttl=ttl))
             card_ids[label].append(model_id)
 
     out.append("  # ===== Solo big models (TP=2, own both 3090s — in no matrix set) =====")
