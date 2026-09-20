@@ -278,6 +278,35 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
+  "Qwen3.6-35B-A3B-32k-128seqs":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p ${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 2 --gpu-memory-utilization 0.92
+      --max-model-len 32768 --max-num-seqs 128
+      --enforce-eager
+      --limit-mm-per-prompt '{"image":0,"video":0}'
+      --reasoning-parser qwen3
+      --enable-auto-tool-choice
+      --tool-call-parser qwen3_coder
+      --enable-prefix-caching
+      --mamba-cache-mode align
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 36000
+    concurrencyLimit: 512
+    useModelName: "Qwen3.6-35B-A3B-32k-128seqs"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
   # ===== Whole-box GGUF entries (both 3090s — in no matrix set; see UNGROUPED_GGUF) =====
   "Muse-Glimmer-30B-split":
     cmd: |

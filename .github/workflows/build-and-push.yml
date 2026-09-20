@@ -2,8 +2,9 @@ name: build-and-push
 
 # Builds the custom llama-swap image (unified-cuda + docker CLI) and pushes it to
 # GHCR, so Portainer can pull it for a Git-repository stack (Portainer cannot build
-# `build:` itself). config.yaml is bind-mounted at runtime and is NOT baked into the
-# image, so it does not need to trigger a rebuild — only the Dockerfile does.
+# `build:` itself). config.yaml IS baked into the image (COPY, see Dockerfile) — a
+# single-file bind mount from a Portainer stack fails — so a config.yaml change MUST
+# rebuild, which is why it is in the paths filter below. Editing models is a git push.
 
 on:
   push:
