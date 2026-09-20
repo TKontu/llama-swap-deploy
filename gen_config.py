@@ -259,13 +259,64 @@ POOL = [
 ]
 
 # Solo big models (need both 3090s → TP=2 → in no matrix set, so they run alone).
-# (id, repo, mml, seqs, util, think_off, eager)
+# Dicts rather than the old positional tuple since the two entries below diverge on extra
+# flags and request cap; seven positional fields was already the limit of readability.
+#   id, repo, mml, seqs, util, think_off, eager   as before
+#   extra   additional vLLM flags, one per element   (default: none)
+#   climit  llama-swap's own request cap             (default: REQUEST_LIMIT)
 # eager=True emits --enforce-eager. Only 35B-A3B needs it: vLLM's AWQ-MoE kernels
 # fault with Xid 31 mid-inference and CUDA graphs are the likely trigger — see
 # ARCHITECTURE.md "Known issues" and README.md "Operational notes". Keep it until
-# TODO.md's dmesg check confirms the crash is resolved.
+# TODO.md's dmesg check confirms the crash is resolved. It applies to BOTH entries below:
+# same weights, same kernels, so the high-concurrency profile is if anything more exposed.
 SOLO = [
-    ("Qwen3.6-35B-A3B-AWQ-4bit",   "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",         131072, 1, 0.90, True,  True),
+    # Long-context profile: the full 131072 in a single sequence.
+    dict(id="Qwen3.6-35B-A3B-AWQ-4bit", repo="cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
+         mml=131072, seqs=1, util=0.90, think_off=True, eager=True),
+    # High-concurrency profile of the SAME weights: short context, many sequences, for
+    # extraction/classification-shaped work. Two entries rather than one retuned entry
+    # because the shapes are genuinely different and only one can be resident anyway —
+    # they are both whole-box, so the matrix router already makes them mutually exclusive
+    # (and mutually exclusive with qwen3-coder-next). The old vLLM gateway carried the same
+    # pair as Qwen3.6-35B-A3B-AWQ-4bit and ..._16k_8seqs.
+    #
+    # max_model_len 32768 does NOT free VRAM — the KV pool is sized once from util, not per
+    # sequence. What it changes is how many sequences fit in that fixed pool: vLLM's
+    # "Maximum concurrency for N tokens per request" line at startup is pool/max_model_len,
+    # so quartering the context roughly quadruples it. seqs=128 is likewise only a cap;
+    # oversubscribing degrades through preemption and recompute, never OOM. Both are
+    # therefore safe to set optimistically and fit downward from the measured TTFT curve.
+    #
+    # extra flags, all verified present in vllm/vllm-openai:v0.26.0 (2026-09-20):
+    #   * limit-mm-per-prompt 0/0 — text-only. This model carries a vision tower; zeroing it
+    #     skips encoder profiling and its buffers. JSON is written without spaces so it
+    #     survives llama-swap's cmd tokenizer as a single argument.
+    #   * reasoning-parser qwen3 — keeps any <think> span out of `content` for the clients
+    #     that re-enable thinking per request. Inert while think_off holds.
+    #   * enable-auto-tool-choice + tool-call-parser qwen3_coder — the parser name is
+    #     registered in 0.26.0 (lazily, via qwen3_engine_tool_parser), and it is the right
+    #     one: this model's chat template emits Qwen3-Coder XML (<tool_call><function=...>
+    #     <parameter=...>), not JSON. Read off its tokenizer_config.json, not the card.
+    #   * APC_ALIGN — prefix caching for a GDN hybrid needs BOTH flags. Bare
+    #     --enable-prefix-caching is silently auto-disabled on hybrid attention+Mamba models
+    #     (verified live on qwen3.5-9b: enable_prefix_caching=False, hits stuck at 0), so the
+    #     plan's "drop the flag if vLLM rejects it" never fires — it would just quietly do
+    #     nothing. Read the APC_ALIGN caveats before trusting the hit rate: 528-token block
+    #     padding means short shared system prompts hit 0%. Its one hard rule is satisfied
+    #     here — no MTP/--speculative-config on this entry.
+    # --kv-cache-dtype auto is the default and is not emitted; the Ampere "no fp8 KV"
+    # constraint is met by not setting it. Same for the MTP head: left off deliberately,
+    # speculative decoding pays at low batch, not at this one's.
+    #
+    # climit 512 = 4x max-num-seqs, the REQUEST_LIMIT rule applied to seqs=128 rather than
+    # the pool's 64. At the inherited 256 llama-swap would 429 at twice the backend's
+    # capacity instead of letting vLLM's scheduler queue.
+    dict(id="Qwen3.6-35B-A3B-32k-128seqs", repo="cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
+         mml=32768, seqs=128, util=0.92, think_off=True, eager=True, climit=512,
+         extra=("--limit-mm-per-prompt '{\"image\":0,\"video\":0}'",
+                "--reasoning-parser qwen3",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser qwen3_coder") + APC_ALIGN),
 ]
 
 # Whole-box GGUF entries — span BOTH 3090s, so they are not in POOL and appear in no matrix
@@ -639,8 +690,12 @@ def main():
             card_ids[label].append(model_id)
 
     out.append("  # ===== Solo big models (TP=2, own both 3090s — in no matrix set) =====")
-    for (mid, repo, mml, seqs, util, think_off, eager) in SOLO:
-        out.append(vllm_entry(mid, repo, f"{CARD0},{CARD2}", mml, seqs, eager, think_off, tp=2, util=util, ttl=TTL_SOLO))
+    for spec in SOLO:
+        out.append(vllm_entry(spec["id"], spec["repo"], f"{CARD0},{CARD2}", spec["mml"],
+                              spec["seqs"], spec["eager"], spec["think_off"], tp=2,
+                              util=spec["util"], ttl=TTL_SOLO,
+                              climit=spec.get("climit", REQUEST_LIMIT),
+                              extra=spec.get("extra", ())))
 
     out.append("  # ===== Whole-box GGUF entries (both 3090s — in no matrix set; see UNGROUPED_GGUF) =====")
     for spec in UNGROUPED_GGUF:
