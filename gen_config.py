@@ -190,6 +190,18 @@ POOL = [
     # ~98k is the theoretical fp16-KV ceiling — do not raise further without fp8 KV.
     dict(tok="gemma-26b",   backend="vllm", repo="cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4",      mml=65536, think_off=True),
     dict(tok="gemma-e4b",   backend="vllm", repo="cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4",          mml=128000),
+    # Qwen3.5-4B — RE-HOSTED 2026-09-21 (retired in d00aba0) as Iknos's extractor: its sealed
+    # reference corpus was built on exactly this server (pair04.qwen3.5-4b, 3090 #2), and the
+    # model identity is part of that corpus's pipeline hash, so reingest/migration of it needs
+    # the same weights and flags back. Byte-faithful to the retired entry.
+    # Iknos requests c2.qwen3.5-4b by default: c0 carries the on-call muse-glimmer (hermes
+    # agent), which any c0 request would evict. c0.qwen3.5-4b is emitted by POOL anyway and is
+    # fine to use when width matters more than the standby.
+    # 32k: measured at 8156 MiB for weights+KV @ 16384x2 (vllm_refs/memory_footprints.json),
+    # i.e. ~150 KiB/token — far more than one 32768-token sequence fits the util-0.95 pool.
+    # No --enforce-eager: eager costs the most on small models (launch overhead dominates
+    # decode); the Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
+    dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
     # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
