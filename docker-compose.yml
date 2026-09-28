@@ -4,8 +4,12 @@
 #   PRE-BUILT image from GHCR. It is built & pushed by .github/workflows/build-and-push.yml
 #   on every push that touches the Dockerfile. Set LLAMA_SWAP_IMAGE as a stack env var
 #   (e.g. ghcr.io/<owner>/llama-swap-deploy:latest). See README → "Deploy with Portainer".
-# - network_mode: host → llama-swap serves on :9292 and reaches vLLM sibling
-#   containers at 127.0.0.1:<PORT> (their published ports).
+# - network_mode: host → llama-swap listens on 127.0.0.1:9293 and reaches the model
+#   containers at 127.0.0.1:<PORT> (published on loopback only).
+# - edge (Caddy) is what the LAN talks to, on :9292: it forwards to llama-swap, keeps
+#   raw ComfyUI off the LAN, and refuses new work while a deploy drains.
+# - deploy-gate redeploys the stack (Portainer webhook) when a new image is on GHCR, but
+#   only once nothing is in flight. See README → "Deploy gate".
 # - /var/run/docker.sock → lets llama-swap spawn vLLM containers (DooD).
 # - runtime: nvidia → GPUs for any bundled llama.cpp child processes.
 
@@ -19,6 +23,11 @@ services:
     # build: .
     container_name: llama-swap
     restart: unless-stopped
+    # llama-swap drains in-flight requests for up to 30 s (hard-coded) on SIGTERM, then stops
+    # its model containers. Docker's default 10 s would SIGKILL it first, so it could neither
+    # drain nor stop them. A stop still cuts anything longer than 30 s: deploys go through
+    # deploy-gate, which redeploys only when nothing is in flight.
+    stop_grace_period: 60s
     network_mode: host
     runtime: nvidia
     environment:
@@ -38,10 +47,11 @@ services:
     command:
       - --config
       - /etc/llama-swap/config/config.yaml
+      # Loopback only: the LAN comes in through `edge` on :9292.
       - --listen
-      - 0.0.0.0:9292
+      - 127.0.0.1:9293
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:9292/health"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9293/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -64,6 +74,8 @@ services:
       - llama-swap
     entrypoint: ["/usr/local/bin/oncall-wakeup.sh"]
     environment:
+      # Through the edge, so a deploy drain refuses its wakeup too (a failed wake is retried
+      # after the next idle hour).
       - LLAMASWAP_URL=http://127.0.0.1:9292
       # Real model ID, not an alias — the poller matches it against /running.
       - ONCALL_MODEL=c0.muse-glimmer
@@ -76,3 +88,57 @@ services:
       - IDLE_SECONDS=3600
       - IDLE_PCT=5
       - POLL_SECONDS=60
+
+  # The LAN entry point, on :9292 (docker/edge/Caddyfile, image built by edge-image.yml).
+  #   - Forwards everything to llama-swap on 127.0.0.1:9293, streams and websockets included.
+  #   - Only loopback clients (media-gateway, an SSH tunnel) may reach ComfyUI
+  #     (/upstream/*comfyui*, /comfyui): its API runs arbitrary workflows and node code.
+  #   - While /state/drain exists (set by deploy-gate), new work gets 503 + Retry-After; reads,
+  #     /api/* and ComfyUI acks still pass, and requests already in flight finish.
+  edge:
+    image: ${EDGE_IMAGE:-ghcr.io/tkontu/llama-swap-edge:latest}
+    container_name: llama-swap-edge
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - llama-swap
+    volumes:
+      - edge-state:/state
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9292/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Push-to-deploy that never cuts work. Polls GHCR for a new digest of the llama-swap image.
+  # When one appears it sets the edge's drain flag, waits until nothing is in flight (LLM
+  # requests and ComfyUI holds), then calls the Portainer webhook. If work is still running
+  # after DRAIN_MAX_S it gives up and retries later — it never forces a deploy. See
+  # scripts/deploy-gate.py and README → "Deploy gate".
+  #
+  # Same image as llama-swap (the script is baked in). The docker socket is only used for
+  # `docker inspect` of the llama-swap container's image digest.
+  deploy-gate:
+    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest}
+    container_name: deploy-gate
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - llama-swap
+      - edge
+    entrypoint: ["python3", "/usr/local/bin/deploy-gate.py"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - edge-state:/state
+    environment:
+      # Set in Portainer (stack → environment), never in the repo: GitOps webhook URL.
+      - PORTAINER_WEBHOOK_URL=${PORTAINER_WEBHOOK_URL:-}
+      - IMAGE=${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest}
+      - LLAMASWAP_URL=http://127.0.0.1:9293
+      - POLL_S=120
+      - STABLE_S=15
+      - DRAIN_MAX_S=21600
+      - RETRY_AFTER_ABORT_S=3600
+
+volumes:
+  edge-state:

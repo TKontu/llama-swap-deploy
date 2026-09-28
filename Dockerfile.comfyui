@@ -1,0 +1,77 @@
+# ComfyUI + the pinned custom nodes for the product-icon pipeline (built by CI → GHCR).
+#
+# Never started by compose: llama-swap launches it on demand with `docker run`, exactly like
+# the LLM backends — as `a4.comfyui` (the spare A2000, preferred) and `c2.comfyui` (3090 c2, for
+# models over 12 GB).
+# See gen_config.py → COMFYUI and README → "ComfyUI".
+#
+# Everything is PINNED, ComfyUI and each node pack alike. ComfyUI_IPAdapter_plus has been in
+# maintenance-only mode since 2025-04-14 while ComfyUI keeps moving, so an unpinned rebuild is
+# the most likely way for the pipeline to break silently. Bump pins together, then check the
+# CI import test (the workflow fails on any "IMPORT FAILED" node).
+#
+# Weights are NOT baked in. They live on the host at /fast/comfyui/models, mounted at
+# /opt/comfyui/models and shared by both instances.
+FROM python:3.12-slim-bookworm
+
+# Python 3.12 rather than ComfyUI's preferred 3.13: comfyui_controlnet_aux pulls mediapipe,
+# which is the dependency most likely to lag a Python release (ComfyUI's README suggests 3.12
+# for exactly this). libgl1/libglib2.0-0 are for opencv; git for the node clones; curl for
+# the image's own healthcheck.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git curl ca-certificates libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+# ComfyUI requires a cu130+ torch on 20-series and newer (its README); the host driver is
+# 595.84 / CUDA 13.2, so cu130 wheels run on both the 3090 and the A2000 (both sm_86).
+# torchvision is pinned to torch's exact version by its own metadata. torchaudio stopped
+# tracking torch releases at 2.11 and declares no torch pin; it is only needed by ComfyUI's
+# audio nodes, and the CI import test catches a real incompatibility.
+ARG TORCH_VERSION=2.14.0
+ARG TORCHVISION_VERSION=0.29.0
+ARG TORCHAUDIO_VERSION=2.11.0
+RUN pip install --no-cache-dir \
+      torch==${TORCH_VERSION} torchvision==${TORCHVISION_VERSION} torchaudio==${TORCHAUDIO_VERSION} \
+      --index-url https://download.pytorch.org/whl/cu130
+
+ARG COMFYUI_REF=v0.37.0
+RUN git clone --depth 1 --branch ${COMFYUI_REF} https://github.com/Comfy-Org/ComfyUI.git /opt/comfyui
+WORKDIR /opt/comfyui
+# manager_requirements.txt installs the pip-packaged ComfyUI-Manager (comfyui_manager). It is
+# inert unless the instance is started with --enable-manager, which only c2.comfyui does.
+RUN pip install --no-cache-dir -r requirements.txt -r manager_requirements.txt
+
+# Custom nodes, pinned to a commit each. clone + checkout rather than --branch because these
+# repos publish no tags.
+#   ComfyUI_IPAdapter_plus     style lock (IP-Adapter Plus SDXL + CLIP-ViT-H)
+#   comfyui_controlnet_aux     depth preprocessor for ControlNet depth
+#   ComfyUI_BiRefNet_ll        background removal. Chosen over ComfyUI-RMBG, which is better
+#                              maintained but drags in groundingdino, SAM/SAM2/SAM3 and both
+#                              onnxruntime flavours for nodes this pipeline doesn't use.
+ARG IPADAPTER_PLUS_SHA=a0f451a5113cf9becb0847b92884cb10cbdec0ef
+ARG CONTROLNET_AUX_SHA=59b1fc411ede8623b2997855b8018f0b3b6cf49f
+ARG BIREFNET_SHA=5443a2aa16cfbd98bb2f7dcc8bdcb70439e08529
+RUN set -eux; \
+    clone() { git clone "https://github.com/$1.git" "custom_nodes/$2" \
+              && git -C "custom_nodes/$2" checkout --quiet "$3" \
+              && rm -rf "custom_nodes/$2/.git"; }; \
+    clone cubiq/ComfyUI_IPAdapter_plus      ComfyUI_IPAdapter_plus  "${IPADAPTER_PLUS_SHA}"; \
+    clone Fannovel16/comfyui_controlnet_aux comfyui_controlnet_aux  "${CONTROLNET_AUX_SHA}"; \
+    clone lldacing/ComfyUI_BiRefNet_ll      ComfyUI_BiRefNet_ll     "${BIREFNET_SHA}"; \
+    pip install --no-cache-dir \
+      -r custom_nodes/comfyui_controlnet_aux/requirements.txt \
+      -r custom_nodes/ComfyUI_BiRefNet_ll/requirements.txt
+
+# The depth preprocessors download their weights on first use, by default into the node's own
+# directory — inside the container, which runs with --rm, so they would be fetched again on
+# every start. Point them at the shared, persistent models mount instead.
+ENV AUX_ANNOTATOR_CKPTS_PATH=/opt/comfyui/models/annotators
+
+# The hold (docker/comfyui_hold): keeps one request open through llama-swap while ComfyUI has
+# work, so llama-swap never unloads it mid-render. Configured by env vars from `docker run`.
+COPY docker/comfyui_hold /opt/comfyui/custom_nodes/comfyui_hold
+
+COPY docker/comfyui-serve.sh /usr/local/bin/comfyui-serve.sh
+RUN chmod +x /usr/local/bin/comfyui-serve.sh
+
+ENTRYPOINT ["/usr/local/bin/comfyui-serve.sh"]

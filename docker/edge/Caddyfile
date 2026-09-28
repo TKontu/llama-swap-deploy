@@ -1,0 +1,44 @@
+# The LAN entry point of the llama-swap stack (Dockerfile.edge → ghcr.io/<owner>/llama-swap-edge).
+# Runs on the host network in front of llama-swap, which listens on loopback only.
+#
+#   1. Everything is forwarded to llama-swap, unbuffered (LLM streams, long ComfyUI holds and
+#      websockets pass; Caddy sets no read timeout by default).
+#   2. ComfyUI is loopback-only: from any other source, /upstream/*comfyui* and /comfyui get
+#      403. ComfyUI runs arbitrary workflows and custom-node code; clients go through
+#      media-gateway, which runs on this host.
+#   3. Deploy drain: while {$EDGE_STATE}/drain exists (deploy-gate sets it), requests that
+#      start new work get 503 + Retry-After. Reads (GET/HEAD/OPTIONS), llama-swap's own /api/*,
+#      and ComfyUI hold acks still pass, and requests already in flight are never touched.
+#
+# The {$VAR:default} placeholders are only overridden by tests/sim, which runs this exact file
+# against a real llama-swap on other ports.
+{
+	admin off
+	auto_https off
+}
+
+{$EDGE_LISTEN::9292} {
+	route {
+		@lan_comfyui {
+			not remote_ip 127.0.0.1/32 ::1/128
+			path_regexp comfyui ^/(upstream/[^/]*comfyui[^/]*|comfyui)(/|$)
+		}
+		respond @lan_comfyui "ComfyUI is reachable only through media-gateway" 403
+
+		@drain_new_work {
+			file {
+				root {$EDGE_STATE:/state}
+				try_files /drain
+			}
+			not method GET HEAD OPTIONS
+			not path /api/*
+			not path_regexp ack /comfyui-hold/ack$
+		}
+		header @drain_new_work Retry-After 60
+		respond @drain_new_work "Draining for a deploy: no new work accepted, retry later" 503
+
+		reverse_proxy {$EDGE_UPSTREAM:127.0.0.1:9293} {
+			flush_interval -1
+		}
+	}
+}

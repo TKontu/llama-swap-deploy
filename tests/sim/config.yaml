@@ -1,0 +1,55 @@
+# llama-swap config for tests/sim: the production slot layout (gen_config.py) with fake
+# upstreams. llama-swap listens on 19293 behind the real edge (Caddy) on 19292, like 9293/9292
+# in production; the ComfyUI hold talks to llama-swap directly, as in production. c0/c2 LLMs, one whole-box LLM, and a4/c2 ComfyUI with the real hold. Short TTLs
+# and watchdog so the cases run in seconds. run.py rewrites nothing here, so keep the ComfyUI
+# entries' semantic settings (ignoreWebsockets, unlisted, checkEndpoint) in line with
+# gen_config.py → comfyui_entry.
+healthCheckTimeout: 30
+logLevel: info
+upstream:
+  ignorePaths:
+    - '.*\.(js|json|css|png|gif|jpg|jpeg|ico|txt)$'
+    - ^\/ws(\/|$)
+    - ^\/api\/jobs$
+models:
+  "c0.llm":
+    cmd: python3 fake_llm.py ${PORT} ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 0
+    concurrencyLimit: 64
+  "c2.llm":
+    cmd: python3 fake_llm.py ${PORT} ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 0
+    concurrencyLimit: 64
+  "wholebox":
+    cmd: python3 fake_llm.py ${PORT} ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 0
+    concurrencyLimit: 64
+  "a4.comfyui":
+    cmd: env HOLD_MODEL_ID=${MODEL_ID} LLAMASWAP_URL=http://127.0.0.1:19293 HOLD_STALL_S=3 HOLD_ACK_TIMEOUT_S=3 python3 fake_comfy.py ${PORT}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /system_stats
+    ttl: 3
+    concurrencyLimit: 64
+    unlisted: true
+    compat:
+      ignoreWebsockets: true
+  "c2.comfyui":
+    cmd: env HOLD_MODEL_ID=${MODEL_ID} LLAMASWAP_URL=http://127.0.0.1:19293 HOLD_STALL_S=3 HOLD_ACK_TIMEOUT_S=3 python3 fake_comfy.py ${PORT}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /system_stats
+    ttl: 3
+    concurrencyLimit: 64
+    unlisted: true
+    compat:
+      ignoreWebsockets: true
+routing:
+  router:
+    use: matrix
+    settings:
+      matrix:
+        sets:
+          cards: "(c0.llm) & (c2.llm | c2.comfyui) & a4.comfyui"
+          wholebox: "(wholebox) & a4.comfyui"

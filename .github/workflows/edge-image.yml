@@ -1,30 +1,26 @@
-name: build-and-push
+name: edge-image
 
-# Builds the custom llama-swap image (unified-cuda + docker CLI) and pushes it to
-# GHCR, so Portainer can pull it for a Git-repository stack (Portainer cannot build
-# `build:` itself). config.yaml IS baked into the image (COPY, see Dockerfile) — a
-# single-file bind mount from a Portainer stack fails — so a config.yaml change MUST
-# rebuild, which is why it is in the paths filter below. Editing models is a git push.
+# Builds the edge proxy image (Dockerfile.edge: Caddy + docker/edge/Caddyfile) and pushes it to
+# GHCR as ghcr.io/<owner>/llama-swap-edge. The Dockerfile validates the Caddyfile, so a broken
+# config fails the build rather than the deploy.
 
 on:
   push:
     branches: [main]
     paths:
-      - "Dockerfile"
-      - "config.yaml"
-      - "scripts/oncall-wakeup.sh"
-      - "scripts/deploy-gate.py"
-      - ".github/workflows/build-and-push.yml"
+      - "Dockerfile.edge"
+      - "docker/edge/**"
+      - ".github/workflows/edge-image.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  # Resolves to <owner>/<repo>; docker/metadata-action lowercases it for GHCR.
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository_owner }}/llama-swap-edge
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -52,15 +48,14 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: Dockerfile.edge
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Summary
         run: |
-          echo "### Image pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Set this as the \`LLAMA_SWAP_IMAGE\` stack env var in Portainer:" >> "$GITHUB_STEP_SUMMARY"
+          echo "### llama-swap-edge pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
