@@ -1,0 +1,8 @@
+# Edge proxy for the llama-swap stack: Caddy + docker/edge/Caddyfile (built by CI → GHCR).
+# Baked rather than bind-mounted, because a single-file bind mount from a Portainer Git stack is
+# fragile (see Dockerfile). tests/sim runs the same Caddyfile on the same Caddy version; it reads
+# the version from the FROM line below, so bump it here only together with a green sim run.
+FROM caddy:2.11.4-alpine
+
+COPY docker/edge/Caddyfile /etc/caddy/Caddyfile
+RUN caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile

@@ -8,3 +8,10 @@ vllm_refs/
 # Local editor / OS cruft
 .DS_Store
 *.swp
+# tests/sim run artifacts
+tests/sim/events.log
+tests/sim/llama-swap.log
+__pycache__/
+tests/sim/edge.log
+tests/sim/gate.log
+tests/sim/state/

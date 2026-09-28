@@ -11,6 +11,12 @@ Models that need BOTH cards (SOLO vLLM TP=2, UNGROUPED_GGUF splits) appear in no
 which llama-swap defines as "can only run alone": requesting one clears both cards, and any
 card request evicts it.
 
+ComfyUI (COMFYUI) is not an LLM, but llama-swap starts and stops it the same way. There are
+two instances: `a4.comfyui` (preferred) sits on the spare A2000 as a third, independent slot,
+paired with every whole-box model too, so the A2000 is never cleared by a model it doesn't share
+a card with. `c2.comfyui`, for models over 12 GB, joins card c2's alternatives and swaps with
+the c2 LLM like any POOL member. Both cold-load and unload when idle.
+
 Models are addressed only by their card ids: `c0.<model>` / `c2.<model>`, or the
 whole-box model id. The old pairNN / x2extract / bare-name aliases are retired.
 Regenerate:  python3 gen_config.py > config.yaml
@@ -27,6 +33,10 @@ CARD2 = "GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"   # 3090 "c2"
 # (label, uuid). The label prefixes the model ID; card order here is also the order of the
 # `&` terms in the matrix set.
 CARDS = [("c0", CARD0), ("c2", CARD2)]
+# The one spare RTX A2000 (12 GB), released for ComfyUI on 2026-09-27; labelled after its
+# nvidia-smi index at the time, like c0/c2. The other two A2000s (689f1c3c, 690062e6) still
+# belong to other workloads and must never appear here.
+A2000_4 = "GPU-037627b2-a49d-77c6-4b97-dc914ce581e9"   # A2000 "a4"
 IMAGE = "vllm/vllm-openai:v0.26.0"
 BONSAI = "ghcr.io/tkontu/bonsai-llama:latest"
 # Mainline llama.cpp at a pinned build (Dockerfile.llamacpp). Separate from BONSAI because
@@ -38,6 +48,17 @@ LLAMACPP = "ghcr.io/tkontu/llamacpp-mainline:latest"
 # DSV4 (#27970). Kept as a separate image so Muse-Glimmer and Qwen3.8 stay on the build they
 # were validated against — see SPEC-bigmoe.md §3.
 LLAMACPP_V4 = "ghcr.io/tkontu/llamacpp-v4:latest"
+# ComfyUI with the pinned icon-pipeline node packs (Dockerfile.comfyui).
+COMFYUI_IMAGE = "ghcr.io/tkontu/comfyui:latest"
+
+# Every backend publishes its port on loopback only. A plain `-p ${PORT}:…` answers on every
+# host interface, so the LAN could call a backend directly and bypass llama-swap (and the edge
+# in front of it). llama-swap runs on the host network and proxies to 127.0.0.1 anyway.
+LOOPBACK = "127.0.0.1"
+# llama-swap itself, behind the edge (docker-compose.yml): the LAN and local clients use the
+# edge on :9292. Only things that must work during a deploy drain talk to it directly: the
+# ComfyUI hold, the deploy gate and the healthcheck.
+LLAMASWAP_INTERNAL = "http://127.0.0.1:9293"
 
 # Uniform concurrency across the whole pool: two co-loaded models are only as fast as the
 # slower one, so per-model admission limits just create bottlenecks. For vLLM this is
@@ -426,6 +447,47 @@ UNGROUPED_GGUF = [
          sampling=DEEPSEEK_V4_SAMPLING),
 ]
 
+# ComfyUI instances. Same image and the same shared weights (/fast/comfyui/models); each has its
+# own state dir (/fast/comfyui/<model id>: settings, workflows, comfyui.db, uploads, outputs),
+# so the two never write to one SQLite file.
+#
+# Policy (2026-09-27): c2 belongs to the LLMs. ComfyUI runs on the A2000 when the model fits
+# 12 GB, and on c2 only when it needs more (evicting the c2 LLM once that is idle). It is always
+# cold-loaded and unloaded when idle, on both cards: COMFYUI_TTL after its last request.
+#   label   "a4" is its own matrix slot on the spare A2000; "c2" joins card c2's alternatives
+#   manager --enable-manager. Only on c2, for interactive model downloads. Nodes it installs
+#           are NOT kept: custom_nodes is inside the --rm container, so node packs go in
+#           Dockerfile.comfyui, pinned
+#
+# Work in progress is never interrupted. llama-swap neither evicts nor TTL-unloads a model with
+# a request in flight, but ComfyUI's POST /prompt returns at once. The comfyui_hold node closes
+# that gap: while ComfyUI has work it holds a request to itself open through llama-swap
+# (docker/comfyui_hold/hold.py). That's why the container runs on the host network (it needs
+# llama-swap at LLAMASWAP_INTERNAL, bypassing the edge so it works during a deploy drain) and
+# gets its own model ID. tests/sim checks the behaviour
+# against the pinned llama-swap.
+COMFYUI = [
+    dict(label="a4", gpus=A2000_4, manager=False),
+    dict(label="c2", gpus=CARD2, manager=True),
+]
+COMFYUI_TTL = 300
+# docker stop of a ComfyUI container can take a while; llama-swap's default is 10 s.
+COMFYUI_UNLOAD_TIMEOUT = 30
+# The UI polls /api/jobs and fetches static assets. Without ignorePaths an open browser tab
+# would reload c2.comfyui after every eviction, evicting in turn whichever LLM had just
+# replaced it. Listing any pattern REPLACES llama-swap's static-asset default, hence the
+# first line. Verbatim from llama-swap's docs/kb/guides/upstreams/comfyui.md. Unlike the
+# built-in /comfyui/ endpoint, these match every method, not only GET; ComfyUI's own write
+# endpoints (/prompt, /upload/image) are not in the list, so they still start the model.
+COMFYUI_IGNORE_PATHS = [
+    r"'.*\.(js|json|css|png|gif|jpg|jpeg|ico|txt)$'",
+    r"^\/ws(\/|$)",
+    r"^\/api\/jobs$",
+]
+# Proxy request cap. The UI fires many requests in parallel (assets, /ws, polling), so the
+# llama-swap default of 10 would 429 it.
+COMFYUI_LIMIT = 64
+
 
 
 def aliases_block(aliases):
@@ -463,7 +525,7 @@ def vllm_entry(model_id, repo, gpus, mml, seqs, eager, think_off, tp=1, util=UTI
         f"    cmd: |\n"
         f"      docker run --rm --name ${{MODEL_ID}}\n"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
-        f"      -p ${{PORT}}:8000\n"
+        f"      -p {LOOPBACK}:${{PORT}}:8000\n"
         f"      --gpus '\"device={gpus}\"'\n"
         f"      {IMAGE}\n"
         f"      --model {repo}\n"
@@ -498,7 +560,7 @@ def fork_entry(model_id, gpus, ttl=TTL, aliases=()):
         f"      --pull=always\n"
         f"      --gpus '\"device={gpus}\"'\n"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
-        f"      -p ${{PORT}}:8080\n"
+        f"      -p {LOOPBACK}:${{PORT}}:8080\n"
         f"      {BONSAI}\n"
         f"      --alias ${{MODEL_ID}}\n"
         f"    cmdStop: docker stop ${{MODEL_ID}}\n"
@@ -599,7 +661,7 @@ def gguf_entry(model_id, gpus, repo, hf_file, ctx, par, ttl=TTL, image=BONSAI,
         f"{opt}"
         f"      -v /models/hf-cache:/root/.cache/huggingface\n"
         f"{mounts}"
-        f"      -p ${{PORT}}:8080\n"
+        f"      -p {LOOPBACK}:${{PORT}}:8080\n"
         f"      {image}\n"
         f"      --alias ${{MODEL_ID}}\n"
         f"{sampling or ''}"
@@ -640,6 +702,47 @@ def ungrouped_gguf_entry(spec):
                       **gguf_knobs(spec))
 
 
+def comfyui_entry(model_id, gpus, manager):
+    # Not an OpenAI server: clients reach it only through llama-swap's passthrough,
+    # http://<host>:9292/upstream/<model id>/ (API and UI alike). `unlisted` keeps it out of
+    # /v1/models so LLM clients that enumerate models never pick it. /system_stats is the
+    # readiness probe; ComfyUI has no /health.
+    #
+    # Host network, listening on 127.0.0.1:${PORT} (comfyui-serve.sh): the hold must reach
+    # llama-swap on LLAMASWAP_INTERNAL, and loopback keeps the LAN from reaching ComfyUI
+    # directly and bypassing llama-swap.
+    manager_line = "      --enable-manager\n" if manager else ""
+    return (
+        f'  "{model_id}":\n'
+        f"    cmd: |\n"
+        f"      docker run --rm --name ${{MODEL_ID}}\n"
+        f"      --pull=always\n"
+        f"      --gpus '\"device={gpus}\"'\n"
+        f"      -v /fast/comfyui/models:/opt/comfyui/models\n"
+        f"      -v /fast/comfyui/${{MODEL_ID}}:/data\n"
+        f"      -v /models/hf-cache:/root/.cache/huggingface\n"
+        f"      --network host\n"
+        f"      -e COMFYUI_PORT=${{PORT}}\n"
+        f"      -e HOLD_MODEL_ID=${{MODEL_ID}}\n"
+        f"      -e LLAMASWAP_URL={LLAMASWAP_INTERNAL}\n"
+        f"      {COMFYUI_IMAGE}\n"
+        f"{manager_line}"
+        f"    cmdStop: docker stop ${{MODEL_ID}}\n"
+        f"    proxy: http://127.0.0.1:${{PORT}}\n"
+        f"    checkEndpoint: /system_stats\n"
+        f"    ttl: {COMFYUI_TTL}\n"
+        f"    unloadTimeout: {COMFYUI_UNLOAD_TIMEOUT}\n"
+        f"    concurrencyLimit: {COMFYUI_LIMIT}\n"
+        f"    unlisted: true\n"
+        # The UI's websocket stays open as long as the tab does. Counted as a request, it
+        # would make the model look permanently busy, so llama-swap would never swap it out
+        # (c2 stuck on ComfyUI). With this set, a websocket neither starts the model nor
+        # counts as activity; it just gets a 409 while the model is unloaded.
+        f"    compat:\n"
+        f"      ignoreWebsockets: true\n"
+    )
+
+
 def check_bigmoe_compose():
     """The on-call poller skips its wakeup while any BIGMOE_MODELS model is resident. That list
     lives in docker-compose.yml, so a bigmoe entry added here without it would be evicted
@@ -670,7 +773,9 @@ def main():
     out.append("# Every single-card model is defined once per 3090: c0.<model> (3090 #0) and")
     out.append("# c2.<model> (3090 #2). The matrix router lets any c0 entry run alongside any c2")
     out.append("# entry, and a request evicts only the model on the card it needs. Models that")
-    out.append("# need both cards are in no matrix set, so they run alone.")
+    out.append("# need both 3090s run alone on them. ComfyUI is a4.comfyui (the spare A2000,")
+    out.append("# preferred) and c2.comfyui (swaps with the c2 LLM; models over 12 GB), reached")
+    out.append("# via /upstream/<id>/ and unlisted from /v1/models.")
     out.append("# Address models by card id: c0.<model> / c2.<model>, or the whole-box id.")
     out.append("# Regenerate: python3 gen_config.py > config.yaml")
     out.append("#")
@@ -687,6 +792,13 @@ def main():
     out.append("# No aliases are defined any more, so this only affects how /v1/models")
     out.append("# renders; left on so the listing shape does not change for consumers.")
     out.append("includeAliasesInList: true")
+    out.append("")
+    out.append("# /upstream passthrough: requests on these paths never trigger a model load or")
+    out.append("# swap. For ComfyUI, whose open UI would otherwise reload c2.comfyui on every")
+    out.append("# websocket reconnect and evict the c2 LLM that had replaced it.")
+    out.append("upstream:")
+    out.append("  ignorePaths:")
+    out.extend(f"    - {p}" for p in COMFYUI_IGNORE_PATHS)
     out.append("")
     out.append("models:")
     out.append("")
@@ -709,14 +821,28 @@ def main():
                               climit=spec.get("climit", REQUEST_LIMIT),
                               extra=spec.get("extra", ())))
 
-    out.append("  # ===== Whole-box GGUF entries (both 3090s — in no matrix set; see UNGROUPED_GGUF) =====")
+    out.append("  # ===== Whole-box GGUF entries (both 3090s — paired only with a4; see UNGROUPED_GGUF) =====")
+    wholebox_ids = [spec["id"] for spec in SOLO]
     for spec in UNGROUPED_GGUF:
         out.append(ungrouped_gguf_entry(spec))
+        wholebox_ids.append(spec["tok"])
 
-    # One set: any card-0 model AND any card-2 model. Subsets are implied, so a single card
-    # alone is allowed too. A model in no set (the whole-box entries) can only run alone.
-    # No evict_costs: the cards are disjoint slots, so for any request there is exactly one
-    # cheapest eviction and costs could never change the outcome.
+    out.append("  # ===== ComfyUI (not LLMs; reached via /upstream/<id>/ — see COMFYUI) =====")
+    a4_ids = []
+    for spec in COMFYUI:
+        model_id = f"{spec['label']}.comfyui"
+        out.append(comfyui_entry(model_id, spec["gpus"], spec["manager"]))
+        # c2 joins that card's alternatives; a4 is a slot of its own.
+        (card_ids[spec["label"]] if spec["label"] in card_ids else a4_ids).append(model_id)
+
+    # `cards`: any card-0 model AND any card-2 model AND the A2000 model. Subsets are implied,
+    # so any one card alone is allowed too.
+    # `wholebox`: each model that owns both 3090s, alongside the A2000 model. Without this set
+    # they would be in no set, which llama-swap reads as "run alone", so they would clear the
+    # A2000 too. Because each wholebox set holds exactly one of them, they still exclude each
+    # other and every c0/c2 model.
+    # No evict_costs: the slots are disjoint, so for any request there is exactly one cheapest
+    # eviction and costs could never change the outcome.
     out.append("")
     out.append("routing:")
     out.append("  router:")
@@ -729,6 +855,12 @@ def main():
         out.append(f"            {'& ' if n else ''}({' | '.join(card_ids[label][:1])}")
         out.extend(f"              | {mid}" for mid in card_ids[label][1:])
         out.append("            )")
+    out.extend(f"            & {mid}" for mid in a4_ids)
+    out.append("          wholebox: >-")
+    out.append(f"            ({wholebox_ids[0]}")
+    out.extend(f"              | {mid}" for mid in wholebox_ids[1:])
+    out.append("            )")
+    out.extend(f"            & {mid}" for mid in a4_ids)
 
     print("\n".join(out))
 

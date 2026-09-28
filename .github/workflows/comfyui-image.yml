@@ -1,0 +1,111 @@
+name: comfyui-image
+
+# Builds the ComfyUI image (Dockerfile.comfyui) and pushes it to GHCR as
+# ghcr.io/<owner>/comfyui. llama-swap starts it on demand as c2.comfyui / a4.comfyui — see
+# gen_config.py → COMFYUI. No CUDA compile (torch comes as wheels), but the wheels are large,
+# so it still only runs when its own files change or on manual dispatch.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile.comfyui"
+      - "docker/comfyui-serve.sh"
+      - "docker/comfyui_hold/**"
+      - ".github/workflows/comfyui-image.yml"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/comfyui
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # torch + the CUDA runtime wheels are ~6 GB unpacked; the runner's / is only ~14 GB.
+      # Same disk juggling as llamacpp-image.yml.
+      - name: Maximize build disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /usr/local/lib/android /opt/hostedtoolcache /usr/share/swift \
+                      /usr/local/share/boost /usr/lib/jvm /usr/share/miniconda || true
+          sudo swapoff -a || true
+          sudo systemctl stop docker docker.socket || true
+          sudo mkdir -p /mnt/docker
+          echo '{"data-root":"/mnt/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          echo "--- disk ---"; df -h / /mnt; docker info | grep -i "docker root" || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+
+      # Build into the local daemon first (load, no push) so the import test below runs
+      # against exactly the image that will be pushed.
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.comfyui
+          load: true
+          tags: comfyui:ci
+          cache-from: type=gha,scope=comfyui
+          cache-to: type=gha,mode=max,scope=comfyui
+
+      # --quick-test-for-ci exits right after ComfyUI has imported every custom node, and --cpu
+      # lets that run on a GPU-less runner. A node pack that fails to import is only a warning
+      # in ComfyUI's log, so grep for it: this is the check that catches a pin bump breaking
+      # the (maintenance-only) IPAdapter_plus.
+      # HOLD_MODEL_ID makes the hold install for real (routes + /prompt middleware), so a ComfyUI
+      # bump that moves PromptServer internals fails here rather than on the host.
+      - name: Custom-node import test
+        run: |
+          docker run --rm --entrypoint python -e HOLD_MODEL_ID=ci-test comfyui:ci \
+            /opt/comfyui/main.py --cpu --quick-test-for-ci 2>&1 | tee import.log
+          if grep -q "IMPORT FAILED" import.log; then
+            echo "::error::a custom node failed to import"; exit 1
+          fi
+          if ! grep -q "comfyui_hold: enabled for ci-test" import.log; then
+            echo "::error::the comfyui_hold node did not install"; exit 1
+          fi
+
+      - name: Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.comfyui
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=comfyui
+
+      - name: Summary
+        run: |
+          echo "### comfyui pushed :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" | tr ' ' '\n' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Public automatically (repo is public + OCI source label); referenced by config.yaml." >> "$GITHUB_STEP_SUMMARY"

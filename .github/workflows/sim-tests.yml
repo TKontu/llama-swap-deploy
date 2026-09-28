@@ -1,0 +1,40 @@
+name: sim-tests
+
+# Scheduler tests for the ComfyUI hold: the pinned llama-swap release binary (read from the
+# Dockerfile) with fake upstreams running the real docker/comfyui_hold/hold.py. Checks that
+# work in progress is never interrupted and waiting LLMs still get the card. No GPU.
+
+on:
+  push:
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.edge"
+      - "docker/edge/**"
+      - "scripts/deploy-gate.py"
+      - "gen_config.py"
+      - "docker/comfyui_hold/**"
+      - "tests/sim/**"
+      - ".github/workflows/sim-tests.yml"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.edge"
+      - "docker/edge/**"
+      - "scripts/deploy-gate.py"
+      - "gen_config.py"
+      - "docker/comfyui_hold/**"
+      - "tests/sim/**"
+      - ".github/workflows/sim-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install aiohttp
+      - run: bash tests/sim/run.sh

@@ -28,6 +28,115 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
   host** (confirmed 2026-08-14). It stays in `POOL` as an `anchor`, and the bonsai image stays
   with it — it is the only model needing the fork's ternary kernels.
 
+## ComfyUI under llama-swap (2026-09-27, branch `feat/comfyui`)
+
+**Policy (decided 2026-09-27):**
+- c2 belongs to the LLMs by default. ComfyUI **never stays resident**: it cold-loads for a job
+  and unloads when idle, on every card.
+- Placement: the **A2000 (`a4`) when the model fits 12 GB**, c2 only when it needs more
+  (evicting the c2 LLM). Both 3090s are allowed later if a model needs them.
+- **Work in progress must never be interrupted.** A render in progress blocks swaps, idle unloads
+  and deploys. Anything that would evict it waits for it to finish.
+- MinerU, TEI and Infinity stay **outside** llama-swap: llama-swap's hard-coded 30 s drain on
+  restart would cut their parses and ingest batches. llama-swap gets 2× 3090 + 1 A2000.
+
+**Verified with a simulator** (llama-swap v256 with fake upstreams; since Step 3 it lives
+in `tests/sim/`):
+- A swap waits for the evicted model's in-flight requests; the idle TTL skips while
+  anything is in flight; a whole-box request waits for c2 and leaves a4 alone; a queued
+  client that gives up is dropped cleanly.
+- ❌ SIGTERM (deploy/restart/reload) cancels in-flight work after 30 s (hard-coded
+  `shutdownTimeout`). ❌ `POST /api/models/unload` kills in-flight work at once.
+- ❌ ComfyUI's `/prompt` returns immediately, so a render is invisible to llama-swap unless a
+  request stays open for its whole duration.
+- ⚠ Starvation: requests for the loaded model jump ahead of a pending swap (a queued LLM
+  waits until ComfyUI has *zero* requests in flight), and a steady LLM stream on c2 delays
+  a ComfyUI job without limit. No work is lost, but waits are unbounded.
+
+**Done:**
+- [x] `Dockerfile.comfyui` + `docker/comfyui-serve.sh` (ComfyUI v0.37.0, torch 2.14 cu130,
+  IPAdapter_plus / controlnet_aux / BiRefNet_ll pinned) and the `comfyui-image` workflow
+  with a custom-node import test.
+- [x] `c2.comfyui` / `a4.comfyui` in `gen_config.py`: matrix slots, `wholebox` set,
+  `ignoreWebsockets`, `ignorePaths`, `unlisted`, loopback-only ports. Swap decisions checked
+  against v256.
+
+**Step 2 — placement + cold load:**
+- [x] `a4.comfyui` `ttl: 0` → 300; `c2.comfyui` 18000 → 300; `unloadTimeout: 30`.
+- [x] Update README "ComfyUI" (A2000 first, c2 only when needed, unload after 5 min idle).
+- [x] media-gateway: default placement `[a4, c2]`; templates over 12 GB use `[c2]`.
+
+**Step 3 — keep ComfyUI loaded while it works (the "hold"):**
+- [x] `docker/comfyui_hold/` custom node: while ComfyUI has work, it holds one request to itself
+  open **through llama-swap** (`/upstream/<id>/comfyui-hold/hold`), so llama-swap neither swaps
+  nor TTL-unloads the model.
+- [x] No gap: the `/prompt` middleware opens and confirms the hold before the job is queued.
+- [x] Results before release: `X-Hold-Ack: 1` jobs keep the hold until the client POSTs
+  `/comfyui-hold/ack` (cap `HOLD_ACK_TIMEOUT_S`, 120 s). Found while writing the tests:
+  without it, a waiting LLM evicted ComfyUI before the gateway had read the in-memory history.
+- [x] Watchdog: released after `HOLD_STALL_S` (30 min) without a progress event (counted from
+  every `send_sync` event, so one long sampler node still counts as progress), or after
+  `HOLD_MAX_S` (4 h).
+- [x] Fail loudly: `/prompt` answers 503 when the hold can't open; errors are counted in
+  `/comfyui-hold/status`.
+- [x] Containers on `--network host`, listening on `127.0.0.1:${PORT}`.
+- [x] CI: the import test runs with `HOLD_MODEL_ID` set and fails if the node doesn't install.
+- [x] `tests/sim/`: 9 cases against the pinned v256 binary with the real hold code, all
+  passing (render outlives TTL; no gap at submit; gateway sequence; results kept until ack;
+  ack timeout; whole-box waits; watchdog; llama-swap unreachable → 503; `/prompt` during a
+  pending swap). CI: `sim-tests`.
+- [x] llama-swap pinned: the `Dockerfile` installs the v256 release binary by checksum, on the
+  `unified-cuda-2026-09-26` base; the tests read the same pin.
+- [x] Found by the tests: llama-swap serves a request for the loaded model ahead of a pending
+  swap, so clients must pause ≥ 1 s between an ack and their next job on the same instance
+  (media-gateway contract).
+- [ ] Propose a queue-aware "busy" check for ComfyUI upstream to llama-swap (it already has
+  ComfyUI-specific support). If it lands, drop the self-hold.
+
+**Step 4 — deploys that never cut work:**
+- [ ] **Host:** Portainer GitOps mechanism → **Webhook** (polling off, re-pull on); set the stack
+  variable `PORTAINER_WEBHOOK_URL`.
+- [x] `scripts/deploy-gate.py` (the `deploy-gate` service, decided 2026-09-28: automatic, not a
+  manual script): new GHCR digest → drain flag (edge answers new work with 503 + Retry-After)
+  → wait until nothing is in flight for 15 s → Portainer webhook. Never forces: after 6 h it
+  postpones and retries. Also protects long LLM requests, which a deploy used to cut.
+- [x] Found while planning: `/api/events` lists LLM requests (queued ones included) but not
+  ComfyUI holds (on `/upstream/` it tracks only inference endpoints), so the gate also reads
+  each running instance's `/comfyui-hold/status`.
+- [x] `stop_grace_period: 60s` on the llama-swap service, so an unplanned stop still gets the
+  30 s drain and llama-swap stops its model containers (Docker killed it at 10 s).
+- [ ] Check on the host after a redeploy: `docker ps` shows no leftover model containers.
+- [ ] Rules: no `POST /api/models/unload` and no gateway restart while work is in progress.
+  (Decided 2026-09-28: the edge does NOT block the kill switches; this stays a rule.)
+
+**Step 5 — edge filter + loopback:**
+- [x] llama-swap on `127.0.0.1:9293`; the edge (Caddy, `Dockerfile.edge`,
+  `docker/edge/Caddyfile`) on `:9292` returns 403 for `/upstream/*comfyui*` and `/comfyui*` from
+  anything but loopback (clients reach ComfyUI only via media-gateway).
+- [x] Every backend publishes on loopback (`-p 127.0.0.1:${PORT}:…`, `LOOPBACK` in
+  `gen_config.py`); the ComfyUI hold talks to llama-swap directly (`LLAMASWAP_INTERNAL`).
+- [x] `tests/sim/`: now 14 cases, with the real Caddy + Caddyfile in front: LAN block, drain
+  (503 + Retry-After, reads/acks pass, in-flight finishes), gate waits for render + ack + LLM
+  before the webhook, gate postpones instead of forcing, gate clears a stale flag.
+- [ ] Host checks after the first gated deploy: from the LAN, `:9292/upstream/c2.comfyui/` → 403
+  and a backend port (`/running` → proxy) does not answer on `192.168.0.94`; push a no-op
+  config change during a long request → `docker logs deploy-gate` shows it waiting.
+
+**Step 6 — deploy + verify on the host:**
+- [ ] Merge; check the `comfyui-image`, `edge-image`, `build-and-push` and `sim-tests` runs.
+  The **first** deploy of this branch is manual (it introduces the gate and the edge): wait
+  for an idle box, then *Re-pull image and redeploy* in Portainer.
+- [ ] Download the weights to `/fast/comfyui/models` (README → "ComfyUI"); pick the emoji LoRA.
+- [ ] Measure SDXL + LoRA + IP-Adapter + BiRefNet peak VRAM and seconds per image on the A2000.
+- [ ] Check the UI works under `/upstream/a4.comfyui/`.
+
+**Later / open:**
+- [ ] A ComfyUI entry across both 3090s (needs a multi-GPU node pack), only when a model needs
+  more than 24 GB.
+- [ ] Consolidate MinerU + TEI + Infinity onto one A2000 (cap MinerU's vLLM reservation; drop
+  Infinity's duplicate bge-m3 if unused). Measure under a real Iknos ingest. If it fits, the
+  freed A2000 becomes a llama-swap slot.
+
 ## Storage `/fast` + RAM check (2026-09-15)
 
 `/models` has 88 G free, too little for the large GGUFs. `/fast` (mirrored NVMe, 730 G free) now

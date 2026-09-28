@@ -44,17 +44,21 @@ only customization we carry is a 2-line Dockerfile that adds the `docker` CLI.
 | 1 | RTX 3090 | 24 GB | `GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1` | `06:11` | `c0` (`CARD0`) |
 | 2 | RTX A2000 | 12 GB | `GPU-689f1c3c-d1f7-f348-29d3-90c12a0b5d43` | `06:1B` | **off-limits** |
 | 3 | RTX A2000 | 12 GB | `GPU-690062e6-be81-ab00-ebd3-7181cafcea4a` | `06:1C` | **off-limits** |
-| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | **off-limits** |
+| 4 | RTX A2000 | 12 GB | `GPU-037627b2-a49d-77c6-4b97-dc914ce581e9` | `08:0D` | `a4` (`A2000_4`) — ComfyUI only |
 
-**The three A2000s are dedicated to other, non-LLM workloads. This deployment must never use
-them** — only the two 3090s. (That is also what the ~4.8 GiB resident on GPU 3 is.)
+**A2000s 2 and 3 are dedicated to other, non-LLM workloads. This deployment must never use
+them.** (GPU 2: MinerU, ~10 GiB; GPU 3: TEI (bge-m3) + Infinity (bge-m3 + bge-reranker-v2-m3),
+~4.8 GiB. Matched to cards by memory use on 2026-09-27; they run outside llama-swap.) GPU 4, the spare, was
+released to this deployment on 2026-09-27 for **ComfyUI only** (`a4.comfyui`, see README →
+"ComfyUI"); no LLM goes on it.
 
 As of 2026-09-15 (driver 595.84, CUDA 13.2): two more A2000s, and the cards reordered. The
 `c0`/`c2` labels are **card identities bound to UUIDs**, named after the indices the 3090s had
 at migration. They no longer match `nvidia-smi` indices, and they don't need to — that is
 the whole point of pinning by UUID.
 
-The config uses only the two 3090s, by UUID. The A2000s belong to other workloads.
+The LLMs use only the two 3090s, by UUID. The spare A2000 (GPU 4) runs ComfyUI and nothing
+else; the other two A2000s belong to other workloads.
 
 ### Interconnect — the dominant constraint
 
@@ -74,17 +78,21 @@ one model per interconnect-domain when hot, or add an **NVLink bridge** to the 3
 ## Deployment topology
 
 ```
-Portainer stack
-└── container: llama-swap   (custom image: unified-cuda + docker CLI)
-      • network_mode: host            → binds :9292, reaches vLLM at 127.0.0.1:<PORT>
-      • runtime: nvidia               → for llama.cpp child processes
-      • mounts: /var/run/docker.sock  → spawn vLLM as SIBLING containers (DooD)
-                /models/hf-cache       → model weights
-                ./config.yaml          → model + swap definitions
-      │
-      ├── spawns (docker run) ──▶ vllm/vllm-openai container  (per vLLM model, on demand)
-      │                              • --gpus '"device=<uuid>"' , -p <PORT>:8000
-      └── runs (child process) ──▶ llama-server               (per GGUF model, bundled in image)
+Portainer stack (all network_mode: host)
+├── container: edge          (Caddy, Dockerfile.edge)  → binds :9292, the LAN entry point
+│     • forwards to llama-swap on 127.0.0.1:9293
+│     • ComfyUI (/upstream/*comfyui*, /comfyui) loopback-only; 503 for new work while draining
+├── container: llama-swap    (custom image: unified-cuda + docker CLI, pinned llama-swap v256)
+│     • binds 127.0.0.1:9293, reaches every model at 127.0.0.1:<PORT>
+│     • runtime: nvidia               → for llama.cpp child processes
+│     • mounts: /var/run/docker.sock  → spawn models as SIBLING containers (DooD)
+│               /models/hf-cache       → model weights
+│     │         (config.yaml baked into the image)
+│     ├── spawns (docker run) ──▶ vLLM / llama.cpp / ComfyUI containers (on demand)
+│     │                              • --gpus '"device=<uuid>"', -p 127.0.0.1:<PORT>:…
+│     └── runs (child process) ──▶ llama-server               (bundled binaries, unused here)
+├── container: deploy-gate   (same image) → new GHCR digest → drain → Portainer webhook
+└── container: oncall-wakeup (same image) → keeps the on-call model warm, via the edge
 ```
 
 ### Image delivery (CI → GHCR → Portainer)
@@ -107,9 +115,16 @@ the CI rebuild, and Portainer re-pulls the new image.
 - **Docker-out-of-Docker (socket mount).** vLLM is a heavy Python runtime; we don't embed
   it. llama-swap launches `vllm/vllm-openai` as **sibling** containers via the host Docker
   socket. (The old gateway used the same pattern — proven on this host.)
-- **`network_mode: host`.** With sibling vLLM containers publishing `-p <PORT>:8000`,
-  llama-swap reaches them at `127.0.0.1:<PORT>` (its default `proxy` form), and itself
-  serves on host `:9292`. Simplest reliable wiring.
+- **`network_mode: host`.** With sibling containers publishing `-p 127.0.0.1:<PORT>:…`,
+  llama-swap reaches them at `127.0.0.1:<PORT>` (its default `proxy` form). Loopback, because
+  a plain `-p` answers on every interface and let the LAN bypass llama-swap (verified
+  2026-09-27). llama-swap itself listens on `127.0.0.1:9293` behind the edge on `:9292`.
+- **Edge (Caddy) in front.** llama-swap can't restrict a model to some clients (`apiKeys`
+  are global), and it can't refuse new work while finishing old work. The edge does both:
+  ComfyUI loopback-only, and a drain flag for deploys (README → "Edge", "Deploy gate").
+- **Deploys wait for idle.** llama-swap drains for only 30 s (hard-coded) on SIGTERM, so
+  automatic re-pull would cut long renders and generations. `deploy-gate` redeploys through
+  the Portainer webhook only once nothing is in flight.
 - **GPU pinning by UUID.** Indices can reorder across reboots; UUIDs are stable.
 
 ## Concurrency model (llama-swap `matrix` router)
@@ -142,7 +157,8 @@ Target layout for the primary co-load pair:
 |------|----------|----------------------------|--------|
 | 3090 #2 (`094f1ca3`) | `Qwen3.6-35B-A3B` rank 1 (TP) | 0.58 | ~14 GB |
 | 3090 #0 (`a8c640ca`) | `Qwen3.6-35B-A3B` rank 0 (TP) **+** small model | 0.58 + 0.30 | ~14 + ~7 = 21 GB |
-| A2000s | (not available — other workloads) | — | — |
+| A2000 GPU 4 (`037627b2`) | `a4.comfyui` only | — | — |
+| A2000s GPU 2/3 | (not available — other workloads) | — | — |
 
 Rule: on any **shared** card, the sum of the co-resident models'
 `--gpu-memory-utilization` must stay **< 1.0** (leave headroom, e.g. ≤ 0.90 total). vLLM
@@ -239,8 +255,8 @@ control**, so it has to be an actual firewall rule rather than a convention.
 
 1. **Firewall `:9292` to the consuming host's IP.** The compensating control for
    accepting no auth; the one item that should not be skipped.
-2. **Expose only `/v1/*`** behind a reverse proxy -- block `/running`, `/ui`, `/logs`,
-   `/api/*`, `/metrics`. An OpenAI-compatible client needs only `/v1/models` and
+2. **Expose only `/v1/*`** at the edge (the reverse proxy now exists: `docker/edge/Caddyfile`)
+   -- block `/running`, `/ui`, `/logs`, `/api/*`, `/metrics`. An OpenAI-compatible client needs only `/v1/models` and
    `/v1/chat/completions`. Removes the information-disclosure surface, including the
    route that leaked the HF token (see PR #20).
 3. **Rootless Docker** on this host -- the only option that actually removes

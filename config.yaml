@@ -2,7 +2,9 @@
 # Every single-card model is defined once per 3090: c0.<model> (3090 #0) and
 # c2.<model> (3090 #2). The matrix router lets any c0 entry run alongside any c2
 # entry, and a request evicts only the model on the card it needs. Models that
-# need both cards are in no matrix set, so they run alone.
+# need both 3090s run alone on them. ComfyUI is a4.comfyui (the spare A2000,
+# preferred) and c2.comfyui (swaps with the c2 LLM; models over 12 GB), reached
+# via /upstream/<id>/ and unlisted from /v1/models.
 # Address models by card id: c0.<model> / c2.<model>, or the whole-box id.
 # Regenerate: python3 gen_config.py > config.yaml
 #
@@ -20,6 +22,15 @@ logLevel: info
 # renders; left on so the listing shape does not change for consumers.
 includeAliasesInList: true
 
+# /upstream passthrough: requests on these paths never trigger a model load or
+# swap. For ComfyUI, whose open UI would otherwise reload c2.comfyui on every
+# websocket reconnect and evict the c2 LLM that had replaced it.
+upstream:
+  ignorePaths:
+    - '.*\.(js|json|css|png|gif|jpg|jpeg|ico|txt)$'
+    - ^\/ws(\/|$)
+    - ^\/api\/jobs$
+
 models:
 
   # ===== c0: single-card models on GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1 =====
@@ -27,7 +38,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
@@ -49,7 +60,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
@@ -67,7 +78,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
@@ -98,7 +109,7 @@ models:
       -e GGUF_CTX=8192
       -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
       --alias ${MODEL_ID}
     cmdStop: docker stop ${MODEL_ID}
@@ -120,7 +131,7 @@ models:
       -e GGUF_MMPROJ=mmproj-F16.gguf
       -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -149,7 +160,7 @@ models:
       -e GGUF_SPEC_TYPE=draft-dflash
       -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -167,7 +178,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-26B-A4B-it-qat-AWQ-INT4
@@ -189,7 +200,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/gemma-4-E4B-it-qat-AWQ-INT4
@@ -207,7 +218,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.5-4B-AWQ-4bit
@@ -238,7 +249,7 @@ models:
       -e GGUF_CTX=8192
       -e GGUF_PARALLEL=8
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/bonsai-llama:latest
       --alias ${MODEL_ID}
     cmdStop: docker stop ${MODEL_ID}
@@ -260,7 +271,7 @@ models:
       -e GGUF_MMPROJ=mmproj-F16.gguf
       -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -289,7 +300,7 @@ models:
       -e GGUF_SPEC_TYPE=draft-dflash
       -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -307,7 +318,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
@@ -330,7 +341,7 @@ models:
     cmd: |
       docker run --rm --name ${MODEL_ID}
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8000
+      -p 127.0.0.1:${PORT}:8000
       --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
       vllm/vllm-openai:v0.26.0
       --model cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
@@ -355,7 +366,7 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
-  # ===== Whole-box GGUF entries (both 3090s — in no matrix set; see UNGROUPED_GGUF) =====
+  # ===== Whole-box GGUF entries (both 3090s — paired only with a4; see UNGROUPED_GGUF) =====
   "Muse-Glimmer-30B-split":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -373,7 +384,7 @@ models:
       -e GGUF_TENSOR_SPLIT=1,1
       -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_strength":"low"}'
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -401,7 +412,7 @@ models:
       -e GGUF_TENSOR_SPLIT=1,1
       -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
       -v /models/hf-cache:/root/.cache/huggingface
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-mainline:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -435,7 +446,7 @@ models:
       -e GGUF_DIR=/fast-gguf
       -v /models/hf-cache:/root/.cache/huggingface
       -v /fast/gguf:/fast-gguf
-      -p ${PORT}:8080
+      -p 127.0.0.1:${PORT}:8080
       ghcr.io/tkontu/llamacpp-v4:latest
       --alias ${MODEL_ID}
       --temp 1.0
@@ -446,6 +457,54 @@ models:
     checkEndpoint: /health
     ttl: 28800
     concurrencyLimit: 4
+
+  # ===== ComfyUI (not LLMs; reached via /upstream/<id>/ — see COMFYUI) =====
+  "a4.comfyui":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-037627b2-a49d-77c6-4b97-dc914ce581e9"'
+      -v /fast/comfyui/models:/opt/comfyui/models
+      -v /fast/comfyui/${MODEL_ID}:/data
+      -v /models/hf-cache:/root/.cache/huggingface
+      --network host
+      -e COMFYUI_PORT=${PORT}
+      -e HOLD_MODEL_ID=${MODEL_ID}
+      -e LLAMASWAP_URL=http://127.0.0.1:9293
+      ghcr.io/tkontu/comfyui:latest
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /system_stats
+    ttl: 300
+    unloadTimeout: 30
+    concurrencyLimit: 64
+    unlisted: true
+    compat:
+      ignoreWebsockets: true
+
+  "c2.comfyui":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -v /fast/comfyui/models:/opt/comfyui/models
+      -v /fast/comfyui/${MODEL_ID}:/data
+      -v /models/hf-cache:/root/.cache/huggingface
+      --network host
+      -e COMFYUI_PORT=${PORT}
+      -e HOLD_MODEL_ID=${MODEL_ID}
+      -e LLAMASWAP_URL=http://127.0.0.1:9293
+      ghcr.io/tkontu/comfyui:latest
+      --enable-manager
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /system_stats
+    ttl: 300
+    unloadTimeout: 30
+    concurrencyLimit: 64
+    unlisted: true
+    compat:
+      ignoreWebsockets: true
 
 
 routing:
@@ -468,4 +527,14 @@ routing:
               | c2.qwythos-v2
               | c2.qwen3.8-27b
               | c2.muse-glimmer
+              | c2.comfyui
             )
+            & a4.comfyui
+          wholebox: >-
+            (Qwen3.6-35B-A3B-AWQ-4bit
+              | Qwen3.6-35B-A3B-32k-128seqs
+              | Muse-Glimmer-30B-split
+              | Qwen3.8-27B-split
+              | deepseek-v4-flash
+            )
+            & a4.comfyui
