@@ -769,6 +769,37 @@ rm -rf /fast/comfyui/tmp-brn
 The depth preprocessor's weights download on first use into `$M/annotators`
 (`AUX_ANNOTATOR_CKPTS_PATH`), so they persist across the `--rm` containers.
 
+### Measured on the A2000 (2026-09-29)
+
+`a4.comfyui`, GPU 4 (RTX A2000 12 GB, 12282 MiB), SDXL base 1.0 + `SDXL-Emoji-Lora-r4`,
+dpmpp_2m/karras, 1024×1024, batch 1, through `/upstream/a4.comfyui/`:
+
+| Workload | Time | Peak VRAM |
+|---|---|---|
+| Container start → `/system_stats` answers | 14 s | — |
+| First render (includes loading SDXL) | 32 s | 9587 MiB |
+| SDXL + LoRA, 25 steps | **20.5 s** (20.2/20.6/20.6) | 9587 MiB |
+| SDXL + LoRA, 40 steps | 32 s | 9587 MiB |
+| **+ IP-Adapter Plus (ViT-H) + BiRefNet**, 25 steps | **22.5 s** | **11675 MiB** |
+
+**The full stack fits, with about 600 MiB to spare — 95 % of the card.** That is the
+configuration `product_icon` uses, and it leaves no room for a larger canvas or `batch_size`
+above 1; either will OOM. Raise the resolution or the batch only on `c2.comfyui`.
+
+Timings are for a warm instance. ComfyUI caches by workflow hash, so re-running an identical
+prompt (same seed) returns in ~0.5 s without rendering — vary the seed when benchmarking.
+
+**The hold verified on real hardware** (2026-09-29), both cases the simulator covers:
+
+- *TTL:* a 500-step render on `a4.comfyui` took **392 s**, well past the 300 s TTL. The
+  instance stayed `ready` for the whole render with the hold open on one task; nothing was
+  unloaded and the job completed.
+- *Eviction:* a 900-step render on **`c2.comfyui`** ran 14 s → 280 s. A `c2.qwen3.5-4b`
+  request fired at 34 s — sharing the same 3090 — **waited 477 s** and returned HTTP 200 only
+  after the render finished and the hold was acked (the LLM then cold-loaded, ~230 s of that
+  wait). The render was never interrupted. Meanwhile idle `a4.comfyui` unloaded on its own TTL,
+  which is the intended asymmetry: busy instances hold the card, idle ones give it up.
+
 ### Caveats
 
 - **A c2 job can wait a long time.** Nothing is interrupted, but a steady stream of LLM
