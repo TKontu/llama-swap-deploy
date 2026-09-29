@@ -94,8 +94,20 @@ in `tests/sim/`):
   ComfyUI-specific support). If it lands, drop the self-hold.
 
 **Step 4 — deploys that never cut work:**
-- [ ] **Host:** Portainer GitOps mechanism → **Webhook** (polling off, re-pull on); set the stack
-  variable `PORTAINER_WEBHOOK_URL`.
+- [ ] **Host:** Portainer GitOps mechanism → **Webhook** (polling off); set the stack variables
+  `PORTAINER_WEBHOOK_URL` (a `https://localhost:9443/...` URL) and
+  `PORTAINER_CA_FILE=/certs/portainer-ca.pem`, after writing that PEM to the host
+  (README → "Create the stack", step 4).
+- [x] Portainer here is **CE**, where "re-pull image" is a Business feature: the gate pulls
+  `PULL_IMAGES` (both stack images) itself before calling the webhook, and backs off for
+  `RETRY_AFTER_ABORT_S` if a deploy doesn't take effect, instead of draining on every poll
+  (2026-09-29).
+- [x] Found while fixing that: with `PORTAINER_WEBHOOK_URL` unset the gate used to drain the
+  whole box on a new image and only then discover it couldn't deploy. It now checks first and
+  doesn't drain (2026-09-29).
+- [x] Verified on the host (2026-09-29): Portainer CE serves a self-signed certificate whose
+  SAN is `localhost`/`0.0.0.0`, so the webhook URL must name `localhost` and the gate needs
+  `PORTAINER_CA_FILE`; with both, verification succeeds.
 - [x] `scripts/deploy-gate.py` (the `deploy-gate` service, decided 2026-09-28: automatic, not a
   manual script): new GHCR digest → drain flag (edge answers new work with 503 + Retry-After)
   → wait until nothing is in flight for 15 s → Portainer webhook. Never forces: after 6 h it
@@ -115,9 +127,11 @@ in `tests/sim/`):
   anything but loopback (clients reach ComfyUI only via media-gateway).
 - [x] Every backend publishes on loopback (`-p 127.0.0.1:${PORT}:…`, `LOOPBACK` in
   `gen_config.py`); the ComfyUI hold talks to llama-swap directly (`LLAMASWAP_INTERNAL`).
-- [x] `tests/sim/`: now 14 cases, with the real Caddy + Caddyfile in front: LAN block, drain
+- [x] `tests/sim/`: now 16 cases, with the real Caddy + Caddyfile in front: LAN block, drain
   (503 + Retry-After, reads/acks pass, in-flight finishes), gate waits for render + ack + LLM
-  before the webhook, gate postpones instead of forcing, gate clears a stale flag.
+  before the webhook, gate postpones instead of forcing, gate clears a stale flag, gate pulls
+  both images before the webhook, gate backs off after a deploy that doesn't take effect, gate
+  doesn't drain without a webhook URL.
 - [ ] Host checks after the first gated deploy: from the LAN, `:9292/upstream/c2.comfyui/` → 403
   and a backend port (`/running` → proxy) does not answer on `192.168.0.94`; push a no-op
   config change during a long request → `docker logs deploy-gate` shows it waiting.

@@ -116,8 +116,10 @@ services:
   # after DRAIN_MAX_S it gives up and retries later — it never forces a deploy. See
   # scripts/deploy-gate.py and README → "Deploy gate".
   #
-  # Same image as llama-swap (the script is baked in). The docker socket is only used for
-  # `docker inspect` of the llama-swap container's image digest.
+  # Same image as llama-swap (the script is baked in). The docker socket is used for
+  # `docker inspect` of the llama-swap container's image digest, and for `docker pull`:
+  # Portainer CE's webhook does not re-pull ("re-pull image" is a Business feature), so the
+  # gate pulls PULL_IMAGES itself before deploying. See README -> "Deploy gate".
   deploy-gate:
     image: ${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest}
     container_name: deploy-gate
@@ -130,10 +132,19 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - edge-state:/state
+      # Holds the PEM for PORTAINER_CA_FILE below. Created empty if it doesn't exist; the gate
+      # only reads it when PORTAINER_CA_FILE is set.
+      - ${PORTAINER_CA_DIR:-/models/llama-swap}:/certs:ro
     environment:
       # Set in Portainer (stack → environment), never in the repo: GitOps webhook URL.
       - PORTAINER_WEBHOOK_URL=${PORTAINER_WEBHOOK_URL:-}
+      # Portainer serves a self-signed certificate whose SAN is `localhost`/`0.0.0.0`, so a
+      # webhook URL of https://localhost:9443/... plus PORTAINER_CA_FILE=/certs/portainer-ca.pem
+      # verifies. Leave unset for a Portainer with a publicly trusted certificate.
+      - PORTAINER_CA_FILE=${PORTAINER_CA_FILE:-}
       - IMAGE=${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest}
+      # Both stack images: the webhook redeploys from git but reuses cached tags on CE.
+      - PULL_IMAGES=${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest},${EDGE_IMAGE:-ghcr.io/tkontu/llama-swap-edge:latest}
       - LLAMASWAP_URL=http://127.0.0.1:9293
       - POLL_S=120
       - STABLE_S=15

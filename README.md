@@ -159,10 +159,26 @@ single-file mounts). Do not go back to inline `-e HF_TOKEN`.
    - `LLAMA_SWAP_IMAGE=ghcr.io/<owner>/llama-swap-deploy:latest`
 
    `HF_TOKEN` is **no longer a stack variable** — see *HuggingFace auth* below.
-4. **GitOps updates → mechanism: Webhook** (not polling), with **re-pull image** on. Copy the
-   webhook URL into a second stack variable, `PORTAINER_WEBHOOK_URL`. Don't enable polling:
-   it would redeploy at arbitrary times and cut work in progress. `deploy-gate` calls the
-   webhook instead, once nothing is in flight (see "Deploy gate" below).
+4. **GitOps updates → mechanism: Webhook** (not polling). Copy the webhook URL into a second
+   stack variable, `PORTAINER_WEBHOOK_URL`. Don't enable polling: it would redeploy at
+   arbitrary times and cut work in progress. `deploy-gate` calls the webhook instead, once
+   nothing is in flight (see "Deploy gate" below).
+
+   On **Portainer CE**, "re-pull image" and "force redeployment" are Business features, so the
+   webhook redeploys from git but reuses the cached `:latest`. The gate pulls `PULL_IMAGES`
+   itself before calling it, which covers this. If Portainer serves a self-signed certificate
+   (CE's default), point the webhook URL at `https://localhost:9443/...` and add a third stack
+   variable `PORTAINER_CA_FILE=/certs/portainer-ca.pem`, having written that certificate to the
+   host once:
+
+   ```bash
+   mkdir -p /models/llama-swap   # or set PORTAINER_CA_DIR to another host directory
+   openssl s_client -connect 127.0.0.1:9443 -showcerts </dev/null 2>/dev/null \
+       | openssl x509 > /models/llama-swap/portainer-ca.pem
+   ```
+
+   The certificate's SAN is `localhost`, so a webhook URL naming the host or its IP cannot
+   verify. Leave `PORTAINER_CA_FILE` unset for a Portainer with a publicly trusted certificate.
    `config.yaml` is **baked into the image**, so **editing models is a git push** → CI
    rebuilds the image → deploy-gate sees the new digest, drains, and redeploys.
 5. Deploy.
@@ -199,17 +215,29 @@ that never cuts work:
 
 1. Every 2 min it compares the GHCR digest of `LLAMA_SWAP_IMAGE` with the image the
    `llama-swap` container runs.
-2. On a new digest it sets the drain flag, and the edge refuses new work.
-3. It waits until nothing is in flight for 15 s: no request in llama-swap's in-flight list, no
+2. On a new digest it `docker pull`s `PULL_IMAGES` (both stack images). Portainer CE's webhook
+   does not re-pull, so without this the redeploy would recreate the containers on the cached
+   image and the gate would drain again on every poll. Pulling comes **before** the drain:
+   it can take minutes, it doesn't disturb running work (a running container keeps the image
+   ID it started with), and the drain is the part that costs the box.
+3. It sets the drain flag, and the edge refuses new work.
+4. It waits until nothing is in flight for 15 s: no request in llama-swap's in-flight list, no
    model starting, and every running ComfyUI idle by its hold status (ComfyUI holds don't show
    in llama-swap's list).
-4. It calls `PORTAINER_WEBHOOK_URL`. The redeploy replaces the gate, and the new gate clears
+5. It calls `PORTAINER_WEBHOOK_URL`. The redeploy replaces the gate, and the new gate clears
    the flag on startup.
 
 If work is still running after 6 h (`DRAIN_MAX_S`), it **doesn't force** anything. It clears
 the flag, logs `deploy postponed` with what's still running, and tries again an hour later.
-Watch it with `docker logs -f deploy-gate`. Without `PORTAINER_WEBHOOK_URL` it only logs new
-images.
+The same backoff applies when a deploy doesn't take effect (`no redeploy observed`) or the pull
+or webhook fails — the gate never drains twice in a row over the same image.
+
+Watch it with `docker logs -f deploy-gate`. **Without `PORTAINER_WEBHOOK_URL` it only logs new
+images and does not drain**: a drain 503s the whole box, so the gate never starts one that
+can't end in a deploy.
+
+It watches the **llama-swap** image only. An edge-only change reaches the host on the next
+deploy triggered by a llama-swap image change, or by updating the stack by hand.
 
 ### Local development
 

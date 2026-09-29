@@ -124,7 +124,9 @@ the CI rebuild, and Portainer re-pulls the new image.
   ComfyUI loopback-only, and a drain flag for deploys (README → "Edge", "Deploy gate").
 - **Deploys wait for idle.** llama-swap drains for only 30 s (hard-coded) on SIGTERM, so
   automatic re-pull would cut long renders and generations. `deploy-gate` redeploys through
-  the Portainer webhook only once nothing is in flight.
+  the Portainer webhook only once nothing is in flight. It also pulls the images itself:
+  Portainer CE's webhook redeploys from git without re-pulling (a Business feature), so the
+  deploy would otherwise be a no-op.
 - **GPU pinning by UUID.** Indices can reorder across reboots; UUIDs are stable.
 
 ## Concurrency model (llama-swap `matrix` router)
