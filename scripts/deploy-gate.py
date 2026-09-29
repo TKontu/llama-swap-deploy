@@ -24,9 +24,11 @@ previous gate did not deploy.
 
 Stdlib only (the llama-swap image has python3-minimal). Env:
   PORTAINER_WEBHOOK_URL   GitOps webhook of this stack (required to deploy; a secret)
-  PORTAINER_CA_FILE       PEM to verify the webhook's TLS against. Portainer serves a
-                          self-signed certificate whose SAN is `localhost`/`0.0.0.0`, so use a
-                          `https://localhost:9443/...` webhook URL together with this.
+  PORTAINER_CA_FILE       PEM to verify the webhook's TLS against. Only needed when the
+                          webhook URL points straight at Portainer's `:9443`, which on CE is a
+                          self-signed certificate whose SAN is `localhost`/`0.0.0.0` (so the URL
+                          must then name `localhost`). Behind a properly certificated reverse
+                          proxy, leave this unset.
   IMAGE                   image ref to watch, e.g. ghcr.io/tkontu/llama-swap-deploy:latest
   PULL_IMAGES             comma-separated refs to pull before deploying (default: IMAGE)
   CONTAINER               container running IMAGE (default llama-swap)
