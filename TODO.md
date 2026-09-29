@@ -141,8 +141,18 @@ in `tests/sim/`):
 - [ ] Merge; check the `comfyui-image`, `edge-image`, `build-and-push` and `sim-tests` runs.
   The **first** deploy of this branch is manual (it introduces the gate and the edge): wait
   for an idle box, then *Re-pull image and redeploy* in Portainer.
-- [ ] Download the weights to `/fast/comfyui/models` (README → "ComfyUI"); pick the emoji LoRA.
-- [ ] Measure SDXL + LoRA + IP-Adapter + BiRefNet peak VRAM and seconds per image on the A2000.
+- [x] Weights on `/fast/comfyui/models` (13 GB: SDXL base, IP-Adapter Plus + ViT-H encoder,
+  ControlNet depth, BiRefNet General). Emoji LoRA: `Norod78/sdxl-emoji-lora`
+  (`SDXL-Emoji-Lora-r4.safetensors`, bespoke-lora-trained-license — commercial image generation
+  permitted, no credit required). Triggers `emoji` at scale 0.2–0.5 **or** `flat` at 0.7–0.8,
+  never both. Done 2026-09-29.
+- [x] Measured on the A2000 (README → "Measured on the A2000"): SDXL + LoRA 20.5 s/image at
+  1024², 9587 MiB; with IP-Adapter + BiRefNet 22.5 s and **11675 MiB of 12282 — only ~600 MiB
+  spare**, so no bigger canvas and no `batch_size` > 1 on this card. Done 2026-09-29.
+- [x] Hold verified on real hardware: a 392 s render (TTL is 300 s) kept `a4.comfyui` `ready`
+  throughout and completed; the hold stayed open with one task (2026-09-29).
+- [ ] Still to verify on hardware: a c2 LLM request waits for a `c2.comfyui` render. Needs a
+  quiet window — it evicts `c2.qwen3.5-4b`, which Iknos uses.
 - [ ] Check the UI works under `/upstream/a4.comfyui/`.
 
 **Later / open:**
