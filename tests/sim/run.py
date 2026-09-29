@@ -121,12 +121,15 @@ class Sim:
         """Run the real scripts/deploy-gate.py with digests from files and a fake webhook."""
         self.latest_file = os.path.join(STATE, "latest")
         self.running_file = os.path.join(STATE, "running")
+        self.pull_file = os.path.join(STATE, "pulls")
         for path, value in ((self.latest_file, latest), (self.running_file, running)):
             with open(path, "w") as f:
                 f.write(value)
         gate_env = dict(os.environ, LLAMASWAP_URL=DIRECT, DRAIN_FLAG=FLAG,
                         LATEST_DIGEST_CMD=f"cat {self.latest_file}",
                         RUNNING_DIGEST_CMD=f"cat {self.running_file}",
+                        PULL_IMAGES="img/llama-swap:latest,img/edge:latest",
+                        PULL_CMD=f"date +%s.%N >> {self.pull_file}; echo pulled",
                         PORTAINER_WEBHOOK_URL=f"http://127.0.0.1:{HOOK_PORT}/hook",
                         POLL_S="1", STABLE_S="2", DRAIN_MAX_S="600",
                         RETRY_AFTER_ABORT_S="600", DEPLOY_WAIT_S="5")
@@ -139,6 +142,14 @@ class Sim:
     def gate_output(self):
         with open(self.gate_log) as f:
             return f.read()
+
+    def pulls(self):
+        """Timestamps of the gate's image pulls (PULL_CMD appends one line each)."""
+        try:
+            with open(self.pull_file) as f:
+                return [float(line) for line in f if line.strip()]
+        except FileNotFoundError:
+            return []
 
     def stop(self):
         for p in (self.gate, self.edge):
@@ -416,6 +427,9 @@ def case_gate_waits_for_work(sim):
                 break
             time.sleep(0.5)
         check(len(hook.calls) == 1, f"webhook called {len(hook.calls)} times, expected 1")
+        pulls = sim.pulls()
+        check(len(pulls) == 2, f"pulled {len(pulls)} image(s), expected 2 (Portainer CE)")
+        check(max(pulls) < hook.calls[0], "pulled after the webhook, so it would redeploy the old image")
         llm_end = sim.results["L"][1]
         check(sim.results["L"][2] == 200, "the LLM request was cut")
         check(hook.calls[0] >= max(t_ack, llm_end) + 2, "deployed before the stable-idle window")
@@ -455,11 +469,56 @@ def case_gate_startup_clears_flag(sim):
     check(not os.path.exists(FLAG), "stale drain flag not cleared on startup")
 
 
+def case_gate_deploy_no_effect(sim):
+    """A deploy that doesn't take effect (Portainer CE reusing a cached image): the gate backs
+    off instead of draining again on the next poll."""
+    hook = Webhook()          # answers 204 but never changes the running digest
+    hook.start()
+    try:
+        sim.start_gate(latest="sha256:new", running="sha256:old",
+                       DEPLOY_WAIT_S=4, RETRY_AFTER_ABORT_S=30)
+        for _ in range(60):
+            if hook.calls:
+                break
+            time.sleep(0.5)
+        check(len(hook.calls) == 1, f"webhook called {len(hook.calls)} times, expected 1")
+        for _ in range(40):
+            if "no redeploy observed" in sim.gate_output():
+                break
+            time.sleep(0.5)
+        check("no redeploy observed" in sim.gate_output(), "an ineffective deploy was not logged")
+        check(not os.path.exists(FLAG), "drain flag left set after an ineffective deploy")
+        # The backoff: without it the main loop would see the digests still differ and drain again.
+        time.sleep(8)
+        check(len(hook.calls) == 1, f"redeployed {len(hook.calls)} times: the gate is looping")
+        check(not os.path.exists(FLAG), "the gate drained again instead of backing off")
+    finally:
+        hook.close()
+
+
+def case_gate_no_webhook_no_drain(sim):
+    """Without PORTAINER_WEBHOOK_URL a new image must not drain: a drain 503s the whole box and
+    could never end in a deploy."""
+    sim.start_gate(latest="sha256:new", running="sha256:old", PORTAINER_WEBHOOK_URL="",
+                   RETRY_AFTER_ABORT_S=30)
+    for _ in range(40):
+        if "not deploying" in sim.gate_output():
+            break
+        time.sleep(0.5)
+    check("not deploying" in sim.gate_output(), "a new image without a webhook was not logged")
+    check(not os.path.exists(FLAG), "drained although no deploy was possible")
+    check(not sim.pulls(), "pulled images although no deploy was possible")
+    st, _ = http("POST", "/v1/chat/completions",
+                 {"model": "c0.llm", "tag": "N", "sleep": 1, "messages": []})
+    check(st == 200, f"new work got {st}: the edge is draining although no deploy was possible")
+
+
 CASES = [case_render_outlives_ttl, case_no_gap_at_submit, case_gateway_sequence,
          case_results_kept_until_ack, case_ack_timeout, case_wholebox_waits, case_watchdog,
          case_llamaswap_unreachable, case_prompt_during_pending_swap,
          case_edge_lan_block, case_edge_drain, case_gate_waits_for_work, case_gate_abort,
-         case_gate_startup_clears_flag]
+         case_gate_startup_clears_flag, case_gate_deploy_no_effect,
+         case_gate_no_webhook_no_drain]
 
 
 def main():

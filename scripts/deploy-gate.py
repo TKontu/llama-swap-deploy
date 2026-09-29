@@ -8,25 +8,38 @@ llama-swap image. When one appears it:
   2. waits until nothing is in flight for STABLE_S seconds. That means: no LLM request in
      llama-swap's in-flight list (/api/events), no model starting, and every running ComfyUI
      instance idle by its own hold status. The in-flight list does not see ComfyUI holds;
-  3. calls the Portainer webhook, which re-pulls and redeploys the stack (this gate included).
+  3. calls the Portainer webhook, which redeploys the stack (this gate included).
 If work is still in flight after DRAIN_MAX_S it clears the flag, logs what is still running and
 tries again after RETRY_AFTER_ABORT_S. It never forces a deploy.
+
+The gate pulls the images itself (step 0, before the drain, so the drain window stays short).
+Portainer **Community Edition** has no "re-pull image": its webhook redeploys from git but
+reuses the cached `:latest`, so without this the webhook would change nothing and the gate would
+drain again every poll. Pulling is safe while work runs -- image layers are immutable and a
+running container keeps the image ID it started with. If a deploy does not take effect anyway,
+the gate backs off for RETRY_AFTER_ABORT_S instead of draining again at once.
 
 On startup it clears any drain flag: a fresh stack is open, and a drain that died with the
 previous gate did not deploy.
 
 Stdlib only (the llama-swap image has python3-minimal). Env:
   PORTAINER_WEBHOOK_URL   GitOps webhook of this stack (required to deploy; a secret)
+  PORTAINER_CA_FILE       PEM to verify the webhook's TLS against. Portainer serves a
+                          self-signed certificate whose SAN is `localhost`/`0.0.0.0`, so use a
+                          `https://localhost:9443/...` webhook URL together with this.
   IMAGE                   image ref to watch, e.g. ghcr.io/tkontu/llama-swap-deploy:latest
+  PULL_IMAGES             comma-separated refs to pull before deploying (default: IMAGE)
   CONTAINER               container running IMAGE (default llama-swap)
   LLAMASWAP_URL           llama-swap itself, not the edge (default http://127.0.0.1:9293)
   DRAIN_FLAG              default /state/drain
   POLL_S STABLE_S DRAIN_MAX_S RETRY_AFTER_ABORT_S DEPLOY_WAIT_S
-  LATEST_DIGEST_CMD / RUNNING_DIGEST_CMD   shell commands replacing the GHCR / docker
-                          lookups (tests/sim only)
+  LATEST_DIGEST_CMD / RUNNING_DIGEST_CMD / PULL_CMD   shell commands replacing the GHCR /
+                          docker lookups and `docker pull` (tests/sim only)
 """
 import json
 import os
+import shlex
+import ssl
 import subprocess
 import threading
 import time
@@ -35,6 +48,7 @@ import urllib.request
 
 ENV = os.environ
 WEBHOOK = ENV.get("PORTAINER_WEBHOOK_URL", "").strip()
+CA_FILE = ENV.get("PORTAINER_CA_FILE", "").strip()
 IMAGE = ENV.get("IMAGE", "ghcr.io/tkontu/llama-swap-deploy:latest")
 CONTAINER = ENV.get("CONTAINER", "llama-swap")
 LLAMASWAP = ENV.get("LLAMASWAP_URL", "http://127.0.0.1:9293").rstrip("/")
@@ -44,6 +58,8 @@ STABLE_S = float(ENV.get("STABLE_S", 15))
 DRAIN_MAX_S = float(ENV.get("DRAIN_MAX_S", 21600))
 RETRY_AFTER_ABORT_S = float(ENV.get("RETRY_AFTER_ABORT_S", 3600))
 DEPLOY_WAIT_S = float(ENV.get("DEPLOY_WAIT_S", 900))
+PULL_CMD = ENV.get("PULL_CMD", "docker pull")
+PULL_IMAGES = [r.strip() for r in ENV.get("PULL_IMAGES", IMAGE).split(",") if r.strip()]
 
 MANIFEST_TYPES = ", ".join([
     "application/vnd.oci.image.index.v1+json",
@@ -98,6 +114,16 @@ def running_digest():
         if name.endswith(repo):
             return digest
     raise RuntimeError(f"no RepoDigest for {IMAGE} on container {CONTAINER}: {digests}")
+
+
+def pull_images():
+    """Pull every ref in PULL_IMAGES. Portainer CE's webhook does not re-pull (a Business
+    feature), so without this a redeploy would recreate the containers on the cached image."""
+    for ref in PULL_IMAGES:
+        log(f"pulling {ref}")
+        out = _shell(f"{PULL_CMD} {shlex.quote(ref)}")
+        if out:
+            log(f"pull {ref}: {out.splitlines()[-1]}")
 
 
 # --- drain flag ---------------------------------------------------------------------------------
@@ -191,6 +217,21 @@ def busy_reasons(watcher):
 # --- the gate -------------------------------------------------------------------------------------
 
 def drain_and_deploy(watcher, latest):
+    # Check this first: a drain refuses new work across the whole box, so never start one that
+    # cannot end in a deploy.
+    if not WEBHOOK:
+        log(f"new image {latest}, but PORTAINER_WEBHOOK_URL is not set: not deploying "
+            f"(deploy by hand); next check in {RETRY_AFTER_ABORT_S:.0f}s")
+        time.sleep(RETRY_AFTER_ABORT_S)
+        return
+    # Before the drain, not after: pulling can take minutes and does not disturb running work,
+    # while the drain refuses new work for as long as it lasts.
+    try:
+        pull_images()
+    except Exception as exc:
+        log(f"pull failed ({exc!r}); not deploying, retrying in {RETRY_AFTER_ABORT_S:.0f}s")
+        time.sleep(RETRY_AFTER_ABORT_S)
+        return
     set_flag()
     log(f"new image {latest}: draining (edge refuses new work)")
     start, idle_since, last_report = time.monotonic(), None, 0.0
@@ -214,15 +255,11 @@ def drain_and_deploy(watcher, latest):
             return
         time.sleep(2)
 
-    if not WEBHOOK:
-        clear_flag()
-        log("PORTAINER_WEBHOOK_URL is not set: cannot deploy; drain cancelled")
-        time.sleep(RETRY_AFTER_ABORT_S)
-        return
     log(f"idle for {STABLE_S:.0f}s: calling the Portainer webhook")
+    ctx = ssl.create_default_context(cafile=CA_FILE) if CA_FILE else None
     try:
         with urllib.request.urlopen(urllib.request.Request(WEBHOOK, data=b"", method="POST"),
-                                    timeout=60) as r:
+                                    timeout=60, context=ctx) as r:
             log(f"webhook answered HTTP {r.status}")
     except Exception as exc:
         clear_flag()
@@ -243,7 +280,9 @@ def drain_and_deploy(watcher, latest):
         except Exception:
             pass  # llama-swap container being recreated
     clear_flag()
-    log(f"no redeploy observed within {DEPLOY_WAIT_S:.0f}s of the webhook; drain flag cleared")
+    log(f"no redeploy observed within {DEPLOY_WAIT_S:.0f}s of the webhook; drain flag cleared, "
+        f"retrying in {RETRY_AFTER_ABORT_S:.0f}s")
+    time.sleep(RETRY_AFTER_ABORT_S)
 
 
 def wait_for_llamaswap():
