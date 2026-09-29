@@ -166,10 +166,17 @@ single-file mounts). Do not go back to inline `-e HF_TOKEN`.
 
    On **Portainer CE**, "re-pull image" and "force redeployment" are Business features, so the
    webhook redeploys from git but reuses the cached `:latest`. The gate pulls `PULL_IMAGES`
-   itself before calling it, which covers this. If Portainer serves a self-signed certificate
-   (CE's default), point the webhook URL at `https://localhost:9443/...` and add a third stack
-   variable `PORTAINER_CA_FILE=/certs/portainer-ca.pem`, having written that certificate to the
-   host once:
+   itself before calling it, which covers this.
+
+   **Use the webhook URL exactly as Portainer prints it**, as long as the gate can reach it
+   with a valid certificate. Here it is `https://portainer.lan.<domain>/api/stacks/webhooks/…`,
+   served by the reverse proxy on 192.168.0.10 with a Let's Encrypt wildcard, and it verifies
+   against the system CA store with no extra configuration (2026-09-29).
+
+   `PORTAINER_CA_FILE` is only for reaching **Portainer directly** on `:9443`, where CE serves
+   a self-signed certificate. That certificate's SAN is `localhost`/`0.0.0.0` and its subject is
+   empty, so a URL naming the host or its IP can never verify — such a setup needs a
+   `https://localhost:9443/...` webhook URL *and* the certificate on disk:
 
    ```bash
    mkdir -p /models/llama-swap   # or set PORTAINER_CA_DIR to another host directory
@@ -177,8 +184,7 @@ single-file mounts). Do not go back to inline `-e HF_TOKEN`.
        | openssl x509 > /models/llama-swap/portainer-ca.pem
    ```
 
-   The certificate's SAN is `localhost`, so a webhook URL naming the host or its IP cannot
-   verify. Leave `PORTAINER_CA_FILE` unset for a Portainer with a publicly trusted certificate.
+   then `PORTAINER_CA_FILE=/certs/portainer-ca.pem` as a third stack variable.
    `config.yaml` is **baked into the image**, so **editing models is a git push** → CI
    rebuilds the image → deploy-gate sees the new digest, drains, and redeploys.
 5. Deploy.

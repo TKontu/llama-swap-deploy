@@ -94,10 +94,11 @@ in `tests/sim/`):
   ComfyUI-specific support). If it lands, drop the self-hold.
 
 **Step 4 — deploys that never cut work:**
-- [ ] **Host:** Portainer GitOps mechanism → **Webhook** (polling off); set the stack variables
-  `PORTAINER_WEBHOOK_URL` (a `https://localhost:9443/...` URL) and
-  `PORTAINER_CA_FILE=/certs/portainer-ca.pem`, after writing that PEM to the host
-  (README → "Create the stack", step 4).
+- [x] **Host:** Portainer GitOps mechanism → **Webhook** (polling off), stack variable
+  `PORTAINER_WEBHOOK_URL` set to the URL Portainer prints
+  (`https://portainer.lan.<domain>/api/stacks/webhooks/…`, Let's Encrypt via the proxy on
+  192.168.0.10, verifies against the system CA store). `PORTAINER_CA_FILE` left unset: it is
+  only for reaching Portainer's self-signed `:9443` directly. Done 2026-09-29.
 - [x] Portainer here is **CE**, where "re-pull image" is a Business feature: the gate pulls
   `PULL_IMAGES` (both stack images) itself before calling the webhook, and backs off for
   `RETRY_AFTER_ABORT_S` if a deploy doesn't take effect, instead of draining on every poll
