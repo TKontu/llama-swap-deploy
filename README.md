@@ -789,9 +789,16 @@ above 1; either will OOM. Raise the resolution or the batch only on `c2.comfyui`
 Timings are for a warm instance. ComfyUI caches by workflow hash, so re-running an identical
 prompt (same seed) returns in ~0.5 s without rendering — vary the seed when benchmarking.
 
-**The hold verified on real hardware:** a 500-step render took **392 s**, well past the 300 s
-TTL. `a4.comfyui` stayed `ready` for the whole render and the hold stayed open with one task;
-nothing was unloaded and the job completed.
+**The hold verified on real hardware** (2026-09-29), both cases the simulator covers:
+
+- *TTL:* a 500-step render on `a4.comfyui` took **392 s**, well past the 300 s TTL. The
+  instance stayed `ready` for the whole render with the hold open on one task; nothing was
+  unloaded and the job completed.
+- *Eviction:* a 900-step render on **`c2.comfyui`** ran 14 s → 280 s. A `c2.qwen3.5-4b`
+  request fired at 34 s — sharing the same 3090 — **waited 477 s** and returned HTTP 200 only
+  after the render finished and the hold was acked (the LLM then cold-loaded, ~230 s of that
+  wait). The render was never interrupted. Meanwhile idle `a4.comfyui` unloaded on its own TTL,
+  which is the intended asymmetry: busy instances hold the card, idle ones give it up.
 
 ### Caveats
 

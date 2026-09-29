@@ -151,8 +151,10 @@ in `tests/sim/`):
   spare**, so no bigger canvas and no `batch_size` > 1 on this card. Done 2026-09-29.
 - [x] Hold verified on real hardware: a 392 s render (TTL is 300 s) kept `a4.comfyui` `ready`
   throughout and completed; the hold stayed open with one task (2026-09-29).
-- [ ] Still to verify on hardware: a c2 LLM request waits for a `c2.comfyui` render. Needs a
-  quiet window — it evicts `c2.qwen3.5-4b`, which Iknos uses.
+- [x] Verified on hardware in a quiet window (2026-09-29): a 900-step `c2.comfyui` render ran
+  14→280 s; a `c2.qwen3.5-4b` request fired at 34 s waited 477 s and returned 200 only after the
+  render finished and the hold was acked. The render was never cut. Idle `a4.comfyui` unloaded
+  on its TTL during the same window.
 - [ ] Check the UI works under `/upstream/a4.comfyui/`.
 
 **Later / open:**
