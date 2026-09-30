@@ -142,8 +142,16 @@ in `tests/sim/`):
   `LLAMASWAP_API_KEY` as a Portainer stack variable, add `apiKeys: ["${env.LLAMASWAP_API_KEY}"]`
   to `gen_config.py`, regenerate and push — and in the same window add the header to **Iknos,
   open-webui and Kyokki**, which get 401 the moment it lands. Runbook: README → "API keys".
-- [ ] After Phase 3: confirm the real ComfyUI frontend (not the stub used in the sim) works
-  over the tunnel, and that `deploy-gate` still deploys.
+- [x] Phase 3 deployed 2026-09-30: key set as a stack variable, `apiKeys` live. Verified on the
+  host: `/health` 200 without a key, `/v1/models` 401 without and 200 with, `/running` 200 with,
+  and ComfyUI through the edge from loopback 200.
+- [x] **Browser auth (decided 2026-09-30: a tunnel is not acceptable for daily use).** The edge
+  now does HTTP Basic for ComfyUI from the LAN and swaps it for the API key upstream, so the UI
+  works from any browser with no tunnel and no trusted IPs. Bearer-carrying API clients are not
+  challenged; Basic does not open `/v1/*`. Websockets verified through all three paths.
+- [ ] After the browser-auth deploy: open the **real** ComfyUI frontend from a LAN browser (the
+  sim uses a stub) and confirm the login prompt, the graph editor and a render with a moving
+  progress bar. Confirm `deploy-gate` and `oncall-wakeup` still work.
 
 **Step 5 — edge filter + loopback:**
 - [x] llama-swap on `127.0.0.1:9293`; the edge (Caddy, `Dockerfile.edge`,

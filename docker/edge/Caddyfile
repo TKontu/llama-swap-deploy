@@ -3,12 +3,17 @@
 #
 #   1. Everything is forwarded to llama-swap, unbuffered (LLM streams, long ComfyUI holds and
 #      websockets pass; Caddy sets no read timeout by default).
-#   2. ComfyUI auth: llama-swap's `apiKeys` cover /upstream/* as well, so a LAN client must
-#      send `Authorization: Bearer <key>` like any other caller. A browser cannot do that on a
-#      navigation or a websocket handshake, so for LOOPBACK sources (the owner's
-#      `ssh -L 9292:127.0.0.1:9292` tunnel) the edge supplies the header itself and the ComfyUI
-#      UI works with no token in the browser. When llama-swap has no keys configured, the
-#      injected header is ignored and everything behaves as before.
+#   2. ComfyUI auth. llama-swap's `apiKeys` cover /upstream/* as well, so every caller needs
+#      `Authorization: Bearer <key>` -- which a browser cannot send on a navigation or a
+#      websocket handshake. The edge bridges that, in three cases:
+#        a. loopback (on the host, media-gateway later): the key is injected, no challenge;
+#        b. a request that already carries `Bearer ...` (API clients, e.g. another project):
+#           passed straight through, so their own key is what authenticates them;
+#        c. anything else on the LAN -- i.e. a browser: HTTP Basic auth, and on success the
+#           edge swaps it for the API key upstream. That gives a normal browser login from
+#           anywhere on the LAN, with no SSH tunnel and no trusted IPs.
+#      EDGE_COMFYUI_BCRYPT defaults to the hash of a random string that was discarded, so the
+#      edge always starts but nobody can log in until a real hash is set.
 #   3. Deploy drain: while {$EDGE_STATE}/drain exists (deploy-gate sets it), requests that
 #      start new work get 503 + Retry-After. Reads (GET/HEAD/OPTIONS), llama-swap's own /api/*,
 #      and ComfyUI hold acks still pass, and requests already in flight are never touched.
@@ -34,13 +39,28 @@
 		header @drain_new_work Retry-After 60
 		respond @drain_new_work "Draining for a deploy: no new work accepted, retry later" 503
 
-		# ComfyUI from loopback: inject the key so the UI works in a browser (see 2 above).
-		# Must come before the catch-all proxy below.
+		# (a) ComfyUI from loopback: inject the key, no challenge. Must precede the catch-all.
 		@comfyui_loopback {
 			remote_ip 127.0.0.1/32 ::1/128
 			path_regexp comfyui_lb ^/(upstream/[^/]*comfyui[^/]*|comfyui)(/|$)
 		}
 		reverse_proxy @comfyui_loopback {$EDGE_UPSTREAM:127.0.0.1:9293} {
+			header_up Authorization "Bearer {$LLAMASWAP_API_KEY:}"
+			flush_interval -1
+		}
+
+		# (c) ComfyUI from the LAN WITHOUT a bearer token: a browser. Challenge with Basic auth,
+		# then swap it for the API key upstream. Requests that already carry `Bearer ...` do not
+		# match, so API clients (b) fall through to the catch-all with their own key intact.
+		@comfyui_browser {
+			not remote_ip 127.0.0.1/32 ::1/128
+			not header Authorization "Bearer *"
+			path_regexp comfyui_br ^/(upstream/[^/]*comfyui[^/]*|comfyui)(/|$)
+		}
+		basic_auth @comfyui_browser {
+			{$EDGE_COMFYUI_USER:comfyui} {$EDGE_COMFYUI_BCRYPT:$2a$14$OWIMxGZxq7HOZsGqBw6hIeXiudZorr4xZkUtNJr6OOpCUpg74HNXO}
+		}
+		reverse_proxy @comfyui_browser {$EDGE_UPSTREAM:127.0.0.1:9293} {
 			header_up Authorization "Bearer {$LLAMASWAP_API_KEY:}"
 			flush_interval -1
 		}

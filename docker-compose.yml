@@ -116,9 +116,18 @@ services:
       # llama-swap API key (shared, one key). Set in Portainer, never in the repo.
       # Empty until Phase 3 turns `apiKeys` on in config.yaml -- llama-swap REFUSES TO START
       # with an empty key in that list, so set this before deploying a config that has it.
-      # The edge injects it on ComfyUI requests from loopback only, so the owner's browser
-      # (SSH tunnel) can use the ComfyUI UI without a token. See docker/edge/Caddyfile.
+      # The edge injects it on ComfyUI requests that it has authenticated itself, so a browser
+      # can use the ComfyUI UI without a token. See docker/edge/Caddyfile.
       - LLAMASWAP_API_KEY=${LLAMASWAP_API_KEY:-}
+      # Browser login for ComfyUI from the LAN (HTTP Basic, swapped for the API key upstream).
+      # Generate the hash with:  docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<password>'
+      # and set it as a stack variable. The default is the hash of a random string that was
+      # discarded, so the edge always starts but nobody can log in until this is set.
+      - EDGE_COMFYUI_USER=${EDGE_COMFYUI_USER:-comfyui}
+      # Bare on purpose: written as `=${VAR:-}` compose would pass an EMPTY value, and Caddy's
+      # own default only applies when the variable is ABSENT -- an empty one makes basic_auth
+      # refuse to adapt and the edge would not start at all.
+      - EDGE_COMFYUI_BCRYPT
     volumes:
       - edge-state:/state
     healthcheck:
