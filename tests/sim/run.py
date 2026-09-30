@@ -10,6 +10,7 @@ Usage: python3 run.py <llama-swap binary> <caddy binary> [case ...]
 """
 import http.client as httpclient
 import http.server as httpserver
+import base64
 import json
 import os
 import signal
@@ -29,6 +30,10 @@ EVENTS = os.path.join(SIM, "events.log")
 STATE = os.path.join(SIM, "state")              # the edge's /state (drain flag)
 FLAG = os.path.join(STATE, "drain")
 KEY = "sk-simtest"          # the API key the apiKeys cases run llama-swap with
+# Browser login for the ComfyUI paths at the edge. Hash of BASIC_PW, generated with
+# `caddy hash-password`; a test credential, not a secret.
+BASIC_USER, BASIC_PW = "comfyui", "testpw123"
+BASIC_HASH = "$2a$14$P4zvKS0N3fkeg/AQPf2lCegYyert4N0VP8T5NwRE54tXPL1jHNaHG"
 
 
 # --- plumbing ---------------------------------------------------------------------------------
@@ -117,7 +122,8 @@ class Sim:
             stdout=open(os.path.join(SIM, "llama-swap.log"), "w"), stderr=subprocess.STDOUT)
         edge_env = dict(os.environ, EDGE_LISTEN=f":{EDGE_PORT}",
                         EDGE_UPSTREAM=f"127.0.0.1:{LS_PORT}", EDGE_STATE=STATE,
-                        LLAMASWAP_API_KEY=api_key)
+                        LLAMASWAP_API_KEY=api_key,
+                        EDGE_COMFYUI_USER=BASIC_USER, EDGE_COMFYUI_BCRYPT=BASIC_HASH)
         self.edge = subprocess.Popen(
             [self.caddy, "run", "--adapter", "caddyfile",
              "--config", os.path.join(REPO, "docker", "edge", "Caddyfile")],
@@ -378,11 +384,17 @@ def case_prompt_during_pending_swap(sim):
     check(sim.results["L"][2] == 200, "LLM request failed")
 
 
-def case_edge_open_without_keys(sim):
-    """With no apiKeys configured, the edge blocks nothing: ComfyUI and the LLMs are both
-    reachable from the LAN. Access control is llama-swap's keys, not the source address."""
+def case_edge_without_llamaswap_keys(sim):
+    """Even with no apiKeys configured, the edge still gates ComfyUI from the LAN with its own
+    Basic login -- that protection does not depend on llama-swap's config. LLM paths stay open,
+    and loopback is unaffected."""
+    basic = base64.b64encode(f"{BASIC_USER}:{BASIC_PW}".encode()).decode()
     st, _ = http_from("127.0.0.2", "GET", "/upstream/a4.comfyui/system_stats")
-    check(st == 200, f"LAN request to ComfyUI got {st}, expected 200 with no keys configured")
+    check(st == 401, f"LAN ComfyUI without credentials got {st}, expected a 401 challenge")
+    st, _ = http_from("127.0.0.2", "GET", "/upstream/a4.comfyui/system_stats",
+                      headers={"Authorization": f"Basic {basic}"})
+    check(st == 200, f"LAN ComfyUI with credentials got {st}, expected 200")
+    # LLMs are not gated by the edge; with no apiKeys they are open, as before.
     st, _ = http_from("127.0.0.2", "POST", "/v1/chat/completions",
                       {"model": "c0.llm", "tag": "L", "sleep": 0, "messages": []})
     check(st == 200, f"LAN LLM request got {st}")
@@ -548,6 +560,35 @@ def case_api_key_lan(sim):
     check(st == 200, f"/health needed a key ({st}); healthchecks would fail")
 
 
+def case_browser_basic_auth(sim):
+    """A browser on the LAN logs in with HTTP Basic, and the edge swaps it for the API key.
+    No SSH tunnel and no trusted IPs. API clients that already send a bearer token are not
+    challenged, and Basic must not open anything but ComfyUI."""
+    basic = base64.b64encode(f"{BASIC_USER}:{BASIC_PW}".encode()).decode()
+    OK = {"Authorization": f"Basic {basic}"}
+    BAD = {"Authorization": "Basic " + base64.b64encode(b"comfyui:wrong").decode()}
+    U = "/upstream/a4.comfyui/system_stats"
+
+    st, _ = http_from("127.0.0.2", "GET", U)
+    check(st == 401, f"LAN browser without credentials got {st}, expected a 401 challenge")
+    st, _ = http_from("127.0.0.2", "GET", U, headers=BAD)
+    check(st == 401, f"LAN browser with wrong credentials got {st}, expected 401")
+    st, _ = http_from("127.0.0.2", "GET", U, headers=OK)
+    check(st == 200, f"LAN browser with correct credentials got {st}, expected 200")
+
+    # An API client's own bearer token must pass through untouched, not be challenged.
+    st, _ = http_from("127.0.0.2", "GET", U, headers={"Authorization": f"Bearer {KEY}"})
+    check(st == 200, f"LAN API client with a bearer token got {st}, expected 200")
+    st, _ = http_from("127.0.0.2", "GET", U, headers={"Authorization": "Bearer wrong"})
+    check(st == 401, f"LAN API client with a bad bearer token got {st}, expected 401")
+
+    # The browser login is for ComfyUI only: it must not unlock the LLM endpoints.
+    st, _ = http_from("127.0.0.2", "GET", "/v1/models", headers=OK)
+    check(st == 401, f"Basic credentials opened /v1/models ({st}) -- they must not")
+    st, _ = http_from("127.0.0.2", "GET", "/v1/models")
+    check(st == 401, f"LAN /v1/models without a key got {st}, expected 401")
+
+
 def case_api_key_browser_ui(sim):
     """With apiKeys on, the ComfyUI UI must still work in a browser over the SSH tunnel: a
     browser cannot send a bearer token, so the edge injects it for loopback."""
@@ -580,13 +621,15 @@ def case_api_key_hold_still_opens(sim):
 CASES = [case_render_outlives_ttl, case_no_gap_at_submit, case_gateway_sequence,
          case_results_kept_until_ack, case_ack_timeout, case_wholebox_waits, case_watchdog,
          case_llamaswap_unreachable, case_prompt_during_pending_swap,
-         case_edge_open_without_keys, case_edge_drain, case_gate_waits_for_work, case_gate_abort,
+         case_edge_without_llamaswap_keys, case_edge_drain, case_gate_waits_for_work, case_gate_abort,
          case_gate_startup_clears_flag, case_gate_deploy_no_effect,
          case_gate_no_webhook_no_drain,
-         case_api_key_lan, case_api_key_browser_ui, case_api_key_hold_still_opens]
+         case_api_key_lan, case_api_key_browser_ui, case_api_key_hold_still_opens,
+         case_browser_basic_auth]
 
 # Cases that need llama-swap started with apiKeys configured.
-KEY_CASES = {"case_api_key_lan", "case_api_key_browser_ui", "case_api_key_hold_still_opens"}
+KEY_CASES = {"case_api_key_lan", "case_api_key_browser_ui", "case_api_key_hold_still_opens",
+             "case_browser_basic_auth"}
 
 
 def main():

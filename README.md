@@ -203,12 +203,29 @@ web UI at `http://<host>:9292/ui`. That port is the **edge** (Caddy); llama-swap
 `docker/edge/Caddyfile`, image `ghcr.io/<owner>/llama-swap-edge` (the `edge-image` workflow).
 It forwards everything to llama-swap, streams and websockets included, with two exceptions:
 
-- **ComfyUI auth.** There is no source-address block: access control is llama-swap's
-  `apiKeys`, which cover `/upstream/*` too, so a LAN client sends
-  `Authorization: Bearer <key>` like any other caller. A browser cannot send that on a
-  navigation or a websocket handshake, so for **loopback** sources the edge injects the header
-  itself — the ComfyUI UI works with no token over `ssh -L 9292:127.0.0.1:9292 inference`.
-  Injection is limited to ComfyUI paths: a loopback LLM call still needs its own key.
+- **ComfyUI auth.** There is no source-address block. llama-swap's `apiKeys` cover
+  `/upstream/*`, but a browser cannot send a bearer token on a navigation or a websocket
+  handshake, so the edge bridges that in three cases:
+
+  | Caller | What the edge does |
+  |---|---|
+  | **Loopback** (on the host; media-gateway later) | injects the API key, no challenge |
+  | **Already sends `Bearer …`** (API clients) | passes it straight through — their own key authenticates them |
+  | **Anything else on the LAN** (a browser) | HTTP **Basic** login, then swaps it for the API key upstream |
+
+  So the ComfyUI UI works from any browser on the LAN — no SSH tunnel, no trusted IPs. The
+  Basic login covers **ComfyUI paths only**: it does not open `/v1/*`, and it applies even when
+  llama-swap has no `apiKeys` configured. Websockets work through all three paths.
+
+  Set `EDGE_COMFYUI_USER` (default `comfyui`) and `EDGE_COMFYUI_BCRYPT` as stack variables:
+
+  ```bash
+  docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<password>'
+  ```
+
+  `EDGE_COMFYUI_BCRYPT` defaults to the hash of a random string that was generated and
+  discarded, so the edge always starts but **nobody can log in until you set it**. It is passed
+  as a bare compose variable, because an empty value would make Caddy refuse to start.
 - **While a deploy drains** (`/state/drain` exists), requests that would start new work
   (anything but GET/HEAD/OPTIONS, outside `/api/*`, other than ComfyUI acks) get **503 with
   `Retry-After: 60`**. Requests already in flight are never touched. Clients should retry
