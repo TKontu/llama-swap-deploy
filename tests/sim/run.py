@@ -28,6 +28,7 @@ DIRECT = f"http://127.0.0.1:{LS_PORT}"          # llama-swap itself
 EVENTS = os.path.join(SIM, "events.log")
 STATE = os.path.join(SIM, "state")              # the edge's /state (drain flag)
 FLAG = os.path.join(STATE, "drain")
+KEY = "sk-simtest"          # the API key the apiKeys cases run llama-swap with
 
 
 # --- plumbing ---------------------------------------------------------------------------------
@@ -43,13 +44,13 @@ def http(method, path, body=None, headers=None, timeout=120):
         return e.code, e.read()
 
 
-def http_from(src_ip, method, path, body=None):
+def http_from(src_ip, method, path, body=None, headers=None):
     """Like http() but from another local source address, to play a LAN client for the edge
     (127.0.0.2 is not in the edge's 127.0.0.1/32 loopback allowance)."""
     conn = httpclient.HTTPConnection("127.0.0.1", EDGE_PORT, timeout=30,
                                       source_address=(src_ip, 0))
     conn.request(method, path, body=json.dumps(body) if body is not None else None,
-                 headers={"Content-Type": "application/json"})
+                 headers={"Content-Type": "application/json", **(headers or {})})
     r = conn.getresponse()
     return r.status, r.read()
 
@@ -89,19 +90,34 @@ class Sim:
         self.proc = self.edge = self.gate = None
         self.results = {}
 
-    def start(self):
+    def start(self, api_key=""):
+        """api_key: run llama-swap with `apiKeys: [key]` and give the edge the same key, as
+        production does once keys are enabled. Empty = no keys, llama-swap is default-allow."""
         if os.path.exists(EVENTS):
             os.remove(EVENTS)
         subprocess.run(["rm", "-rf", STATE], check=True)
         os.makedirs(STATE)
-        env = dict(os.environ, SIM_EVENTS=EVENTS)
+        self.api_key = api_key
+        config = "config.yaml"
+        if api_key:
+            # Same config, with apiKeys prepended. Kept generated rather than a second
+            # checked-in file so the two can never drift.
+            config = os.path.join(STATE, "config-apikey.yaml")
+            with open(os.path.join(SIM, "config.yaml")) as f:
+                body = f.read()
+            with open(config, "w") as f:
+                f.write(f"apiKeys:\n  - \"{api_key}\"\n" + body)
+        # The hold inherits this from llama-swap's environment, as production's bare
+        # `docker run -e LLAMASWAP_API_KEY` does.
+        env = dict(os.environ, SIM_EVENTS=EVENTS, LLAMASWAP_API_KEY=api_key)
         # Own session: llama-swap signals its whole process group on shutdown.
         self.proc = subprocess.Popen(
-            [self.binary, "--config", "config.yaml", "--listen", f"127.0.0.1:{LS_PORT}"],
+            [self.binary, "--config", config, "--listen", f"127.0.0.1:{LS_PORT}"],
             cwd=SIM, env=env, start_new_session=True,
             stdout=open(os.path.join(SIM, "llama-swap.log"), "w"), stderr=subprocess.STDOUT)
         edge_env = dict(os.environ, EDGE_LISTEN=f":{EDGE_PORT}",
-                        EDGE_UPSTREAM=f"127.0.0.1:{LS_PORT}", EDGE_STATE=STATE)
+                        EDGE_UPSTREAM=f"127.0.0.1:{LS_PORT}", EDGE_STATE=STATE,
+                        LLAMASWAP_API_KEY=api_key)
         self.edge = subprocess.Popen(
             [self.caddy, "run", "--adapter", "caddyfile",
              "--config", os.path.join(REPO, "docker", "edge", "Caddyfile")],
@@ -362,13 +378,11 @@ def case_prompt_during_pending_swap(sim):
     check(sim.results["L"][2] == 200, "LLM request failed")
 
 
-def case_edge_lan_block(sim):
-    """The edge: ComfyUI is loopback-only, LLMs are open to the LAN."""
-    st, _ = http_from("127.0.0.2", "GET", "/upstream/c2.comfyui/system_stats")
-    check(st == 403, f"LAN request to ComfyUI got {st}, expected 403")
-    st, _ = http_from("127.0.0.2", "GET", "/comfyui/")
-    check(st == 403, f"LAN request to /comfyui/ got {st}, expected 403")
-    check(sim.at("c2.comfyui", "started") is None, "a blocked request still started ComfyUI")
+def case_edge_open_without_keys(sim):
+    """With no apiKeys configured, the edge blocks nothing: ComfyUI and the LLMs are both
+    reachable from the LAN. Access control is llama-swap's keys, not the source address."""
+    st, _ = http_from("127.0.0.2", "GET", "/upstream/a4.comfyui/system_stats")
+    check(st == 200, f"LAN request to ComfyUI got {st}, expected 200 with no keys configured")
     st, _ = http_from("127.0.0.2", "POST", "/v1/chat/completions",
                       {"model": "c0.llm", "tag": "L", "sleep": 0, "messages": []})
     check(st == 200, f"LAN LLM request got {st}")
@@ -513,12 +527,66 @@ def case_gate_no_webhook_no_drain(sim):
     check(st == 200, f"new work got {st}: the edge is draining although no deploy was possible")
 
 
+def case_api_key_lan(sim):
+    """With apiKeys on: a LAN client needs the key for ComfyUI and for the LLMs; only /health
+    is exempt. The edge does not inject for non-loopback sources."""
+    K = {"Authorization": f"Bearer {KEY}"}
+    st, _ = http_from("127.0.0.2", "GET", "/upstream/a4.comfyui/system_stats")
+    check(st == 401, f"LAN ComfyUI without a key got {st}, expected 401")
+    st, _ = http_from("127.0.0.2", "GET", "/upstream/a4.comfyui/system_stats",
+                      headers={"Authorization": "Bearer wrong"})
+    check(st == 401, f"LAN ComfyUI with a wrong key got {st}, expected 401")
+    st, _ = http_from("127.0.0.2", "GET", "/upstream/a4.comfyui/system_stats", headers=K)
+    check(st == 200, f"LAN ComfyUI with the right key got {st}, expected 200")
+    st, _ = http_from("127.0.0.2", "POST", "/v1/chat/completions",
+                      {"model": "c0.llm", "tag": "L1", "sleep": 0, "messages": []})
+    check(st == 401, f"LAN LLM without a key got {st}, expected 401")
+    st, _ = http_from("127.0.0.2", "POST", "/v1/chat/completions",
+                      {"model": "c0.llm", "tag": "L2", "sleep": 0, "messages": []}, headers=K)
+    check(st == 200, f"LAN LLM with the key got {st}, expected 200")
+    st, _ = http_from("127.0.0.2", "GET", "/health")
+    check(st == 200, f"/health needed a key ({st}); healthchecks would fail")
+
+
+def case_api_key_browser_ui(sim):
+    """With apiKeys on, the ComfyUI UI must still work in a browser over the SSH tunnel: a
+    browser cannot send a bearer token, so the edge injects it for loopback."""
+    st, _ = http("GET", "/upstream/a4.comfyui/system_stats")
+    check(st == 200, f"loopback ComfyUI without a header got {st}: the edge did not inject")
+    st, _ = http("GET", "/upstream/a4.comfyui/comfyui-hold/status")
+    check(st == 200, f"loopback hold status got {st}")
+    # A loopback LLM call is NOT injected (only ComfyUI paths are), so it still needs the key.
+    st, _ = http("POST", "/v1/chat/completions",
+                 {"model": "c0.llm", "tag": "LB", "sleep": 0, "messages": []})
+    check(st == 401, f"loopback LLM without a key got {st}: injection is too broad")
+
+
+def case_api_key_hold_still_opens(sim):
+    """The one that matters: with apiKeys on, the hold can still authenticate to llama-swap.
+    If it could not, /prompt would answer 503 and nothing would protect work in progress."""
+    st, _ = sim.prompt("a4.comfyui", "J", 3, ack=True)
+    check(st == 200, f"/prompt got {st} with keys on: the hold could not open")
+    for _ in range(40):
+        st, body = http("GET", "/upstream/a4.comfyui/comfyui-hold/status")
+        if st == 200 and json.loads(body).get("open"):
+            break
+        time.sleep(0.25)
+    check(json.loads(body).get("open"), f"the hold never opened with keys on: {body!r}")
+    sim.wait_job("a4.comfyui", "J")
+    check(sim.ack("a4.comfyui") == 200, "ack refused with keys on")
+    check(sim.at("a4.comfyui", "stopped") is None, "the job was interrupted")
+
+
 CASES = [case_render_outlives_ttl, case_no_gap_at_submit, case_gateway_sequence,
          case_results_kept_until_ack, case_ack_timeout, case_wholebox_waits, case_watchdog,
          case_llamaswap_unreachable, case_prompt_during_pending_swap,
-         case_edge_lan_block, case_edge_drain, case_gate_waits_for_work, case_gate_abort,
+         case_edge_open_without_keys, case_edge_drain, case_gate_waits_for_work, case_gate_abort,
          case_gate_startup_clears_flag, case_gate_deploy_no_effect,
-         case_gate_no_webhook_no_drain]
+         case_gate_no_webhook_no_drain,
+         case_api_key_lan, case_api_key_browser_ui, case_api_key_hold_still_opens]
+
+# Cases that need llama-swap started with apiKeys configured.
+KEY_CASES = {"case_api_key_lan", "case_api_key_browser_ui", "case_api_key_hold_still_opens"}
 
 
 def main():
@@ -530,7 +598,7 @@ def main():
             continue
         sim = Sim(binary, caddy)
         try:
-            sim.start()
+            sim.start(api_key=KEY if case.__name__ in KEY_CASES else "")
             case(sim)
             print(f"PASS {case.__name__}")
         except Exception as exc:  # AssertionError or plumbing failure

@@ -471,6 +471,7 @@ models:
       -e COMFYUI_PORT=${PORT}
       -e HOLD_MODEL_ID=${MODEL_ID}
       -e LLAMASWAP_URL=http://127.0.0.1:9293
+      -e LLAMASWAP_API_KEY
       ghcr.io/tkontu/comfyui:latest
     cmdStop: docker stop ${MODEL_ID}
     proxy: http://127.0.0.1:${PORT}
@@ -494,6 +495,7 @@ models:
       -e COMFYUI_PORT=${PORT}
       -e HOLD_MODEL_ID=${MODEL_ID}
       -e LLAMASWAP_URL=http://127.0.0.1:9293
+      -e LLAMASWAP_API_KEY
       ghcr.io/tkontu/comfyui:latest
       --enable-manager
     cmdStop: docker stop ${MODEL_ID}

@@ -122,6 +122,29 @@ in `tests/sim/`):
 - [ ] Rules: no `POST /api/models/unload` and no gateway restart while work is in progress.
   (Decided 2026-09-28: the edge does NOT block the kill switches; this stays a rule.)
 
+**Step 7 — API keys (decided 2026-09-30: one shared key; no source-address block):**
+- [x] Measured llama-swap v256's `apiKeys`: **only `/health` is exempt**; `/v1/*`, `/running`,
+  `/api/events`, `/ui`, `/metrics` and `/upstream/*` all require `Authorization: Bearer <key>`.
+  The `api_key` query parameter does not work. An empty key in the list makes llama-swap refuse
+  to start (`empty api key found in apiKeys`) — it fails closed.
+- [x] **Phase 1:** every internal caller sends the key when `LLAMASWAP_API_KEY` is set, and no
+  header when it is empty — the hold (`docker/comfyui_hold`), `deploy-gate.py`,
+  `oncall-wakeup.sh`. The key reaches ComfyUI through a bare `-e LLAMASWAP_API_KEY`, so it never
+  shows up in `GET /running` (the HF-token mistake from PR #20).
+- [x] **Phase 2:** the edge's ComfyUI 403 is gone (decided: no belt-and-braces); instead the
+  edge injects the key on ComfyUI requests **from loopback only**, so the ComfyUI UI works in a
+  browser over the SSH tunnel. Verified: navigation, static assets and the **websocket upgrade**
+  all succeed with no token in the browser.
+- [x] `tests/sim`: 19 cases. New ones cover LAN needs-a-key (wrong key 401, right key 200,
+  `/health` exempt), the browser UI over loopback (and that injection does *not* leak to LLM
+  paths), and that **the hold still opens with keys on**.
+- [ ] **Phase 3 (the switch, needs a coordinated window):** generate the key, set
+  `LLAMASWAP_API_KEY` as a Portainer stack variable, add `apiKeys: ["${env.LLAMASWAP_API_KEY}"]`
+  to `gen_config.py`, regenerate and push — and in the same window add the header to **Iknos,
+  open-webui and Kyokki**, which get 401 the moment it lands. Runbook: README → "API keys".
+- [ ] After Phase 3: confirm the real ComfyUI frontend (not the stub used in the sim) works
+  over the tunnel, and that `deploy-gate` still deploys.
+
 **Step 5 — edge filter + loopback:**
 - [x] llama-swap on `127.0.0.1:9293`; the edge (Caddy, `Dockerfile.edge`,
   `docker/edge/Caddyfile`) on `:9292` returns 403 for `/upstream/*comfyui*` and `/comfyui*` from

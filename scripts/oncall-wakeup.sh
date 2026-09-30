@@ -26,6 +26,18 @@
 set -eu
 
 LLAMASWAP_URL="${LLAMASWAP_URL:-http://127.0.0.1:9292}"
+# llama-swap API key, if it has `apiKeys` configured. /metrics, /running and
+# /v1/chat/completions all require it; only /health is exempt. Empty means no keys are
+# configured, so send no header at all.
+LLAMASWAP_API_KEY="${LLAMASWAP_API_KEY:-}"
+# curl_ls: curl against llama-swap, with the key when one is set.
+curl_ls() {
+    if [ -n "$LLAMASWAP_API_KEY" ]; then
+        curl -H "Authorization: Bearer $LLAMASWAP_API_KEY" "$@"
+    else
+        curl "$@"
+    fi
+}
 ONCALL_MODEL="${ONCALL_MODEL:-c0.muse-glimmer}"
 IDLE_SECONDS="${IDLE_SECONDS:-3600}"
 IDLE_PCT="${IDLE_PCT:-5}"
@@ -48,7 +60,7 @@ is_resident() { echo "$1" | grep -qF "\"$2\""; }
 
 # Highest utilisation across the watched GPUs, or "" if metrics are unavailable.
 peak_gpu_util() {
-    metrics="$(curl -sf -m 10 "$LLAMASWAP_URL/metrics" 2>/dev/null)" || return 1
+    metrics="$(curl_ls -sf -m 10 "$LLAMASWAP_URL/metrics" 2>/dev/null)" || return 1
     echo "$metrics" | awk -v uuids="$GPU_UUIDS" '
         BEGIN { n = split(uuids, want, ","); peak = -1 }
         /^llamaswap_gpu_util_percent/ {
@@ -89,7 +101,7 @@ while :; do
     quiet=0
 
     # Fail closed: if we cannot see what is loaded, we cannot rule out a bigmoe model.
-    if ! running="$(curl -sf -m 10 "$LLAMASWAP_URL/running")"; then
+    if ! running="$(curl_ls -sf -m 10 "$LLAMASWAP_URL/running")"; then
         log "/running unavailable — not waking (retry after another ${IDLE_SECONDS}s idle)"
         continue
     fi
@@ -112,7 +124,7 @@ while :; do
     fi
 
     log "idle ${IDLE_SECONDS}s (peak ${util}%) — waking '$ONCALL_MODEL'"
-    if curl -sf -m 900 -X POST "$LLAMASWAP_URL/v1/chat/completions" \
+    if curl_ls -sf -m 900 -X POST "$LLAMASWAP_URL/v1/chat/completions" \
          -H 'Content-Type: application/json' \
          -d "{\"model\":\"$ONCALL_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\".\"}],\"max_tokens\":1}" \
          >/dev/null 2>&1; then

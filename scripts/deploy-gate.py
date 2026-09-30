@@ -33,6 +33,8 @@ Stdlib only (the llama-swap image has python3-minimal). Env:
   PULL_IMAGES             comma-separated refs to pull before deploying (default: IMAGE)
   CONTAINER               container running IMAGE (default llama-swap)
   LLAMASWAP_URL           llama-swap itself, not the edge (default http://127.0.0.1:9293)
+  LLAMASWAP_API_KEY       llama-swap API key, if it has `apiKeys` configured. /api/events,
+                          /running and the hold status all need it; /health does not.
   DRAIN_FLAG              default /state/drain
   POLL_S STABLE_S DRAIN_MAX_S RETRY_AFTER_ABORT_S DEPLOY_WAIT_S
   LATEST_DIGEST_CMD / RUNNING_DIGEST_CMD / PULL_CMD   shell commands replacing the GHCR /
@@ -54,6 +56,8 @@ CA_FILE = ENV.get("PORTAINER_CA_FILE", "").strip()
 IMAGE = ENV.get("IMAGE", "ghcr.io/tkontu/llama-swap-deploy:latest")
 CONTAINER = ENV.get("CONTAINER", "llama-swap")
 LLAMASWAP = ENV.get("LLAMASWAP_URL", "http://127.0.0.1:9293").rstrip("/")
+API_KEY = ENV.get("LLAMASWAP_API_KEY", "").strip()
+LS_HEADERS = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
 FLAG = ENV.get("DRAIN_FLAG", "/state/drain")
 POLL_S = float(ENV.get("POLL_S", 120))
 STABLE_S = float(ENV.get("STABLE_S", 15))
@@ -75,8 +79,9 @@ def log(msg):
     print(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} deploy-gate: {msg}", flush=True)
 
 
-def http_json(url, timeout=10):
-    with urllib.request.urlopen(url, timeout=timeout) as r:
+def http_json(url, timeout=10, headers=None):
+    req = urllib.request.Request(url, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)
 
 
@@ -158,7 +163,8 @@ class InflightWatcher(threading.Thread):
     def run(self):
         while True:
             try:
-                with urllib.request.urlopen(f"{LLAMASWAP}/api/events", timeout=None) as r:
+                req = urllib.request.Request(f"{LLAMASWAP}/api/events", headers=LS_HEADERS)
+                with urllib.request.urlopen(req, timeout=None) as r:
                     for raw in r:
                         line = raw.decode("utf-8", "replace").rstrip("\n")
                         if line.startswith("data:"):
@@ -195,7 +201,7 @@ class InflightWatcher(threading.Thread):
 def busy_reasons(watcher):
     reasons = list(watcher.busy())
     try:
-        running = http_json(f"{LLAMASWAP}/running")["running"]
+        running = http_json(f"{LLAMASWAP}/running", headers=LS_HEADERS)["running"]
     except Exception as exc:
         return reasons + [f"/running unavailable: {exc!r}"]
     for m in running:
@@ -206,7 +212,8 @@ def busy_reasons(watcher):
         if model.endswith(".comfyui") and state == "ready":
             # Only ready instances: a GET through /upstream would start a stopped one.
             try:
-                st = http_json(f"{LLAMASWAP}/upstream/{model}/comfyui-hold/status")
+                st = http_json(f"{LLAMASWAP}/upstream/{model}/comfyui-hold/status",
+                                   headers=LS_HEADERS)
             except Exception as exc:
                 reasons.append(f"{model} hold status unavailable: {exc!r}")
                 continue
