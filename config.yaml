@@ -18,6 +18,16 @@
 
 healthCheckTimeout: 900
 logLevel: info
+
+# Access control for the whole stack. llama-swap's keys are global and cover
+# everything but /health -- /v1/*, /running, /api/events, /ui, /metrics and
+# /upstream/* all require `Authorization: Bearer <key>`. One shared key, set as
+# the stack variable LLAMASWAP_API_KEY (never committed).
+#
+# llama-swap REFUSES TO START if this expands to an empty string, so the
+# variable is mandatory from here on. See README -> "API keys".
+apiKeys:
+  - "${env.LLAMASWAP_API_KEY}"
 # No aliases are defined any more, so this only affects how /v1/models
 # renders; left on so the listing shape does not change for consumers.
 includeAliasesInList: true
