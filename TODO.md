@@ -149,9 +149,20 @@ in `tests/sim/`):
   now does HTTP Basic for ComfyUI from the LAN and swaps it for the API key upstream, so the UI
   works from any browser with no tunnel and no trusted IPs. Bearer-carrying API clients are not
   challenged; Basic does not open `/v1/*`. Websockets verified through all three paths.
-- [ ] After the browser-auth deploy: open the **real** ComfyUI frontend from a LAN browser (the
-  sim uses a stub) and confirm the login prompt, the graph editor and a render with a moving
-  progress bar. Confirm `deploy-gate` and `oncall-wakeup` still work.
+- [x] Browser auth deployed and working from the LAN (2026-09-30). Verified: no credentials →
+  401 + `WWW-Authenticate: Basic`; wrong credentials → 401; `/v1/models` with Basic → 401 (the
+  browser login does not open the LLMs); `/health` → 200 unauthenticated.
+- [x] Found on deploy: the bcrypt hash must be entered in Portainer with **every `$` doubled**.
+  One round of variable substitution eats `$2a`, `$14` and `$<salt>`, so the hash arrives
+  truncated (52 chars, 2 `$`) and no password matches — while the prompt still appears, so it
+  reads as a wrong password. Documented in README → "Edge".
+- [ ] Still to confirm in a real browser: the graph editor loads and a render shows a moving
+  progress bar (the websocket). The sim uses a stub frontend.
+- [ ] Confirm `deploy-gate` and `oncall-wakeup` still work now that keys are on — the gate has
+  deployed successfully since, but `oncall-wakeup` has not been observed waking a model yet.
+- [ ] **Gap:** `deploy-gate` watches only the llama-swap image, so an **edge-only** change never
+  auto-deploys (hit on 2026-09-30: PR #36 built a new edge image, `build-and-push` did not run,
+  and the stack had to be pulled and updated by hand). Consider watching both images.
 
 **Step 5 — edge filter + loopback:**
 - [x] llama-swap on `127.0.0.1:9293`; the edge (Caddy, `Dockerfile.edge`,
