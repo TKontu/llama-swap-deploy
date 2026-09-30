@@ -6,6 +6,10 @@ open the hold before the job is queued. Configured through env vars that llama-s
   HOLD_MODEL_ID        this instance's llama-swap model ID (required; without it the hold is
                        disabled and a warning is logged, e.g. in CI's import test)
   LLAMASWAP_URL        default http://127.0.0.1:9292
+  LLAMASWAP_API_KEY    llama-swap API key, if it has `apiKeys` configured. Its keys cover
+                       /upstream/* too, so without this the hold cannot open and /prompt
+                       answers 503. Passed through by `docker run -e LLAMASWAP_API_KEY` with no
+                       value, so it never appears in llama-swap's /running output.
   HOLD_STALL_S         release after this long with no progress event (default 1800)
   HOLD_MAX_S           release after this long in total (default 14400)
   HOLD_OPEN_TIMEOUT_S  how long /prompt waits for the hold to open (default 10)
@@ -49,6 +53,7 @@ def _install():
         tasks_remaining=ps.prompt_queue.get_tasks_remaining,
         progress_marker=lambda: events[0],
         llamaswap_url=os.environ.get("LLAMASWAP_URL", "http://127.0.0.1:9292"),
+        api_key=os.environ.get("LLAMASWAP_API_KEY", "").strip(),
         model_id=model_id,
         stall_s=float(os.environ.get("HOLD_STALL_S", 1800)),
         max_s=float(os.environ.get("HOLD_MAX_S", 14400)),

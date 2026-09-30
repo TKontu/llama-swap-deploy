@@ -48,10 +48,13 @@ class HoldError(RuntimeError):
 class HoldManager:
     def __init__(self, tasks_remaining, progress_marker, llamaswap_url, model_id,
                  stall_s=1800, max_s=14400, open_timeout_s=10, ack_timeout_s=120,
-                 heartbeat_s=15, poll_s=0.25):
+                 heartbeat_s=15, poll_s=0.25, api_key=""):
         self.tasks_remaining = tasks_remaining      # () -> int: queued + running jobs
         self.progress_marker = progress_marker      # () -> hashable, changes on any progress
         self.url = f"{llamaswap_url.rstrip('/')}/upstream/{model_id}{HOLD_PATH}"
+        # llama-swap's apiKeys cover /upstream/* too, so the hold has to authenticate to open
+        # itself. Empty means llama-swap has no keys configured; send no header at all then.
+        self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self.stall_s = stall_s
         self.max_s = max_s
         self.open_timeout_s = open_timeout_s
@@ -108,7 +111,8 @@ class HoldManager:
         while True:
             try:
                 async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(self.url, params={"token": token}) as resp:
+                    async with session.get(self.url, params={"token": token},
+                                           headers=self.headers) as resp:
                         if resp.status != 200:
                             raise HoldError(f"hold request returned HTTP {resp.status}: "
                                             f"{(await resp.text())[:200]}")

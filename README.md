@@ -203,9 +203,12 @@ web UI at `http://<host>:9292/ui`. That port is the **edge** (Caddy); llama-swap
 `docker/edge/Caddyfile`, image `ghcr.io/<owner>/llama-swap-edge` (the `edge-image` workflow).
 It forwards everything to llama-swap, streams and websockets included, with two exceptions:
 
-- **ComfyUI is loopback-only.** `/upstream/*comfyui*` and `/comfyui` get **403** from any
-  source but 127.0.0.1/::1. Clients use media-gateway; you use an SSH tunnel
-  (`ssh -L 9292:127.0.0.1:9292 inference`).
+- **ComfyUI auth.** There is no source-address block: access control is llama-swap's
+  `apiKeys`, which cover `/upstream/*` too, so a LAN client sends
+  `Authorization: Bearer <key>` like any other caller. A browser cannot send that on a
+  navigation or a websocket handshake, so for **loopback** sources the edge injects the header
+  itself — the ComfyUI UI works with no token over `ssh -L 9292:127.0.0.1:9292 inference`.
+  Injection is limited to ComfyUI paths: a loopback LLM call still needs its own key.
 - **While a deploy drains** (`/state/drain` exists), requests that would start new work
   (anything but GET/HEAD/OPTIONS, outside `/api/*`, other than ComfyUI acks) get **503 with
   `Retry-After: 60`**. Requests already in flight are never touched. Clients should retry
@@ -213,6 +216,45 @@ It forwards everything to llama-swap, streams and websockets included, with two 
 
 llama-swap's kill switches (`POST /api/models/unload`, `/api/inflight/*/cancel`) stay open to
 the LAN on purpose. Don't use them while work is running.
+
+### API keys
+
+llama-swap's `apiKeys` are the access control for the whole stack. Measured on the pinned v256:
+**only `/health` is exempt** — `/v1/*`, `/running`, `/api/events`, `/ui`, `/metrics` and
+`/upstream/*` all require `Authorization: Bearer <key>`. The `api_key` query parameter does
+**not** work. Keys are global: a key grants everything, the kill switches included.
+
+One shared key, set as the stack variable `LLAMASWAP_API_KEY`. It reaches:
+
+| Consumer | How |
+|---|---|
+| `llama-swap` | for `${env.LLAMASWAP_API_KEY}` in `apiKeys`, and inherited by ComfyUI containers |
+| ComfyUI + the hold | `gen_config.py` emits a bare **`-e LLAMASWAP_API_KEY`** (no value), so docker inherits it from llama-swap's environment and the key never appears in `GET /running` — the mistake PR #20 fixed for the HF token |
+| `edge` | injects it on ComfyUI requests from loopback (above) |
+| `deploy-gate` | `/api/events`, `/running`, hold status |
+| `oncall-wakeup` | `/metrics`, `/running`, `/v1/chat/completions` |
+| Healthchecks | nothing needed, `/health` is exempt |
+
+Every component reads it as optional: **empty means send no header**, so the stack behaves
+exactly as before until `apiKeys` is set. That makes enabling keys a two-step rollout.
+
+> **llama-swap refuses to start with an empty key in `apiKeys`** (`error="empty api key found
+> in apiKeys"`). That is deliberate and good — it fails closed rather than accepting
+> `Bearer `. But it means that once a config with `apiKeys` is baked into the image,
+> **`LLAMASWAP_API_KEY` must be set or the stack will not come up.**
+
+#### Turning keys on (Phase 3)
+
+1. Generate a key: `printf 'sk-%s\n' "$(head -c 48 /dev/urandom | base64)"`.
+2. Set `LLAMASWAP_API_KEY` as a **stack variable** in Portainer (a secret; never commit it).
+   Update the stack. Nothing changes yet — `apiKeys` is not configured, so no header is sent
+   and none is required.
+3. Add `apiKeys` to the generated config (`gen_config.py`), regenerate `config.yaml`, and push.
+   **In the same window**, add the header to every external client: **Iknos, open-webui,
+   Kyokki**. They will get `401` from the moment the new image is running.
+4. Verify: `curl -s http://<host>:9292/health` (no key, 200);
+   `curl -s -o /dev/null -w '%{http_code}' http://<host>:9292/v1/models` (no key, 401);
+   the same with `-H "Authorization: Bearer $KEY"` (200); and the ComfyUI UI over the tunnel.
 
 ### Deploy gate
 

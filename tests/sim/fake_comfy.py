@@ -7,8 +7,8 @@ job is `stuck`). Routes:
   GET  /job/<tag>                       {"state": "queued"|"running"|"done"}
   GET  /system_stats                    readiness
   GET  /comfyui-hold/hold, /comfyui-hold/status, POST /comfyui-hold/ack   from HoldManager
-Env: SIM_EVENTS, HOLD_MODEL_ID, LLAMASWAP_URL, HOLD_STALL_S, HOLD_MAX_S, HOLD_OPEN_TIMEOUT_S,
-HOLD_ACK_TIMEOUT_S.
+Env: SIM_EVENTS, HOLD_MODEL_ID, LLAMASWAP_URL, LLAMASWAP_API_KEY, HOLD_STALL_S, HOLD_MAX_S,
+HOLD_OPEN_TIMEOUT_S, HOLD_ACK_TIMEOUT_S.
 """
 import asyncio
 import importlib.util
@@ -83,6 +83,7 @@ def main():
         tasks_remaining=lambda: len(queue) + len(running),
         progress_marker=lambda: progress[0],
         llamaswap_url=os.environ.get("LLAMASWAP_URL", "http://127.0.0.1:9292"),
+        api_key=os.environ.get("LLAMASWAP_API_KEY", "").strip(),
         model_id=name,
         stall_s=float(os.environ.get("HOLD_STALL_S", 1800)),
         max_s=float(os.environ.get("HOLD_MAX_S", 14400)),

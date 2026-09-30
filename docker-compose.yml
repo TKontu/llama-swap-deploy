@@ -32,6 +32,12 @@ services:
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
+      # llama-swap API key (shared, one key). Set in Portainer, never in the repo.
+      # Empty until Phase 3 turns `apiKeys` on in config.yaml -- llama-swap REFUSES TO START
+      # with an empty key in that list, so set this before deploying a config that has it.
+      # It is also what each ComfyUI container inherits: gen_config.py emits a bare
+      # `-e LLAMASWAP_API_KEY`, so the value never appears in GET /running.
+      - LLAMASWAP_API_KEY=${LLAMASWAP_API_KEY:-}
       # HF_TOKEN is intentionally NOT injected. It was only ever here so that
       # `${env.HF_TOKEN}` could be interpolated into each model's `docker run`
       # line -- which llama-swap then echoed back, in plaintext, from GET /running.
@@ -88,6 +94,10 @@ services:
       - IDLE_SECONDS=3600
       - IDLE_PCT=5
       - POLL_SECONDS=60
+      # llama-swap API key (shared, one key). Set in Portainer, never in the repo.
+      # Empty until Phase 3 turns `apiKeys` on in config.yaml -- llama-swap REFUSES TO START
+      # with an empty key in that list, so set this before deploying a config that has it.
+      - LLAMASWAP_API_KEY=${LLAMASWAP_API_KEY:-}
 
   # The LAN entry point, on :9292 (docker/edge/Caddyfile, image built by edge-image.yml).
   #   - Forwards everything to llama-swap on 127.0.0.1:9293, streams and websockets included.
@@ -102,6 +112,13 @@ services:
     network_mode: host
     depends_on:
       - llama-swap
+    environment:
+      # llama-swap API key (shared, one key). Set in Portainer, never in the repo.
+      # Empty until Phase 3 turns `apiKeys` on in config.yaml -- llama-swap REFUSES TO START
+      # with an empty key in that list, so set this before deploying a config that has it.
+      # The edge injects it on ComfyUI requests from loopback only, so the owner's browser
+      # (SSH tunnel) can use the ComfyUI UI without a token. See docker/edge/Caddyfile.
+      - LLAMASWAP_API_KEY=${LLAMASWAP_API_KEY:-}
     volumes:
       - edge-state:/state
     healthcheck:
@@ -146,6 +163,11 @@ services:
       # Both stack images: the webhook redeploys from git but reuses cached tags on CE.
       - PULL_IMAGES=${LLAMA_SWAP_IMAGE:-ghcr.io/tkontu/llama-swap-deploy:latest},${EDGE_IMAGE:-ghcr.io/tkontu/llama-swap-edge:latest}
       - LLAMASWAP_URL=http://127.0.0.1:9293
+      # llama-swap API key (shared, one key). Set in Portainer, never in the repo.
+      # Empty until Phase 3 turns `apiKeys` on in config.yaml -- llama-swap REFUSES TO START
+      # with an empty key in that list, so set this before deploying a config that has it.
+      # The gate reads /api/events, /running and the hold status, all of which need it.
+      - LLAMASWAP_API_KEY=${LLAMASWAP_API_KEY:-}
       - POLL_S=120
       - STABLE_S=15
       - DRAIN_MAX_S=21600

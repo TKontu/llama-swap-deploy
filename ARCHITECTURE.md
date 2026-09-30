@@ -119,9 +119,12 @@ the CI rebuild, and Portainer re-pulls the new image.
   llama-swap reaches them at `127.0.0.1:<PORT>` (its default `proxy` form). Loopback, because
   a plain `-p` answers on every interface and let the LAN bypass llama-swap (verified
   2026-09-27). llama-swap itself listens on `127.0.0.1:9293` behind the edge on `:9292`.
-- **Edge (Caddy) in front.** llama-swap can't restrict a model to some clients (`apiKeys`
-  are global), and it can't refuse new work while finishing old work. The edge does both:
-  ComfyUI loopback-only, and a drain flag for deploys (README → "Edge", "Deploy gate").
+- **Edge (Caddy) in front.** llama-swap can't refuse new work while finishing old work, and it
+  can't help a browser authenticate. The edge does both: a drain flag for deploys, and it
+  injects the API key on ComfyUI requests from loopback so the ComfyUI UI works in a browser
+  over an SSH tunnel (README → "Edge", "API keys", "Deploy gate"). Access control itself is
+  llama-swap's `apiKeys`, which cover `/upstream/*`; they are global, so a key grants
+  everything, the kill switches included — an accepted trade (2026-09-30).
 - **Deploys wait for idle.** llama-swap drains for only 30 s (hard-coded) on SIGTERM, so
   automatic re-pull would cut long renders and generations. `deploy-gate` redeploys through
   the Portainer webhook only once nothing is in flight. It also pulls the images itself:

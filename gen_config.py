@@ -711,6 +711,12 @@ def comfyui_entry(model_id, gpus, manager):
     # Host network, listening on 127.0.0.1:${PORT} (comfyui-serve.sh): the hold must reach
     # llama-swap on LLAMASWAP_INTERNAL, and loopback keeps the LAN from reaching ComfyUI
     # directly and bypassing llama-swap.
+    #
+    # `-e LLAMASWAP_API_KEY` carries NO value on purpose. Docker then inherits it from the
+    # environment running `docker run` -- llama-swap's own container -- so the key reaches the
+    # hold without ever appearing in the command line that GET /running echoes back. Writing
+    # `-e LLAMASWAP_API_KEY=${env.LLAMASWAP_API_KEY}` would leak it exactly as the HF token
+    # leaked before PR #20.
     manager_line = "      --enable-manager\n" if manager else ""
     return (
         f'  "{model_id}":\n'
@@ -725,6 +731,7 @@ def comfyui_entry(model_id, gpus, manager):
         f"      -e COMFYUI_PORT=${{PORT}}\n"
         f"      -e HOLD_MODEL_ID=${{MODEL_ID}}\n"
         f"      -e LLAMASWAP_URL={LLAMASWAP_INTERNAL}\n"
+        f"      -e LLAMASWAP_API_KEY\n"
         f"      {COMFYUI_IMAGE}\n"
         f"{manager_line}"
         f"    cmdStop: docker stop ${{MODEL_ID}}\n"
