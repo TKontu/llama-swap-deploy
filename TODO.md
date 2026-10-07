@@ -230,13 +230,31 @@ All at native maximum context (§14). In recommended order:
 - [ ] **Qwen3-Coder-Next** (80B/3B, `llamacpp-mainline`, no §2 prerequisites). Decide between
   `UD-Q4_K_S` (42.9 GiB, fully on GPU, thin margin) and `Q4_K_M` (45.2 GiB) with `n_cpu_moe` of
   ~2–4, by measured tok/s. `Q4_K_M` does NOT fit fully on the GPUs.
-- [ ] **gpt-oss-120b** (117B/5.1B, MXFP4 59.0 GiB, ~15–18 GiB in RAM, `llamacpp-mainline`).
-  A/B the EAGLE3 drafter. `bigmoe=True` unless measured decode GPU util clears `IDLE_PCT`.
+- [x] **gpt-oss-120b** (117B/5.1B, MXFP4 59.0 GiB, ~15–18 GiB in RAM, `llamacpp-mainline`)
+  — **entry added 2026-10-07** (see "Comparison arms" below). A/B the EAGLE3 drafter later.
 - [ ] **Mistral Small 4** (119B/6.5B, UD-Q4_K_M 68.7 GiB + mmproj, ~23–25 GiB in RAM,
   `llamacpp-mainline`). Verify the real context limit: the GGUF says 1M, the model is described as 256K.
 - [ ] **GLM-5.3-Flash** — blocked: `glm5next` is not in mainline llama.cpp (PRs #27752 / #27754
   / #27773 / #27917 open). Revisit on merge, and re-download the GGUF from after the merge.
   186.0 GiB at UD-Q4_K_XL: larger than P5's disk figure, and tight in a 200 GiB VM.
+
+## Comparison arms: gpt-oss-120b, Qwen3.8-Flash-Next, granite-4.1-30b (2026-10-07)
+
+Three entries for a consumer's model comparison (Iknos `SVC-274`); README → "Comparison arms".
+`qwen3.8-flash-next` needs a third mainline pin, `llamacpp-qwen4` at `b11461` (`qwen4exp`).
+`b11461` was checked against the source for `qwen4exp`, `gpt-oss`, `granite` and every flag
+`gguf-serve.sh` passes; it has not been compiled yet.
+
+- [ ] CI builds `llamacpp-qwen4` at `b11461`.
+- [ ] Pre-download the three GGUFs to `/fast/gguf` (README commands).
+- [ ] Fit `n_cpu_moe` / `tensor_split` for `gpt-oss-120b` (start 36 / `1,1`) and
+  `qwen3.8-flash-next` (start 48 / `1,1`) by manual `docker run`; commit the measured values.
+- [ ] Record the `qwen4exp` KV buffer sizes from the startup log; raise the context if cheap.
+- [ ] Per model: VRAM per card, RSS, decode tok/s, 8k prefill tok/s, cold/warm load, and a
+  coherence probe with the thinking default (no reasoning trace from flash-next; a short one
+  from gpt-oss at `low`).
+- [ ] `granite-4.1-30b`: confirm 2 × 16384 at q8_0 KV fits one card.
+- [ ] Poller: with each bigmoe model resident and idle GPUs, confirm no wakeup fires.
 
 ## DeepSeek-V4-Flash / bigmoe (2026-09-14)
 

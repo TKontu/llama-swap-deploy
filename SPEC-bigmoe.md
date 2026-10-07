@@ -236,7 +236,7 @@ of usable VRAM across both 3090s. Every model here needs both cards, so each is 
 | Model | Total / active | Quant (file) | On disk | RAM spill | llama.cpp support | Image | Needs §2 |
 |---|---|---|---|---|---|---|---|
 | Qwen3-Coder-Next | 80B / 3B | `UD-Q4_K_S` or `Q4_K_M` | 42.9 / 45.2 GiB | none – ~3 GiB | `qwen3next` in `b10362` | `llamacpp-mainline` | nothing |
-| gpt-oss-120b | 117B / 5.1B | `MXFP4` | 59.0 GiB | ~15–18 GiB | `gpt-oss` in `b10362` | `llamacpp-mainline` | P5 only |
+| gpt-oss-120b | 117B / 5.1B | `MXFP4` | 59.0 GiB | ~15–18 GiB | `gpt-oss` in `b10362` | `llamacpp-mainline` | P5 only — **entry added 2026-10-07**, not yet fitted |
 | Mistral Small 4 | 119B / 6.5B | `UD-Q4_K_M` (3 shards) + mmproj | 68.7 + 0.8 GiB | ~23–25 GiB | `mistral4` in `b10362` | `llamacpp-mainline` | P5 only |
 | DeepSeek-V4-Flash | 284B / 13B | `UD-Q4_K_XL` (5 shards) | 144.4 GiB | ~110 GiB | `deepseek4` in `b10362` | `llamacpp-v4` | P2–P5 — **implemented** |
 | GLM-5.3-Flash | 321B / 18B | `UD-Q4_K_XL` (6 shards) + mmproj | 186.0 + 1.1 GiB | ~145 GiB | **not in mainline** | a PR build | P2–P5, more disk |
@@ -321,6 +321,21 @@ See §5 and §10. The "~161 GB" in the draft is 144.4 GiB for the 0731 `UD-Q4_K_
 - Reported: Artificial Analysis index 42 (GLM-5.3 at 45), ahead of DeepSeek V4 Pro. It is
   DeepSeek-V4-Flash's real competitor, pending support.
 - Poller: `bigmoe=True`.
+
+### 11.6 Qwen3.8-Flash-Next — entry added 2026-10-07, not yet fitted
+
+- `unsloth/Qwen3.8-Flash-Next-GGUF`, licence `qwen-community-1.0`. `qwen4exp`: 125B total /
+  6B active, 512 experts top-10 + 1 shared, 48 layers, Gated DeltaNet + Qwen Sparse Attention;
+  51B of the total is an n-gram embedding. 262144 native context.
+- `UD-Q4_K_XL`, 4 shards, 103.7 GiB, on `/fast`. Spill ≈ 60 GiB at the starting point.
+- **Needs a third image.** `qwen4exp` merged 2026-09-16 to 10-05, after `b10362` and `v0.4.0`,
+  so it runs on `llamacpp-qwen4` (`b11461`). Further `qwen4exp` PRs are still open.
+- Starts at 2 × 32768 context, `n_cpu_moe=48` (every layer's experts in RAM), `ts 1,1`; the
+  KV cost of QSA is unmeasured. Thinking defaults off (`enable_thinking=false`).
+- Poller: `bigmoe=True`.
+
+gpt-oss-120b (§11.2) starts the same way: `n_cpu_moe=36`, `ts 1,1`, 4 × 32768 context,
+`reasoning_effort=low` (the template's default is `medium`; the model has no off switch).
 
 ### Common implementation notes for §11
 

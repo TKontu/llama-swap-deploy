@@ -182,6 +182,7 @@ cache blocks" failure.
 | GGUF, exotic (e.g. `Ternary-Bonsai-27B`) | **PrismML llama.cpp fork** | `cmd: docker run …` of a fork image (custom kernels) |
 | GGUF, newer arch (e.g. `Muse-Glimmer-30B`) | **mainline llama.cpp, pinned build** | `cmd: docker run …` of `Dockerfile.llamacpp` |
 | GGUF, weights larger than VRAM (`DeepSeek-V4-Flash`) | **mainline llama.cpp, newer pin**, experts in host RAM | same Dockerfile, `llamacpp-v4` image |
+| GGUF, architecture newer than both pins (`Qwen3.8-Flash-Next`, `qwen4exp`) | **mainline llama.cpp, third pin** (`b11461`), experts in host RAM | same Dockerfile, `llamacpp-qwen4` image |
 
 `Ternary-Bonsai-27B` is a hybrid-attention, multimodal, ternary-quantized model built for
 a **PrismML fork of llama.cpp** — vLLM 0.25.1 cannot serve it. This is a concrete reason
@@ -203,6 +204,8 @@ This is the non-obvious bit. They are not redundant and none can replace another
   bump, because `b10362` is what Muse-Glimmer's ATEM tool calling and Qwen3.8 were validated
   on — one new model should not re-open two working ones. The pins are rows in the
   `llamacpp-image` workflow matrix; a further pin is another row, not another Dockerfile.
+- That third row exists: `llamacpp-qwen4` at `b11461` (2026-10-07), for Qwen3.8-Flash-Next.
+  Its `qwen4exp` architecture landed in mainline from 2026-09-16, after both earlier pins.
 
 All images share `docker/gguf-serve.sh` as their entrypoint, so moving a model between them
 means changing only `image:` in the generated config. Pin the mainline tag rather than
@@ -234,14 +237,14 @@ check when its architecture was merged against the fork's branch date.
 ## Security note
 
 Mounting `/var/run/docker.sock` grants the llama-swap container root-equivalent control of
-the host Docker. It is needed to spawn model containers: all 24 models launch via
-`docker run` (10 vLLM, 14 llama.cpp).
+the host Docker. It is needed to spawn model containers: all 23 entries launch via
+`docker run` (8 vLLM, 13 llama.cpp, 2 ComfyUI; 2026-10-07).
 
 ### What an API caller can and cannot do
 
 **Cannot reach the socket.** It is mounted into the container and never proxied over HTTP.
 Over `:9292` a caller names a model ID and llama-swap runs the `cmd` string already baked
-into the image, so a caller selects *which* of 85 predefined commands runs, never *what* it
+into the image, so a caller selects *which* of 23 predefined commands runs, never *what* it
 runs. No value from an HTTP request reaches a docker command line.
 
 **The residual risk is indirect** -- a bug in llama-swap (injection via model name, path

@@ -1,6 +1,7 @@
 # Mainline llama.cpp image (pinned build) for GGUF models the PrismML fork can't load.
 # CI builds this file once per pin (.github/workflows/llamacpp-image.yml): b10362 as
-# llamacpp-mainline, v0.4.0 as llamacpp-v4. The ARG default below is the mainline pin.
+# llamacpp-mainline, v0.4.0 as llamacpp-v4, b11461 as llamacpp-qwen4. The ARG default below
+# is the mainline pin.
 #
 # Why this exists ALONGSIDE Dockerfile.bonsai: the bonsai image builds PrismML's `prism`
 # fork, which carries the Q2_0_g128 ternary kernels Ternary-Bonsai-27B needs but that

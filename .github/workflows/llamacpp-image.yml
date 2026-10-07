@@ -5,7 +5,8 @@ name: llamacpp-image
 # re-testing every model on the older pin:
 #   llamacpp-mainline  b10362  Muse-Glimmer-30B, Qwen3.8-27B
 #   llamacpp-v4        v0.4.0  DeepSeek-V4-Flash (CUDA sparse FA for DSV4, #27970)
-# If a third pin is ever needed, add a matrix row here — not another Dockerfile.
+#   llamacpp-qwen4     b11461  Qwen3.8-Flash-Next (qwen4exp, merged 2026-09-16..10-05)
+# A further pin is another matrix row here — not another Dockerfile.
 # This is a CUDA compile, so it only runs when its own files change or on manual dispatch —
 # NOT on every push.
 
@@ -32,6 +33,8 @@ jobs:
             llamacpp_tag: b10362
           - image: llamacpp-v4
             llamacpp_tag: v0.4.0
+          - image: llamacpp-qwen4
+            llamacpp_tag: b11461
     env:
       IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.image }}
     timeout-minutes: 120

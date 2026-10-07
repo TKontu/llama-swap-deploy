@@ -24,7 +24,7 @@ static GPU layout** — which is more reliable than dynamic VRAM packing for thi
 | `.github/workflows/build-and-push.yml` | CI: builds the Dockerfile and pushes the image to GHCR (Portainer can't build from a repo) |
 | `.github/workflows/bonsai-image.yml` | CI: builds the PrismML fork image → `ghcr.io/<owner>/bonsai-llama` |
 | `Dockerfile.llamacpp` | **Mainline** llama.cpp at a pinned tag — for models the PrismML fork is too old to load (built by CI → GHCR, once per pin) |
-| `.github/workflows/llamacpp-image.yml` | CI: builds the mainline Dockerfile per pin → `ghcr.io/<owner>/llamacpp-mainline` (`b10362`) and `ghcr.io/<owner>/llamacpp-v4` (`v0.4.0`) |
+| `.github/workflows/llamacpp-image.yml` | CI: builds the mainline Dockerfile per pin → `ghcr.io/<owner>/llamacpp-mainline` (`b10362`), `ghcr.io/<owner>/llamacpp-v4` (`v0.4.0`) and `ghcr.io/<owner>/llamacpp-qwen4` (`b11461`) |
 | `Dockerfile.comfyui` + `docker/comfyui-serve.sh` | ComfyUI + pinned icon-pipeline node packs; llama-swap starts it as `c2.comfyui` / `a4.comfyui` (see "ComfyUI") |
 | `.github/workflows/comfyui-image.yml` | CI: builds the ComfyUI image, runs a custom-node import test, pushes → `ghcr.io/<owner>/comfyui` |
 | `docker/gguf-serve.sh` | Shared GGUF entrypoint for **every** llama.cpp image (download-then-serve; split shards / vision / drafter / multi-GPU / MoE CPU offload via `GGUF_*` env vars) |
@@ -68,8 +68,8 @@ Disk speed decides **cold-load time**, since the weights are memory-mapped. Once
 loaded, decode reads RAM, not disk — unless the model is larger than RAM, in which case it
 pages from disk on every token and slows to a crawl.
 
-Currently on `/fast`: `deepseek-v4-flash`. The planned large candidates (SPEC-bigmoe §11)
-should go there too. Don't symlink from `/models` into `/fast`: containers only see paths
+Currently on `/fast`: `deepseek-v4-flash`, `gpt-oss-120b`, `qwen3.8-flash-next` and
+`granite-4.1-30b`. The other large candidates (SPEC-bigmoe §11) should go there too. Don't symlink from `/models` into `/fast`: containers only see paths
 that are mounted into them.
 - Portainer installed and pointed at this host's Docker.
 
@@ -392,7 +392,7 @@ routing:
             & (c2.gemma-26b | c2.gemma-e4b | … | c2.muse-glimmer | c2.comfyui)
             & a4.comfyui
           wholebox: >-
-            (Qwen3.6-35B-A3B-AWQ-4bit | … | deepseek-v4-flash)
+            (Qwen3.6-35B-A3B-AWQ-4bit | … | qwen3.8-flash-next)
             & a4.comfyui
 ```
 
@@ -721,6 +721,40 @@ in `reasoning_content`.
 > service. Mark the entry `bigmoe=True` and `gen_config.py` refuses to generate until the
 > compose file matches.
 
+## Comparison arms: gpt-oss-120b, Qwen3.8-Flash-Next, granite-4.1-30b
+
+Added 2026-10-07 for a model comparison run by a consumer (Iknos `SVC-274`): a sparse MoE with
+a low reasoning tier, a newer large MoE with thinking off, and a small dense model with no
+thinking mode. All weights are on `/fast`.
+
+| Model ID | GPUs | Image | Quant | On disk | Context | Thinking default |
+|---|---|---|---|---|---|---|
+| `gpt-oss-120b` | both 3090s + RAM | `llamacpp-mainline` | MXFP4, 1 file | 59.0 GiB | 4 × 32768 | `reasoning_effort=low` (cannot be off) |
+| `qwen3.8-flash-next` | both 3090s + RAM | `llamacpp-qwen4` (`b11461`) | `UD-Q4_K_XL`, 4 shards | 103.7 GiB | 2 × 32768 | `enable_thinking=false` |
+| `c0.`/`c2.granite-4.1-30b` | one 3090 | `llamacpp-mainline` | `UD-Q4_K_XL` | 16.5 GiB | 2 × 16384, q8_0 KV | none (non-thinking model) |
+
+Both thinking defaults are server-side `chat_template_kwargs` (`LLAMA_ARG_CHAT_TEMPLATE_KWARGS`),
+so a request's own `chat_template_kwargs` still wins.
+
+- **`n_cpu_moe` / `tensor_split` are starting points, not fits** (36 / `1,1` and 48 / `1,1`:
+  every layer's experts in RAM). The config is baked into the image, so fit them with a manual
+  `docker run` on the host as for DeepSeek (SPEC-bigmoe §15), then commit the measured values.
+- **`qwen3.8-flash-next` runs below its native 262144 context.** `qwen4exp`'s QSA/DeltaNet
+  cache is new; record the KV buffer sizes from the startup log before raising it.
+- **Licences.** gpt-oss-120b and granite-4.1-30b are Apache-2.0; Qwen3.8-Flash-Next is
+  `qwen-community-1.0`.
+- Both whole-box models are `bigmoe=True`, so the on-call poller never evicts them.
+
+Pre-download the weights before the first request: a first load that has to fetch 100+ GiB
+blows `healthCheckTimeout`. Same pattern as DeepSeek, one repo per command:
+
+```bash
+IMG=ghcr.io/tkontu/llamacpp-mainline:latest
+docker run --rm --entrypoint hf -v /models/hf-cache:/root/.cache/huggingface -v /fast/gguf:/fast-gguf -e HF_XET_CACHE=/fast-gguf/.xet-cache $IMG download ggml-org/gpt-oss-120b-GGUF gpt-oss-120b-MXFP4.gguf --local-dir /fast-gguf/ggml-org_gpt-oss-120b-GGUF
+docker run --rm --entrypoint hf -v /models/hf-cache:/root/.cache/huggingface -v /fast/gguf:/fast-gguf -e HF_XET_CACHE=/fast-gguf/.xet-cache $IMG download unsloth/Qwen3.8-Flash-Next-GGUF --include "UD-Q4_K_XL/*" --local-dir /fast-gguf/unsloth_Qwen3.8-Flash-Next-GGUF
+docker run --rm --entrypoint hf -v /models/hf-cache:/root/.cache/huggingface -v /fast/gguf:/fast-gguf -e HF_XET_CACHE=/fast-gguf/.xet-cache $IMG download unsloth/granite-4.1-30b-GGUF granite-4.1-30b-UD-Q4_K_XL.gguf --local-dir /fast-gguf/unsloth_granite-4.1-30b-GGUF
+```
+
 ## ComfyUI (image generation, started by llama-swap)
 
 ComfyUI is not an LLM, but llama-swap starts and stops it on demand with `docker run`, exactly
@@ -903,6 +937,9 @@ which match neither model card. So both models now pass their card's values as f
 |---|---|
 | `muse-glimmer`, `Muse-Glimmer-30B-split` | `--temp 1.0 --top-p 0.95 --top-k 64 --min-p 0.0` |
 | `qwen3.8-27b`, `Qwen3.8-27B-split` | `--temp 1.0 --top-p 0.95 --top-k 20 --min-p 0.0 --presence-penalty 0.0` |
+| `gpt-oss-120b` | `--temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0` |
+| `qwen3.8-flash-next` | `--temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0 --presence-penalty 1.5` (the card's non-thinking set) |
+| `granite-4.1-30b` | none — the card names no defaults |
 
 Two notes. `min_p` is the quiet one: `0.05` is a llama.cpp invention that truncates the tail,
 and Qwen3.8 explicitly asks for `0.0`. And the Qwen3.8 values are its **thinking-mode** set,

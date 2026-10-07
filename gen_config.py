@@ -48,6 +48,12 @@ LLAMACPP = "ghcr.io/tkontu/llamacpp-mainline:latest"
 # DSV4 (#27970). Kept as a separate image so Muse-Glimmer and Qwen3.8 stay on the build they
 # were validated against — see SPEC-bigmoe.md §3.
 LLAMACPP_V4 = "ghcr.io/tkontu/llamacpp-v4:latest"
+# Mainline llama.cpp at a THIRD pin (b11461), same Dockerfile.llamacpp, for Qwen3.8-Flash-Next.
+# Its GGUF declares general.architecture=qwen4exp, which landed in mainline from 2026-09-16
+# (#28901, hc ops) with fixes through 2026-10-05 (#29751, #29824, #29825, #29901) — after both
+# older pins. A separate image for the same reason as LLAMACPP_V4: the models validated on
+# b10362 and v0.4.0 stay where they are.
+LLAMACPP_QWEN4 = "ghcr.io/tkontu/llamacpp-qwen4:latest"
 # ComfyUI with the pinned icon-pipeline node packs (Dockerfile.comfyui).
 COMFYUI_IMAGE = "ghcr.io/tkontu/comfyui:latest"
 
@@ -204,6 +210,23 @@ QWEN38_SAMPLING = sampling_args(temp=1.0, top_p=0.95, top_k=20, min_p=0.0, prese
 # the template's modes are non-think/high/max, with no cheap tier to default down to.
 DEEPSEEK_V4_SAMPLING = sampling_args(temp=1.0, top_p=1.0, min_p=0.01)
 
+# gpt-oss-120b. Reasoning cannot be switched off on this model: the template reads
+# `reasoning_effort` (low|medium|high) and sets it to "medium" when unset — read off the
+# chat_template embedded in ggml-org's GGUF. `low` is the cheapest tier. Server-side default
+# only: a request's own chat_template_kwargs wins (see gguf_entry).
+GPT_OSS_TEMPLATE_KWARGS = dict(reasoning_effort="low")
+# OpenAI's recommendation for gpt-oss: temperature 1.0, top_p 1.0. top_k 0 and min_p 0 switch
+# off llama.cpp's own truncation defaults (40 / 0.05), which the model was not tuned under.
+GPT_OSS_SAMPLING = sampling_args(temp=1.0, top_p=1.0, top_k=0, min_p=0.0)
+
+# Qwen3.8-Flash-Next. Hybrid: thinking is ON in the template by default, and
+# enable_thinking:false answers directly. The server default here is OFF (a request may still
+# turn it on), so the sampling is the card's NON-thinking set, verbatim:
+# temperature 0.7, top_p 0.80, top_k 20, min_p 0.0, presence_penalty 1.5.
+FLASH_NEXT_TEMPLATE_KWARGS = dict(enable_thinking=False)
+FLASH_NEXT_SAMPLING = sampling_args(temp=0.7, top_p=0.8, top_k=20, min_p=0.0,
+                                    presence_penalty=1.5)
+
 POOL = [
     # 65536: measured 19882 MiB @ 16800 and 20552 MiB @ 32768 (TP=1, kv_seqs 1,
     # vllm_refs/memory_footprints.json) → ~43 KiB/token, so 65536 extrapolates to
@@ -287,6 +310,20 @@ POOL = [
          mmproj="mmproj-kquant.gguf", draft="dflash-kquant.gguf",
          spec_type="draft-dflash", ctx=131072, par=1, card_ttl={"c0": 0},
          template_kwargs=MUSE_TEMPLATE_KWARGS, sampling=MUSE_SAMPLING),
+    # granite-4.1-30b (IBM, 2026-04-30, Apache-2.0) — a dense, non-thinking 30B instruct model,
+    # from a different family than both the gemma verifier and the Qwen members. `granite` is an
+    # old llama.cpp architecture, so the b10362 image loads it.
+    #
+    # KV is the tight part: 64 layers, 8 KV heads, head_dim 128 (config.json) -> 256 KiB/token
+    # at f16. Against the ~23.3 GiB card: 16.50 (UD-Q4_K_XL) + ~1.2 compute leaves ~5.6 GiB,
+    # i.e. ~22k tokens at f16. q8_0 KV halves the per-token cost, so 2 slots x 16384 = 32768
+    # tokens is ~4.0 GiB.
+    # Text only (the model has no vision tower). The card names no sampling defaults, so none
+    # are set and llama.cpp's own apply.
+    # storage="fast": /models is near full (SPEC-bigmoe §13).
+    dict(tok="granite-4.1-30b", backend="gguf", image=LLAMACPP, storage="fast",
+         repo="unsloth/granite-4.1-30b-GGUF", hf_file="granite-4.1-30b-UD-Q4_K_XL.gguf",
+         ctx=16384, par=2, cache_type="q8_0"),
     # MTP variant (self-speculative) — uncomment to add as its own pool member (needs a load test):
     # dict(tok="qwythos-v2-mtp", backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-MTP-Q4_K_M.gguf", ctx=32768),
 ]
@@ -445,6 +482,43 @@ UNGROUPED_GGUF = [
          ctx=1048576, par=1, split_mode="layer", tensor_split="6,1",
          n_cpu_moe=36, numa="distribute", threads=12, batch=4096, ubatch=1024,
          sampling=DEEPSEEK_V4_SAMPLING),
+    # gpt-oss-120b (117B total / 5.1B active, native MXFP4) — SPEC-bigmoe §11.2. One 59.0 GiB
+    # file: more than the 46.6 GiB of the two cards, so experts spill to RAM (~15-18 GiB), and
+    # more than /models has free, so it lives on /fast. `gpt-oss` is in b10362.
+    #
+    # Context 4 slots x 32768 = the native 131072 in total. Every other layer is a 128-token
+    # sliding window, so KV is ~36 KiB/token -> ~4.5 GiB for the lot: the same as one slot at
+    # 131072, but four requests run at once.
+    #
+    # n_cpu_moe=36 / tensor_split="1,1" are a STARTING POINT, not a fit: every layer's experts
+    # in RAM, as SPEC §5 starts a RAM-offload model. Walk n_cpu_moe down on the host (expect
+    # ~12-16), rebalance -ts as for DeepSeek (SPEC §15), then commit the measured values.
+    # No EAGLE3 drafter yet (the repo ships one, 0.8 GiB): A/B it at temperature 0 later.
+    dict(tok="gpt-oss-120b", bigmoe=True, image=LLAMACPP, cards=[CARD0, CARD2],
+         ttl=TTL_BIGMOE, storage="fast", repo="ggml-org/gpt-oss-120b-GGUF",
+         hf_file="gpt-oss-120b-MXFP4.gguf",
+         ctx=32768, par=4, split_mode="layer", tensor_split="1,1",
+         n_cpu_moe=36, threads=12, batch=4096, ubatch=1024,
+         template_kwargs=GPT_OSS_TEMPLATE_KWARGS, sampling=GPT_OSS_SAMPLING),
+    # Qwen3.8-Flash-Next (2026-08; 125B total / 6B active, 512 experts top-10 + 1 shared,
+    # 48 layers, Gated DeltaNet + Qwen Sparse Attention; 51B of the total is an n-gram
+    # embedding). UD-Q4_K_XL is 4 shards, 103.7 GiB, on /fast. Needs the qwen4exp
+    # architecture, hence the b11461 image (LLAMACPP_QWEN4). Licence qwen-community-1.0, not
+    # Apache: a consumer reads it before adopting the model.
+    #
+    # Text only: the mmproj (0.84 GiB) and the MTP drafter are left off. Thinking defaults OFF
+    # (FLASH_NEXT_TEMPLATE_KWARGS); a request can still turn it on.
+    #
+    # Context 2 x 32768, NOT the native 262144: the QSA/DeltaNet cache layout is new and nothing
+    # on this box has measured it. Raise it once the startup log's KV buffer sizes are recorded.
+    # n_cpu_moe=48 (every layer's experts in RAM) / ts "1,1" are the SPEC §5 starting point;
+    # walk down and rebalance on the host, as for DeepSeek.
+    dict(tok="qwen3.8-flash-next", bigmoe=True, image=LLAMACPP_QWEN4, cards=[CARD0, CARD2],
+         ttl=TTL_BIGMOE, storage="fast", repo="unsloth/Qwen3.8-Flash-Next-GGUF",
+         hf_file="UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
+         ctx=32768, par=2, split_mode="layer", tensor_split="1,1",
+         n_cpu_moe=48, threads=12, batch=4096, ubatch=1024,
+         template_kwargs=FLASH_NEXT_TEMPLATE_KWARGS, sampling=FLASH_NEXT_SAMPLING),
 ]
 
 # ComfyUI instances. Same image and the same shared weights (/fast/comfyui/models); each has its
