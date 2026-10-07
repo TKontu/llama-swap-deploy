@@ -262,6 +262,10 @@ Three entries for a consumer's model comparison (Iknos `SVC-274`); README → "C
   `1,1` was 19.7 tok/s at ~4 GiB per card). Trial table in the `gen_config.py` comment.
 - [x] Fit `qwen3.8-flash-next` (2026-10-07): 28 / `3,1` → 18.1 tok/s, 20.7 + 19.9 GiB (start 48 /
   `1,1` was 9.1 tok/s). Thinking off returns no reasoning. Trial table in the `gen_config.py` comment.
+- [ ] **GLM-5.3-Flash** (added 2026-10-07, operator): `glm-5.3-flash`, UD-IQ4_XS on
+  `llamacpp-glm5` (`b11476`). CI builds the image; download (`unsloth_GLM-5.3-Flash-GGUF`,
+  `UD-IQ4_XS/*`); fit n_cpu_moe / ts from 48 / `1,1`; record whether `enable_thinking:false` is
+  honoured or only `reasoning_effort: low`.
 - [x] `granite-4.1-30b` probed on c2 (2026-10-07): 32.4 tok/s decode, 21.8 GiB at 2 × 16384 q8_0 KV,
   no reasoning.
 - [ ] Record the `qwen4exp` KV buffer sizes from the startup log; raise the context if cheap.

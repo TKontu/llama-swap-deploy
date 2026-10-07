@@ -54,6 +54,11 @@ LLAMACPP_V4 = "ghcr.io/tkontu/llamacpp-v4:latest"
 # older pins. A separate image for the same reason as LLAMACPP_V4: the models validated on
 # b10362 and v0.4.0 stay where they are.
 LLAMACPP_QWEN4 = "ghcr.io/tkontu/llamacpp-qwen4:latest"
+# Mainline llama.cpp at a FOURTH pin (b11476), same Dockerfile.llamacpp, for GLM-5.3-Flash.
+# `glm5-next` merged 2026-09-30 (#27773); b11476 also carries the sparse-attention gather removal
+# (#30042, 10-06) and GLM5Next MTP (#29928, 10-07), both after b11461. A separate image so
+# Qwen3.8-Flash-Next stays on the build it was fitted on.
+LLAMACPP_GLM5 = "ghcr.io/tkontu/llamacpp-glm5:latest"
 # ComfyUI with the pinned icon-pipeline node packs (Dockerfile.comfyui).
 COMFYUI_IMAGE = "ghcr.io/tkontu/comfyui:latest"
 
@@ -224,6 +229,15 @@ GPT_OSS_SAMPLING = sampling_args(temp=1.0, top_p=1.0, top_k=0, min_p=0.0)
 # turn it on), so the sampling is the card's NON-thinking set, verbatim:
 # temperature 0.7, top_p 0.80, top_k 20, min_p 0.0, presence_penalty 1.5.
 FLASH_NEXT_TEMPLATE_KWARGS = dict(enable_thinking=False)
+
+# GLM-5.3-Flash. Read off the chat_template embedded in unsloth's GGUF:
+#   effective_reasoning_effort = reasoning_effort if it is in ['low', 'high'] else 'max'
+# so an UNSET effort runs at MAX — the expensive default. `low` is the floor the template offers.
+# enable_thinking is passed too: if this template honours it the trace is skipped, and if not it
+# is ignored (unknown kwargs are inert). The harness health check records which is true.
+GLM53_TEMPLATE_KWARGS = dict(reasoning_effort="low", enable_thinking=False)
+# Sampling as in the card's evaluation settings: temperature 1.0, top_p 0.95.
+GLM53_SAMPLING = sampling_args(temp=1.0, top_p=0.95, min_p=0.0)
 FLASH_NEXT_SAMPLING = sampling_args(temp=0.7, top_p=0.8, top_k=20, min_p=0.0,
                                     presence_penalty=1.5)
 
@@ -527,6 +541,23 @@ UNGROUPED_GGUF = [
          ctx=32768, par=2, split_mode="layer", tensor_split="3,1",
          n_cpu_moe=28, threads=12, batch=4096, ubatch=1024,
          template_kwargs=FLASH_NEXT_TEMPLATE_KWARGS, sampling=FLASH_NEXT_SAMPLING),
+    # GLM-5.3-Flash (Z.AI, 2026-08-25; MIT; 321B total / 18B active, 288 experts top-8, MLA-style
+    # attention, `glm5-next`) — SPEC-bigmoe §11.5, unblocked by mainline support (#27773).
+    # UD-IQ4_XS: 5 shards, 146 GiB (156.8 GB), on /fast. Chosen over UD-Q4_K_XL because its CPU
+    # part (~108 GiB with ~38 GiB on the cards) leaves wide page-cache slack in the 216 GiB VM;
+    # Q4_K_XL would leave little, and an evicted expert page is re-read from NVMe every token.
+    # i-quants cost a little more CPU per token to unpack than K-quants; measure decode before
+    # trusting it (UD-Q3_K_XL is the fallback comparison).
+    #
+    # Text only (the mmproj and MTP are left off). Context 2 x 32768, not the native 1M, until the
+    # KV cost is measured. n_cpu_moe=48 (every layer's experts in RAM) / ts "1,1" are the SPEC §5
+    # starting point; fit on the host as for the others, then commit the measured values.
+    dict(tok="glm-5.3-flash", bigmoe=True, image=LLAMACPP_GLM5, cards=[CARD0, CARD2],
+         ttl=TTL_BIGMOE, storage="fast", repo="unsloth/GLM-5.3-Flash-GGUF",
+         hf_file="UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00001-of-00005.gguf",
+         ctx=32768, par=2, split_mode="layer", tensor_split="1,1",
+         n_cpu_moe=48, threads=12, batch=4096, ubatch=1024,
+         template_kwargs=GLM53_TEMPLATE_KWARGS, sampling=GLM53_SAMPLING),
 ]
 
 # ComfyUI instances. Same image and the same shared weights (/fast/comfyui/models); each has its
