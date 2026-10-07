@@ -515,13 +515,17 @@ UNGROUPED_GGUF = [
     #
     # Context 2 x 32768, NOT the native 262144: the QSA/DeltaNet cache layout is new and nothing
     # on this box has measured it. Raise it once the startup log's KV buffer sizes are recorded.
-    # n_cpu_moe=48 (every layer's experts in RAM) / ts "1,1" are the SPEC §5 starting point;
-    # walk down and rebalance on the host, as for DeepSeek.
+    # n_cpu_moe=28 / tensor_split="3,1": MEASURED on the host 2026-10-07 (greedy, 300 tokens,
+    # "Write 300 words about PCIe.", 2 x 32768 context, thinking off -> 0 reasoning chars):
+    #   * 48 / "1,1" (every expert in RAM, the SPEC §5 start): 9.1 tok/s, 5.4 + 4.3 GiB
+    #   * 28 / "3,1": 18.1 tok/s, 20.7 + 19.9 GiB -> ~3.3 / ~4.1 GiB headroom. SHIPPED.
+    #   * 32 / "2,1", 28 / "2,1", 24 / "2,1" OOM (second card); 24 / "3,1" OOM.
+    # The per-layer n-gram tables (blk.N.ple_key/ple_value) stay with their layer; at 48 they fit.
     dict(tok="qwen3.8-flash-next", bigmoe=True, image=LLAMACPP_QWEN4, cards=[CARD0, CARD2],
          ttl=TTL_BIGMOE, storage="fast", repo="unsloth/Qwen3.8-Flash-Next-GGUF",
          hf_file="UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf",
-         ctx=32768, par=2, split_mode="layer", tensor_split="1,1",
-         n_cpu_moe=48, threads=12, batch=4096, ubatch=1024,
+         ctx=32768, par=2, split_mode="layer", tensor_split="3,1",
+         n_cpu_moe=28, threads=12, batch=4096, ubatch=1024,
          template_kwargs=FLASH_NEXT_TEMPLATE_KWARGS, sampling=FLASH_NEXT_SAMPLING),
 ]
 

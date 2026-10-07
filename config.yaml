@@ -558,8 +558,8 @@ models:
       -e GGUF_CTX=32768
       -e GGUF_PARALLEL=2
       -e GGUF_SPLIT_MODE=layer
-      -e GGUF_TENSOR_SPLIT=1,1
-      -e GGUF_N_CPU_MOE=48
+      -e GGUF_TENSOR_SPLIT=3,1
+      -e GGUF_N_CPU_MOE=28
       -e GGUF_THREADS=12
       -e GGUF_BATCH=4096
       -e GGUF_UBATCH=1024

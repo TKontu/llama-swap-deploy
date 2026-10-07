@@ -260,8 +260,10 @@ Three entries for a consumer's model comparison (Iknos `SVC-274`); README → "C
 - [ ] Pre-download the three GGUFs to `/fast/gguf` (README commands).
 - [x] Fit `gpt-oss-120b` (2026-10-07): 16 / `2,1` → 35.0 tok/s, 19.5 + 20.8 GiB (start 36 /
   `1,1` was 19.7 tok/s at ~4 GiB per card). Trial table in the `gen_config.py` comment.
-- [ ] Fit `qwen3.8-flash-next` (start 48 / `1,1`) by manual `docker run`; commit the measured
-  values.
+- [x] Fit `qwen3.8-flash-next` (2026-10-07): 28 / `3,1` → 18.1 tok/s, 20.7 + 19.9 GiB (start 48 /
+  `1,1` was 9.1 tok/s). Thinking off returns no reasoning. Trial table in the `gen_config.py` comment.
+- [x] `granite-4.1-30b` probed on c2 (2026-10-07): 32.4 tok/s decode, 21.8 GiB at 2 × 16384 q8_0 KV,
+  no reasoning.
 - [ ] Record the `qwen4exp` KV buffer sizes from the startup log; raise the context if cheap.
 - [ ] Per model: VRAM per card, RSS, decode tok/s, 8k prefill tok/s, cold/warm load, and a
   coherence probe with the thinking default (no reasoning trace from flash-next; a short one
