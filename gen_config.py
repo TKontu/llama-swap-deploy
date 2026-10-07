@@ -490,15 +490,19 @@ UNGROUPED_GGUF = [
     # sliding window, so KV is ~36 KiB/token -> ~4.5 GiB for the lot: the same as one slot at
     # 131072, but four requests run at once.
     #
-    # n_cpu_moe=36 / tensor_split="1,1" are a STARTING POINT, not a fit: every layer's experts
-    # in RAM, as SPEC §5 starts a RAM-offload model. Walk n_cpu_moe down on the host (expect
-    # ~12-16), rebalance -ts as for DeepSeek (SPEC §15), then commit the measured values.
+    # n_cpu_moe=16 / tensor_split="2,1": MEASURED on the host 2026-10-07 (greedy, 300 tokens,
+    # "Write 300 words about PCIe.", 4 x 32768 context):
+    #   * 36 / "1,1" (every expert in RAM, the SPEC §5 start): 19.7 tok/s, ~4 GiB per card
+    #   * 16 / "2,1": 35.0 tok/s, 19.5 + 20.8 GiB -> ~3.5 GiB headroom per card. SHIPPED.
+    #   * 20 / "1,1" OOMs: the 16 GPU-resident expert layers all land on the second card.
+    #   * 16 / "3,1", 14 / "3,1", 14 / "4,1", 12 / "4,1" OOM: the first card takes too many.
+    # As for DeepSeek, -ts moves the layer boundary; GPU-resident experts are the LAST layers.
     # No EAGLE3 drafter yet (the repo ships one, 0.8 GiB): A/B it at temperature 0 later.
     dict(tok="gpt-oss-120b", bigmoe=True, image=LLAMACPP, cards=[CARD0, CARD2],
          ttl=TTL_BIGMOE, storage="fast", repo="ggml-org/gpt-oss-120b-GGUF",
          hf_file="gpt-oss-120b-MXFP4.gguf",
-         ctx=32768, par=4, split_mode="layer", tensor_split="1,1",
-         n_cpu_moe=36, threads=12, batch=4096, ubatch=1024,
+         ctx=32768, par=4, split_mode="layer", tensor_split="2,1",
+         n_cpu_moe=16, threads=12, batch=4096, ubatch=1024,
          template_kwargs=GPT_OSS_TEMPLATE_KWARGS, sampling=GPT_OSS_SAMPLING),
     # Qwen3.8-Flash-Next (2026-08; 125B total / 6B active, 512 experts top-10 + 1 shared,
     # 48 layers, Gated DeltaNet + Qwen Sparse Attention; 51B of the total is an n-gram
