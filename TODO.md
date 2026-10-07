@@ -258,8 +258,10 @@ Three entries for a consumer's model comparison (Iknos `SVC-274`); README → "C
 
 - [ ] CI builds `llamacpp-qwen4` at `b11461`.
 - [ ] Pre-download the three GGUFs to `/fast/gguf` (README commands).
-- [ ] Fit `n_cpu_moe` / `tensor_split` for `gpt-oss-120b` (start 36 / `1,1`) and
-  `qwen3.8-flash-next` (start 48 / `1,1`) by manual `docker run`; commit the measured values.
+- [x] Fit `gpt-oss-120b` (2026-10-07): 16 / `2,1` → 35.0 tok/s, 19.5 + 20.8 GiB (start 36 /
+  `1,1` was 19.7 tok/s at ~4 GiB per card). Trial table in the `gen_config.py` comment.
+- [ ] Fit `qwen3.8-flash-next` (start 48 / `1,1`) by manual `docker run`; commit the measured
+  values.
 - [ ] Record the `qwen4exp` KV buffer sizes from the startup log; raise the context if cheap.
 - [ ] Per model: VRAM per card, RSS, decode tok/s, 8k prefill tok/s, cold/warm load, and a
   coherence probe with the thinking default (no reasoning trace from flash-next; a short one
