@@ -183,6 +183,29 @@ models:
     ttl: 0
     concurrencyLimit: 4
 
+  "c0.granite-4.1-30b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e GGUF_REPO=unsloth/granite-4.1-30b-GGUF
+      -e GGUF_FILE=granite-4.1-30b-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=2
+      -e GGUF_CACHE_TYPE=q8_0
+      -e GGUF_DIR=/fast-gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
+
   # ===== c2: single-card models on GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb =====
   "c2.gemma-26b":
     cmd: |
@@ -322,6 +345,29 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 4
+
+  "c2.granite-4.1-30b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e GGUF_REPO=unsloth/granite-4.1-30b-GGUF
+      -e GGUF_FILE=granite-4.1-30b-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=16384
+      -e GGUF_PARALLEL=2
+      -e GGUF_CACHE_TYPE=q8_0
+      -e GGUF_DIR=/fast-gguf
+      -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 8
 
   # ===== Solo big models (TP=2, own both 3090s — in no matrix set) =====
   "Qwen3.6-35B-A3B-AWQ-4bit":
@@ -468,6 +514,73 @@ models:
     ttl: 28800
     concurrencyLimit: 4
 
+  "gpt-oss-120b":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e GGUF_REPO=ggml-org/gpt-oss-120b-GGUF
+      -e GGUF_FILE=gpt-oss-120b-MXFP4.gguf
+      -e GGUF_CTX=32768
+      -e GGUF_PARALLEL=4
+      -e GGUF_SPLIT_MODE=layer
+      -e GGUF_TENSOR_SPLIT=1,1
+      -e GGUF_N_CPU_MOE=36
+      -e GGUF_THREADS=12
+      -e GGUF_BATCH=4096
+      -e GGUF_UBATCH=1024
+      -e GGUF_DIR=/fast-gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low"}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 1.0
+      --top-k 0
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 28800
+    concurrencyLimit: 16
+
+  "qwen3.8-flash-next":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e GGUF_REPO=unsloth/Qwen3.8-Flash-Next-GGUF
+      -e GGUF_FILE=UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      -e GGUF_CTX=32768
+      -e GGUF_PARALLEL=2
+      -e GGUF_SPLIT_MODE=layer
+      -e GGUF_TENSOR_SPLIT=1,1
+      -e GGUF_N_CPU_MOE=48
+      -e GGUF_THREADS=12
+      -e GGUF_BATCH=4096
+      -e GGUF_UBATCH=1024
+      -e GGUF_DIR=/fast-gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"enable_thinking":false}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-qwen4:latest
+      --alias ${MODEL_ID}
+      --temp 0.7
+      --top-p 0.8
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 1.5
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 28800
+    concurrencyLimit: 8
+
   # ===== ComfyUI (not LLMs; reached via /upstream/<id>/ — see COMFYUI) =====
   "a4.comfyui":
     cmd: |
@@ -532,6 +645,7 @@ routing:
               | c0.qwythos-v2
               | c0.qwen3.8-27b
               | c0.muse-glimmer
+              | c0.granite-4.1-30b
             )
             & (c2.gemma-26b
               | c2.gemma-e4b
@@ -539,6 +653,7 @@ routing:
               | c2.qwythos-v2
               | c2.qwen3.8-27b
               | c2.muse-glimmer
+              | c2.granite-4.1-30b
               | c2.comfyui
             )
             & a4.comfyui
@@ -548,5 +663,7 @@ routing:
               | Muse-Glimmer-30B-split
               | Qwen3.8-27B-split
               | deepseek-v4-flash
+              | gpt-oss-120b
+              | qwen3.8-flash-next
             )
             & a4.comfyui
