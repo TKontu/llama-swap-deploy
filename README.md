@@ -747,6 +747,7 @@ thinking mode. All weights are on `/fast`.
 | `gpt-oss-120b` | both 3090s + RAM | `llamacpp-mainline` | MXFP4, 1 file | 59.0 GiB | 4 × 32768 | `reasoning_effort=low` (cannot be off) |
 | `qwen3.8-flash-next` | both 3090s + RAM | `llamacpp-qwen4` (`b11461`) | `UD-Q4_K_XL`, 4 shards | 103.7 GiB | 2 × 32768 | `enable_thinking=false` |
 | `c0.`/`c2.granite-4.1-30b` | one 3090 | `llamacpp-mainline` | `UD-Q4_K_XL` | 16.5 GiB | 2 × 16384, q8_0 KV | none (non-thinking model) |
+| `glm-5.3-flash` | both 3090s + RAM | `llamacpp-glm5` (`b11476`) | `UD-IQ4_XS`, 5 shards | 146 GiB | 2 × 32768 | `reasoning_effort=low` (template default is `max`) |
 
 Both thinking defaults are server-side `chat_template_kwargs` (`LLAMA_ARG_CHAT_TEMPLATE_KWARGS`),
 so a request's own `chat_template_kwargs` still wins.

@@ -581,6 +581,38 @@ models:
     ttl: 28800
     concurrencyLimit: 8
 
+  "glm-5.3-flash":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1,GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e GGUF_REPO=unsloth/GLM-5.3-Flash-GGUF
+      -e GGUF_FILE=UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00001-of-00005.gguf
+      -e GGUF_CTX=32768
+      -e GGUF_PARALLEL=2
+      -e GGUF_SPLIT_MODE=layer
+      -e GGUF_TENSOR_SPLIT=1,1
+      -e GGUF_N_CPU_MOE=48
+      -e GGUF_THREADS=12
+      -e GGUF_BATCH=4096
+      -e GGUF_UBATCH=1024
+      -e GGUF_DIR=/fast-gguf
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","enable_thinking":false}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -v /fast/gguf:/fast-gguf
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-glm5:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --min-p 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 28800
+    concurrencyLimit: 8
+
   # ===== ComfyUI (not LLMs; reached via /upstream/<id>/ — see COMFYUI) =====
   "a4.comfyui":
     cmd: |
@@ -665,5 +697,6 @@ routing:
               | deepseek-v4-flash
               | gpt-oss-120b
               | qwen3.8-flash-next
+              | glm-5.3-flash
             )
             & a4.comfyui
