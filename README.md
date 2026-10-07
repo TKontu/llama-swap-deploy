@@ -226,6 +226,21 @@ It forwards everything to llama-swap, streams and websockets included, with two 
   `EDGE_COMFYUI_BCRYPT` defaults to the hash of a random string that was generated and
   discarded, so the edge always starts but **nobody can log in until you set it**. It is passed
   as a bare compose variable, because an empty value would make Caddy refuse to start.
+
+  > **Double every `$` when you paste the hash into Portainer.** A bcrypt hash looks like
+  > `$2a$14$<salt><hash>`, and the stack variable goes through one round of variable
+  > substitution: `$2a`, `$14` and `$<salt>` are read as variable names and replaced with
+  > nothing. The hash arrives truncated and **no password will ever match**, while the login
+  > prompt still appears — so it looks like a wrong password rather than a broken hash. Enter
+  > it as `$$2a$$14$$<salt><hash>`; substitution turns each `$$` back into one `$`.
+  >
+  > To check what actually arrived (60 characters, three `$`):
+  >
+  > ```bash
+  > v=$(docker inspect llama-swap-edge --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  >     | sed -n 's/^EDGE_COMFYUI_BCRYPT=//p')
+  > echo "${#v} chars, $(printf '%s' "$v" | tr -cd '$' | wc -c) dollars"
+  > ```
 - **While a deploy drains** (`/state/drain` exists), requests that would start new work
   (anything but GET/HEAD/OPTIONS, outside `/api/*`, other than ComfyUI acks) get **503 with
   `Retry-After: 60`**. Requests already in flight are never touched. Clients should retry
