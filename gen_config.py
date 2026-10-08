@@ -260,6 +260,11 @@ POOL = [
     # No --enforce-eager: eager costs the most on small models (launch overhead dominates
     # decode); the Xid 31 / AWQ-MoE eager mitigation is for Qwen3.6-35B-A3B, not this model.
     dict(tok="qwen3.5-4b",  backend="vllm", repo="cyankiwi/Qwen3.5-4B-AWQ-4bit",                  mml=32768, think_off=True, extra=APC_ALIGN),
+    # Qwen3.5-4B at FULL precision (bf16, ~9.3 GB) — the quantisation control for Iknos SVC-274
+    # (arm B0-bf16, pre-registration amendment 6, operator 2026-10-07). Same model, flags and
+    # context as qwen3.5-4b above; only the weights differ, so any difference between the two arms
+    # is the AWQ-4bit quantisation. Fits one 3090 with KV to spare.
+    dict(tok="qwen3.5-4b-bf16", backend="vllm", repo="Qwen/Qwen3.5-4B",                         mml=32768, think_off=True, extra=APC_ALIGN),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
     # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
