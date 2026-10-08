@@ -555,13 +555,21 @@ UNGROUPED_GGUF = [
     # trusting it (UD-Q3_K_XL is the fallback comparison).
     #
     # Text only (the mmproj and MTP are left off). Context 2 x 32768, not the native 1M, until the
-    # KV cost is measured. n_cpu_moe=48 (every layer's experts in RAM) / ts "1,1" are the SPEC §5
-    # starting point; fit on the host as for the others, then commit the measured values.
+    # KV cost is measured. n_cpu_moe=37 / tensor_split="5,1": MEASURED on the host 2026-10-08
+    # (greedy, 300 tokens, "Write 300 words about PCIe.", 2 x 32768 context, thinking off -> 0
+    # reasoning chars):
+    #   * 48 / "1,1" (every expert in RAM, the SPEC §5 start): 4.3 tok/s
+    #   * 41 / "8,1": 5.9 tok/s, 14.3 + 12.0 GiB; 39 / "8,1": 6.3 tok/s, 20.6 + 12.0 GiB
+    #   * 37 / "5,1": 6.6 tok/s, 20.2 + 18.6 GiB -> ~3.8 / ~5.4 GiB headroom. SHIPPED.
+    #   * 36 / "5,1": 6.7 tok/s, 23.4 + 18.6 GiB -> ~0.6 GiB on card 0; too tight for +2 %.
+    #   * 37 / "8,1", 37 / "7,1": KV cache allocation fails; 36 / "8,1", 35 / "9,1": CUDA0 OOM;
+    #     36, 35, 34 / "4,1" and 35 / "3,1": CUDA1 OOM.
+    # Decode is bound by RAM bandwidth for the ~37 layers whose experts stay in RAM.
     dict(tok="glm-5.3-flash", bigmoe=True, image=LLAMACPP_GLM5, cards=[CARD0, CARD2],
          ttl=TTL_BIGMOE, storage="fast", repo="unsloth/GLM-5.3-Flash-GGUF",
          hf_file="UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00001-of-00005.gguf",
-         ctx=32768, par=2, split_mode="layer", tensor_split="1,1",
-         n_cpu_moe=48, threads=12, batch=4096, ubatch=1024,
+         ctx=32768, par=2, split_mode="layer", tensor_split="5,1",
+         n_cpu_moe=37, threads=12, batch=4096, ubatch=1024,
          template_kwargs=GLM53_TEMPLATE_KWARGS, sampling=GLM53_SAMPLING),
 ]
 
