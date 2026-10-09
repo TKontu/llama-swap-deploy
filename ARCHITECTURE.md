@@ -237,8 +237,8 @@ check when its architecture was merged against the fork's branch date.
 ## Security note
 
 Mounting `/var/run/docker.sock` grants the llama-swap container root-equivalent control of
-the host Docker. It is needed to spawn model containers: all 23 entries launch via
-`docker run` (8 vLLM, 13 llama.cpp, 2 ComfyUI; 2026-10-07).
+the host Docker. It is needed to spawn model containers: all 28 entries launch via
+`docker run` (12 vLLM, 14 llama.cpp, 2 ComfyUI; 2026-10-09).
 
 ### What an API caller can and cannot do
 

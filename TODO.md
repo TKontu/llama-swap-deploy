@@ -275,6 +275,25 @@ Three entries for a consumer's model comparison (Iknos `SVC-274`); README → "C
 - [ ] `granite-4.1-30b`: confirm 2 × 16384 at q8_0 KV fits one card.
 - [ ] Poller: with each bigmoe model resident and idle GPUs, confirm no wakeup fires.
 
+## Ministral 3 14B: one-card SVC-274 arm (2026-10-09)
+
+`c0.`/`c2.ministral-3-14b`: `mistralai/Ministral-3-14B-Instruct-2512` @ `29439f81`, official FP8
+served as W8A16 Marlin on the 3090s, 32768 context, mistral tokenizer/config/load formats, text
+only. README → "Ministral 3 14B". The memory fit is an estimate (~13.8 GiB weights + 5.0 GiB KV
+of ~22.4 GiB).
+
+- [ ] Pre-download the Mistral-format weights to `/models/hf-cache` (README; ~15.8 GB, check
+  `df -h /models` first).
+- [ ] First load on c2: record VRAM, the startup log's "Available KV cache memory" and "Maximum
+  concurrency for 32768 tokens" lines, and the cold-load time; write them into `gen_config.py`.
+  If vLLM refuses 32768 (KV too small), don't drop below it (Iknos uses 32768) and don't use an
+  fp8 KV cache (vllm#48945); reopen the quant choice. If the KV line shows well over 65536,
+  consider raising mml.
+- [ ] Startup log names the Marlin FP8 path (weight-only FP8 warning), not an error.
+- [ ] Smoke: plain chat, `response_format: json_schema` returns schema-valid JSON, and one tool
+  call through the mistral parser.
+- [ ] Decode tok/s at 1 and 8 concurrent requests.
+
 ## DeepSeek-V4-Flash / bigmoe (2026-09-14)
 
 Implements `SPEC-bigmoe.md` (see its §10 for deviations from the draft). One whole-box entry,

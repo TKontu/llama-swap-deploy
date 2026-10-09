@@ -120,6 +120,9 @@ images and never drains. Deploys are manual until the fix below lands.
 
 ## Later / open
 
+- **`c0.`/`c2.ministral-3-14b` (2026-10-09, SVC-274 one-card arm) is in the config but not yet
+  loaded on the host.** Pre-download its weights first (README → "Ministral 3 14B"), then record
+  the first load's VRAM/KV lines (TODO → "Ministral 3 14B").
 - **Consolidate MinerU + TEI + Infinity onto one A2000**, which would free a card for llama-swap:
   - Cap MinerU's vLLM memory reservation (it defaults to `hybrid-auto-engine` and holds ~10 GB).
   - Drop Infinity's duplicate bge-m3 if nothing uses it (Iknos embeds via TEI).
