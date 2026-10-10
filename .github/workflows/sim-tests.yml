@@ -12,6 +12,7 @@ on:
       - "docker/edge/**"
       - "scripts/deploy-gate.py"
       - "gen_config.py"
+      - "config.yaml"
       - "docker/comfyui_hold/**"
       - "tests/sim/**"
       - ".github/workflows/sim-tests.yml"
@@ -22,6 +23,7 @@ on:
       - "docker/edge/**"
       - "scripts/deploy-gate.py"
       - "gen_config.py"
+      - "config.yaml"
       - "docker/comfyui_hold/**"
       - "tests/sim/**"
       - ".github/workflows/sim-tests.yml"
@@ -38,3 +40,5 @@ jobs:
           python-version: "3.12"
       - run: pip install aiohttp
       - run: bash tests/sim/run.sh
+      # config.yaml is GENERATED; fail if it was hand-edited or not regenerated.
+      - run: python3 gen_config.py | diff -u config.yaml -

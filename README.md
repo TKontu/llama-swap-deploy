@@ -771,6 +771,48 @@ docker run --rm --entrypoint hf -v /models/hf-cache:/root/.cache/huggingface -v 
 docker run --rm --entrypoint hf -v /models/hf-cache:/root/.cache/huggingface -v /fast/gguf:/fast-gguf -e HF_XET_CACHE=/fast-gguf/.xet-cache $IMG download unsloth/granite-4.1-30b-GGUF granite-4.1-30b-UD-Q4_K_XL.gguf --local-dir /fast-gguf/unsloth_granite-4.1-30b-GGUF
 ```
 
+## Ministral 3 14B (vLLM, one 3090)
+
+Added 2026-10-09 as a one-card SVC-274 arm (Iknos), the same per-card shape as the other POOL
+members: `c0.ministral-3-14b` and `c2.ministral-3-14b`.
+
+| Model ID | GPUs | Weights | On disk | Context | Thinking |
+|---|---|---|---|---|---|
+| `c0.`/`c2.ministral-3-14b` | one 3090 | `mistralai/Ministral-3-14B-Instruct-2512` @ `29439f81`, official FP8 (e4m3) | 15.8 GB (Mistral-format file only) | 32768, 64 seqs | none (non-thinking instruct) |
+
+- **FP8 on Ampere.** The 3090 has no FP8 compute; vLLM v0.26.0 serves the FP8 checkpoint as
+  weight-only FP8 through the Marlin kernel (W8A16), chosen automatically below SM 8.9. The startup
+  log should say so. The `-BF16` repo (~27 GiB of weights) does not fit a card.
+- **Mistral formats:** `--tokenizer-mode mistral --config-format mistral --load-format mistral`,
+  as the model card says. Prompts are rendered by `mistral_common` (tekken), not by the repo's
+  jinja template, so its default "You are Ministral…" system prompt is not injected.
+- **Text only:** `--limit-mm-per-prompt '{"image":0}'`. vLLM then never allocates the vision
+  tower (~0.8 GiB).
+- **Tools:** `--enable-auto-tool-choice --tool-call-parser mistral`. Structured outputs
+  (`response_format: json_schema`) use vLLM's `auto` backend, xgrammar, which supports the
+  tekken Mistral tokenizer; check it in the smoke test.
+- **Sampling:** no server default. The card asks for temperature below 0.1; set it per request.
+- **Context 32768, not 65536:** KV is 160 KiB/token (40 layers × 8 KV heads × 128 × K,V × bf16),
+  so 32768 tokens = 5.0 GiB next to ~13.8 GiB of weights, of a ~22.4 GiB budget. 65536 would need
+  10 GiB of KV. Don't use an fp8 KV cache to get there (vllm#48945: broken output on Ministral).
+  This is an estimate; record the startup log's KV line in `gen_config.py`.
+
+**Download before the first request.** The repo holds the weights twice (Mistral-native
+`consolidated.safetensors` and HF-format `model-0000N-of-00004.safetensors`, 15.7 GB each);
+`--load-format mistral` reads only the first, so exclude the shards. It lands in
+`/models/hf-cache` (vLLM entries mount only that), so check the free space first. The chunk
+cache is switched off so the download does not leave a second copy on `/models`.
+
+```bash
+df -h /models
+R=mistralai/Ministral-3-14B-Instruct-2512
+V=29439f81c2be264d8d393273f99e7db9c0961120
+C=/models/hf-cache:/root/.cache/huggingface
+X=HF_XET_CHUNK_CACHE_SIZE_BYTES=0
+I=vllm/vllm-openai:v0.26.0
+docker run --rm -v $C -e $X --entrypoint hf $I download $R --revision $V --exclude 'model-*'
+```
+
 ## ComfyUI (image generation, started by llama-swap)
 
 ComfyUI is not an LLM, but llama-swap starts and stops it on demand with `docker run`, exactly

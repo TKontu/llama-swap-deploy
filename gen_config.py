@@ -265,6 +265,49 @@ POOL = [
     # context as qwen3.5-4b above; only the weights differ, so any difference between the two arms
     # is the AWQ-4bit quantisation. Fits one 3090 with KV to spare.
     dict(tok="qwen3.5-4b-bf16", backend="vllm", repo="Qwen/Qwen3.5-4B",                         mml=32768, think_off=True, extra=APC_ALIGN),
+    # Ministral 3 14B Instruct (Mistral AI, 2025-12; Apache-2.0) — a dense 13.5B LM + 0.4B pixtral
+    # vision encoder, non-thinking instruct, for Iknos SVC-274 (tier-1 one-card arm, operator
+    # 2026-10-09). NOT the -Reasoning variant.
+    #
+    # Weights: the official repo, which ships FP8 (e4m3, per-tensor static activation scales;
+    # lm_head, vision tower and projector stay bf16). The -BF16 repo is ~27 GiB of weights and does
+    # not fit one 3090. A 3090 is Ampere (SM 8.6, no FP8 tensor cores). Read off vLLM v0.26.0's
+    # source: the mistral config converter maps qformat_weight fp8_e4m3 / qscheme_act TENSOR to
+    # quant_method fp8, activation_scheme static, and below SM 8.9 the fp8 method picks
+    # MarlinFP8ScaledMMLinearKernel: weight-only FP8 (W8A16; the static input scales are loaded,
+    # then dropped). So the weights stay 8-bit and the activations bf16. 8-bit, not a community
+    # AWQ-4bit, because precision beats headroom here and the context target is met without it.
+    # The repo carries the weights TWICE: Mistral-native consolidated.safetensors and HF-format
+    # model-0000N-of-00004 shards (15.7 GB each). --load-format mistral downloads and reads only
+    # consolidated*.safetensors, so pre-download with --exclude 'model-*' (README → "Ministral 3
+    # 14B") and /models holds ~15.8 GB. Pinned to a revision because the arm's identity is part of
+    # the benchmark: a re-uploaded checkpoint must not change it silently.
+    #
+    # Memory, one 3090 at util 0.95 (~22.4 GiB): the consolidated file is 15.73 GB = 14.65 GiB, of
+    # which ~0.8 GiB is the bf16 vision tower + adapter that image:0 never allocates, so ~13.8 GiB
+    # of weights on the card. KV from params.json: 40 layers x 8 KV heads x head_dim 128 x 2 (K,V)
+    # x 2 B = 160 KiB/token -> 32768 tokens = 5.0 GiB. ~3.5 GiB stays for activations, CUDA graphs
+    # and the CUDA context: it fits. 65536 (10 GiB of KV) does not. Do NOT reach for an fp8 KV
+    # cache to get there: vllm#48945 (open) — Ministral emits "####…" with --kv-cache-dtype fp8.
+    # ESTIMATE, not measured: read "Available KV cache memory" and "Maximum concurrency for 32768
+    # tokens" off the first startup log and record them here.
+    #
+    # Flags, per the model card: the three mistral formats (params.json + tekken tokenizer; the
+    # repo's jinja template and its default system prompt are not used); tool calls via the
+    # mistral parser. limit-mm-per-prompt image:0 = text-only: vLLM builds the vision tower on the
+    # meta device and skips its weights. The JSON has no spaces so it survives llama-swap's cmd
+    # tokenizer as one argument. response_format json_schema: auto backend = xgrammar, which
+    # handles the tekken MistralTokenizer (guidance is the fallback). No think_off and no
+    # reasoning parser: the instruct template has no thinking switch.
+    # No server sampling default: the card asks for temperature < 0.1; callers set it per request.
+    dict(tok="ministral-3-14b", backend="vllm", repo="mistralai/Ministral-3-14B-Instruct-2512", mml=32768,
+         extra=("--revision 29439f81c2be264d8d393273f99e7db9c0961120",
+                "--tokenizer-mode mistral",
+                "--config-format mistral",
+                "--load-format mistral",
+                "--limit-mm-per-prompt '{\"image\":0}'",
+                "--enable-auto-tool-choice",
+                "--tool-call-parser mistral")),
     dict(tok="qwythos-v2",  backend="gguf", repo="empero-ai/Qwythos-9B-v2-GGUF", hf_file="Qwythos-9B-v2-Q4_K_M.gguf", ctx=8192),
     # Qwen3.8-27B — dense 27B, hybrid Gated DeltaNet, native vision. First POOL member on
     # the MAINLINE image (the rest of the GGUF pool runs the bonsai build): its GGUF declares
