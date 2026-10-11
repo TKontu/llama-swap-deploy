@@ -137,7 +137,7 @@ TTL_BIGMOE = 28800 # 8 h  — RAM-offload MoE (~145 GiB cold load off NVMe; see 
 # vllm:prefix_cache_hits_total moves under a repeated-prefix workload.
 APC_ALIGN = ("--enable-prefix-caching", "--mamba-cache-mode align")
 
-# Chat-template DEFAULTS shared by both Qwen3.8-27B entries. Server-side only: a request that
+# Chat-template DEFAULTS shared by all three Qwen3.8-27B entries. Server-side only: a request that
 # sends its own chat_template_kwargs still wins (see the merge note in gguf_entry). Both keys
 # were read off Qwen3.8-27B's chat_template.jinja, not the model card:
 #
@@ -335,6 +335,30 @@ POOL = [
     dict(tok="qwen3.8-27b", backend="gguf", image=LLAMACPP,
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
          mmproj="mmproj-F16.gguf", ctx=16384, par=4,
+         template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
+    # Qwen3.8-27B TEXT-ONLY, for Iknos throughput (operator 2026-10-11). A PARALLEL entry: the
+    # vision `qwen3.8-27b` above is used by other projects and stays exactly as it is. Same GGUF
+    # file (already in the cache, no download), same image (LLAMACPP, b10362), same template
+    # kwargs and sampling. Neither entry pins an HF revision: gguf-serve.sh has no revision knob
+    # and only downloads a file that is missing, so both serve the one file on disk.
+    #
+    # The only differences: NO mmproj, and 8 short slots instead of 4 long ones. Iknos prompts
+    # are ~4-4.5k tokens (extraction) + <= ~600 output, or ~1k (judge), so 8192 per slot covers
+    # every request with room to spare. Budget on the 23.3 GiB card, same accounting as above:
+    #   weights UD-Q4_K_XL                      16.69 GiB
+    #   mmproj                                   0     (vision entry: 0.86)
+    #   KV f16  8 slots x 8192 x 64 KiB          4.00 GiB  (same 65536 tokens in total as 16384x4)
+    #   DeltaNet state  8 slots x ~75 MiB        0.59 GiB
+    #   = 21.28 GiB -> ~2.0 GiB left for compute buffers and prefill (the vision entry leaves
+    #   ~1.46 GiB after its 4 states), so >= 1 GiB slack holds. Total -c is unchanged at 65536,
+    #   so the compute buffers should match the vision entry's.
+    # f16 KV on purpose: a q8_0 KV variant (more slots or longer ctx) is a later, measured step.
+    # Like any POOL member it is emitted as c0./c2.qwen3.8-27b-text and joins that card's matrix
+    # alternatives, so requesting it evicts whatever else holds that card.
+    # ESTIMATE, not measured: record the first load's VRAM here.
+    dict(tok="qwen3.8-27b-text", backend="gguf", image=LLAMACPP,
+         repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
+         ctx=8192, par=8,
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
     # Muse-Glimmer-30B — the on-call standby, and an ordinary pool member on both cards.
     #

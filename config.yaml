@@ -204,6 +204,32 @@ models:
     ttl: 18000
     concurrencyLimit: 16
 
+  "c0.qwen3.8-27b-text":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
+
   "c0.muse-glimmer":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -415,6 +441,32 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 16
+
+  "c2.qwen3.8-27b-text":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --pull=always
+      --entrypoint gguf-serve.sh
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      -e GGUF_REPO=unsloth/Qwen3.8-27B-GGUF
+      -e GGUF_FILE=Qwen3.8-27B-UD-Q4_K_XL.gguf
+      -e GGUF_CTX=8192
+      -e GGUF_PARALLEL=8
+      -e 'LLAMA_ARG_CHAT_TEMPLATE_KWARGS={"reasoning_effort":"low","preserve_thinking":true}'
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p 127.0.0.1:${PORT}:8080
+      ghcr.io/tkontu/llamacpp-mainline:latest
+      --alias ${MODEL_ID}
+      --temp 1.0
+      --top-p 0.95
+      --top-k 20
+      --min-p 0.0
+      --presence-penalty 0.0
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 32
 
   "c2.muse-glimmer":
     cmd: |
@@ -776,6 +828,7 @@ routing:
               | c0.ministral-3-14b
               | c0.qwythos-v2
               | c0.qwen3.8-27b
+              | c0.qwen3.8-27b-text
               | c0.muse-glimmer
               | c0.granite-4.1-30b
             )
@@ -786,6 +839,7 @@ routing:
               | c2.ministral-3-14b
               | c2.qwythos-v2
               | c2.qwen3.8-27b
+              | c2.qwen3.8-27b-text
               | c2.muse-glimmer
               | c2.granite-4.1-30b
               | c2.comfyui
