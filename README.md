@@ -560,6 +560,7 @@ and `key_length=value_length=256`, KV costs **64 KiB/token** at f16 — so the f
 | Model ID | GPUs | Quant | Context | Notes |
 |---|---|---|---|---|
 | `c0.qwen3.8-27b`, `c2.qwen3.8-27b` | one 3090 | `UD-Q4_K_XL` + vision | 16384 × 4 slots | in `POOL`, co-loads with either card |
+| `c0.qwen3.8-27b-text`, `c2.qwen3.8-27b-text` | one 3090 | `UD-Q4_K_XL`, **no vision** | 8192 × 8 slots | in `POOL`; Iknos throughput entry (2026-10-11). Same file, image, template kwargs and sampling as `qwen3.8-27b`; no mmproj frees 0.86 GiB. Budget: 16.69 weights + 4.00 KV (f16) + 0.59 DeltaNet states = 21.28 of ~23.3 GiB |
 | `Qwen3.8-27B-split` | both 3090s | `UD-Q6_K_XL` + vision | 262144, 1 slot | full native context; owns both cards |
 
 `qwen3.8-27b` is in `POOL`, so it runs on either card next to any other pool model — see

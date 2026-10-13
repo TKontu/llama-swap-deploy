@@ -120,6 +120,9 @@ images and never drains. Deploys are manual until the fix below lands.
 
 ## Later / open
 
+- **`c0.`/`c2.qwen3.8-27b-text` (2026-10-11, Iknos throughput) is in the config but not
+  deployed.** Text-only Qwen3.8-27B, 8 × 8192 slots. Deploy only after the running benchmark
+  ends, then do the first-load checks (TODO → "Qwen3.8-27B text-only").
 - **`c0.`/`c2.ministral-3-14b` (2026-10-09, SVC-274 one-card arm) is in the config but not yet
   loaded on the host.** Pre-download its weights first (README → "Ministral 3 14B"), then record
   the first load's VRAM/KV lines (TODO → "Ministral 3 14B").

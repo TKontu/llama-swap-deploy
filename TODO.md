@@ -294,6 +294,18 @@ of ~22.4 GiB).
   call through the mistral parser.
 - [ ] Decode tok/s at 1 and 8 concurrent requests.
 
+## Qwen3.8-27B text-only: Iknos throughput entry (2026-10-11)
+
+`c0.`/`c2.qwen3.8-27b-text`: the `qwen3.8-27b` file and image, no mmproj, 8 slots × 8192 per
+slot, f16 KV. Estimated 21.28 of ~23.3 GiB (`gen_config.py` comment). The weights are already in
+the cache.
+
+- [ ] First load on c2 (after the running benchmark ends): record VRAM from `nvidia-smi` and the
+  startup log's KV/recurrent/compute buffer sizes, and write them into `gen_config.py`.
+- [ ] Smoke test: 8 concurrent ~4.5k-token requests with reasoning off, no 400 errors for
+  exceeding context, decode tok/s per slot.
+- [ ] Later, measured: a q8_0 KV variant (more slots or a longer ctx).
+
 ## DeepSeek-V4-Flash / bigmoe (2026-09-14)
 
 Implements `SPEC-bigmoe.md` (see its §10 for deviations from the draft). One whole-box entry,
