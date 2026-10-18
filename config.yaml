@@ -230,6 +230,31 @@ models:
     ttl: 18000
     concurrencyLimit: 32
 
+  "c0.qwen3.8-27b-int4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p 127.0.0.1:${PORT}:8000
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      vllm/vllm-openai:v0.26.0
+      --model RedHatAI/Qwen3.8-27B-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 8192 --max-num-seqs 64
+      --revision 91bd022d5b49442a868bc35008f6c21e1860edfa
+      --kv-cache-dtype auto
+      --limit-mm-per-prompt '{"image":0}'
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    useModelName: "c0.qwen3.8-27b-int4"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
   "c0.muse-glimmer":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -467,6 +492,31 @@ models:
     checkEndpoint: /health
     ttl: 18000
     concurrencyLimit: 32
+
+  "c2.qwen3.8-27b-int4":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      -v /models/hf-cache:/root/.cache/huggingface
+      -p 127.0.0.1:${PORT}:8000
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      vllm/vllm-openai:v0.26.0
+      --model RedHatAI/Qwen3.8-27B-INT4
+      --served-model-name ${MODEL_ID}
+      --tensor-parallel-size 1 --gpu-memory-utilization 0.95
+      --max-model-len 8192 --max-num-seqs 64
+      --revision 91bd022d5b49442a868bc35008f6c21e1860edfa
+      --kv-cache-dtype auto
+      --limit-mm-per-prompt '{"image":0}'
+      --port 8000
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    ttl: 18000
+    concurrencyLimit: 256
+    useModelName: "c2.qwen3.8-27b-int4"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
 
   "c2.muse-glimmer":
     cmd: |
@@ -829,6 +879,7 @@ routing:
               | c0.qwythos-v2
               | c0.qwen3.8-27b
               | c0.qwen3.8-27b-text
+              | c0.qwen3.8-27b-int4
               | c0.muse-glimmer
               | c0.granite-4.1-30b
             )
@@ -840,6 +891,7 @@ routing:
               | c2.qwythos-v2
               | c2.qwen3.8-27b
               | c2.qwen3.8-27b-text
+              | c2.qwen3.8-27b-int4
               | c2.muse-glimmer
               | c2.granite-4.1-30b
               | c2.comfyui

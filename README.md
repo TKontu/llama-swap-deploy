@@ -1046,3 +1046,28 @@ full 5 h TTL. The TTLs still govern unloading; the poller governs replacement.
   TP-heavy models to run fast simultaneously — that's hardware, not llama-swap.
 - **Docker socket** is mounted into the llama-swap container so it can spawn vLLM
   siblings. This is privileged; the box is single-tenant, but be aware.
+
+## Qwen3.8-27B INT4 (vLLM, one 3090)
+
+Added 2026-10-18 for Iknos `SVC-428` (the edge judge under vLLM's continuous batching), the same
+per-card shape as the other POOL members: `c0.qwen3.8-27b-int4` and `c2.qwen3.8-27b-int4`.
+
+| Model ID | GPUs | Weights | On disk | Context | Thinking |
+|---|---|---|---|---|---|
+| `c0.`/`c2.qwen3.8-27b-int4` | one 3090 | `RedHatAI/Qwen3.8-27B-INT4` @ `91bd022d`, W4A16 GPTQ (compressed-tensors) | ~19.5 GB | 8192, 64 seqs | off (filter) |
+
+- **f16 KV on Ampere.** The card's default is an FP8 KV cache; the 3090 has no FP8 compute, so the
+  entry sets `--kv-cache-dtype auto`.
+- **Text only.** `--limit-mm-per-prompt '{"image":0}'` skips the vision tower's weights.
+- **Not measured yet.** Record "Available KV cache memory" and "Maximum concurrency for 8192
+  tokens" from the first startup log in `gen_config.py`.
+- **Pre-download** before first use (no GPU needed):
+
+  ```
+  I=vllm/vllm-openai:v0.26.0
+  M=/models/hf-cache:/root/.cache/huggingface
+  R=RedHatAI/Qwen3.8-27B-INT4
+  V=91bd022d5b49442a868bc35008f6c21e1860edfa
+  D="docker run --rm -v $M --entrypoint hf $I"
+  $D download $R --revision $V
+  ```

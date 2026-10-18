@@ -360,6 +360,29 @@ POOL = [
          repo="unsloth/Qwen3.8-27B-GGUF", hf_file="Qwen3.8-27B-UD-Q4_K_XL.gguf",
          ctx=8192, par=8,
          template_kwargs=QWEN38_TEMPLATE_KWARGS, sampling=QWEN38_SAMPLING),
+    # Qwen3.8-27B on vLLM — RedHatAI's INT4 (W4A16 GPTQ, compressed-tensors, Marlin kernels;
+    # Apache-2.0; card recovery 98.8–101 %), for Iknos SVC-428: the edge judge's short requests
+    # (~1k tokens) batched by vLLM instead of llama.cpp's 4 or 8 flat slots. A NEW weights identity
+    # (not the UD-Q4_K_XL GGUF above), so pinned to a revision.
+    #
+    # Budget, one 3090 at util 0.95 (~22.4 GiB), ESTIMATE from config.json (not measured):
+    #   weights model.safetensors ~18.6 GB = ~17.3 GiB (vision tower, embeddings and lm_head stay
+    #   bf16; image:0 skips the vision tower's ~0.7 GiB; model_mtp.safetensors is not loaded
+    #   without --speculative-config)
+    #   KV f16: 16 full-attention layers x 4 KV heads x 256 x 2 (K,V) x 2 B = 64 KiB/token
+    #   DeltaNet state: 48 layers x (48 x 128 x 128 x 2 B + conv) = ~75 MiB per sequence
+    #   -> ~3.5-4 GiB for KV + state: ~15-18 concurrent 2k-token judge requests.
+    # f16 KV on purpose: the card's default is an FP8 KV cache, and the 3090 (SM 8.6) has no FP8
+    # compute, so --kv-cache-dtype auto. No APC_ALIGN yet: prefix caching on the hybrid is
+    # experimental (see above) and is Iknos SVC-424's measured step. No MTP yet (same reason).
+    # 8192 covers a judge request with room; extraction stays on the GGUF entries.
+    # Record "Available KV cache memory" and "Maximum concurrency for 8192 tokens" from the first
+    # startup log here.
+    dict(tok="qwen3.8-27b-int4", backend="vllm", repo="RedHatAI/Qwen3.8-27B-INT4", mml=8192,
+         think_off=True,
+         extra=("--revision 91bd022d5b49442a868bc35008f6c21e1860edfa",
+                "--kv-cache-dtype auto",
+                "--limit-mm-per-prompt '{\"image\":0}'")),
     # Muse-Glimmer-30B — the on-call standby, and an ordinary pool member on both cards.
     #
     # `card_ttl={"c0": 0}` preserves the on-call contract: `c0.muse-glimmer` never idle-unloads
