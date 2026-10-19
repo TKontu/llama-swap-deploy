@@ -240,7 +240,7 @@ models:
       --model RedHatAI/Qwen3.8-27B-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 8192 --max-num-seqs 64
+      --max-model-len 8192 --max-num-seqs 48
       --revision 91bd022d5b49442a868bc35008f6c21e1860edfa
       --kv-cache-dtype auto
       --limit-mm-per-prompt '{"image":0}'
@@ -503,7 +503,7 @@ models:
       --model RedHatAI/Qwen3.8-27B-INT4
       --served-model-name ${MODEL_ID}
       --tensor-parallel-size 1 --gpu-memory-utilization 0.95
-      --max-model-len 8192 --max-num-seqs 64
+      --max-model-len 8192 --max-num-seqs 48
       --revision 91bd022d5b49442a868bc35008f6c21e1860edfa
       --kv-cache-dtype auto
       --limit-mm-per-prompt '{"image":0}'
