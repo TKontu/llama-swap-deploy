@@ -376,10 +376,11 @@ POOL = [
     # compute, so --kv-cache-dtype auto. No APC_ALIGN yet: prefix caching on the hybrid is
     # experimental (see above) and is Iknos SVC-424's measured step. No MTP yet (same reason).
     # 8192 covers a judge request with room; extraction stays on the GGUF entries.
-    # Record "Available KV cache memory" and "Maximum concurrency for 8192 tokens" from the first
-    # startup log here.
+    # MEASURED 2026-10-19 (first load, v0.26.0): the DeltaNet state pool holds 49 Mamba cache
+    # blocks, one per decode sequence, so --max-num-seqs 64 refused CUDA graph capture
+    # ("max_num_seqs (64) exceeds available Mamba cache blocks (49)"). seqs=48 fits under it.
     dict(tok="qwen3.8-27b-int4", backend="vllm", repo="RedHatAI/Qwen3.8-27B-INT4", mml=8192,
-         think_off=True,
+         think_off=True, seqs=48,
          extra=("--revision 91bd022d5b49442a868bc35008f6c21e1860edfa",
                 "--kv-cache-dtype auto",
                 "--limit-mm-per-prompt '{\"image\":0}'")),
@@ -904,7 +905,7 @@ def member_entry(spec, model_id, card, ttl=TTL, aliases=()):
                           template_kwargs=spec.get("template_kwargs"),
                           sampling=spec.get("sampling"), aliases=aliases,
                           storage=spec.get("storage"), **gguf_knobs(spec))
-    return vllm_entry(model_id, spec["repo"], card, spec["mml"], CONCURRENCY,
+    return vllm_entry(model_id, spec["repo"], card, spec["mml"], spec.get("seqs", CONCURRENCY),
                       spec.get("eager", False), spec.get("think_off", False),
                       ttl=ttl, extra=spec.get("extra", ()), aliases=aliases)
 
