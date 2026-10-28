@@ -255,6 +255,56 @@ models:
         chat_template_kwargs:
           enable_thinking: false
 
+  "c0.qwen3.8-27b-hq":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      --ipc host
+      -e FAST_VARIANT=0
+      -e DFLASH2=0
+      -e VLLM_OFFLOAD_KEEP_SHM=1
+      -e INT8_ACT=
+      -e 'EXTRA_ARGS=--kv-cache-dtype auto'
+      -v /fast/hyperqwen/models:/app/models
+      -v /fast/hyperqwen/cache:/cache
+      -p 127.0.0.1:${PORT}:18020
+      ghcr.io/syv-ai/hyperqwen:sha-ce9615c
+      batch
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 256
+    useModelName: "qwen3.8-27b"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "c0.qwen3.8-27b-hq-fast":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --gpus '"device=GPU-a8c640ca-4d44-440b-5caf-28eca88ea7c1"'
+      --ipc host
+      -e FAST_VARIANT=0
+      -e DFLASH2=0
+      -e VLLM_OFFLOAD_KEEP_SHM=1
+      -v /fast/hyperqwen/models:/app/models
+      -v /fast/hyperqwen/cache:/cache
+      -p 127.0.0.1:${PORT}:18020
+      ghcr.io/syv-ai/hyperqwen:sha-ce9615c
+      batch
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 256
+    useModelName: "qwen3.8-27b"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
   "c0.muse-glimmer":
     cmd: |
       docker run --rm --name ${MODEL_ID}
@@ -513,6 +563,56 @@ models:
     ttl: 18000
     concurrencyLimit: 256
     useModelName: "c2.qwen3.8-27b-int4"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "c2.qwen3.8-27b-hq":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      --ipc host
+      -e FAST_VARIANT=0
+      -e DFLASH2=0
+      -e VLLM_OFFLOAD_KEEP_SHM=1
+      -e INT8_ACT=
+      -e 'EXTRA_ARGS=--kv-cache-dtype auto'
+      -v /fast/hyperqwen/models:/app/models
+      -v /fast/hyperqwen/cache:/cache
+      -p 127.0.0.1:${PORT}:18020
+      ghcr.io/syv-ai/hyperqwen:sha-ce9615c
+      batch
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 256
+    useModelName: "qwen3.8-27b"
+    filters:
+      setParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+  "c2.qwen3.8-27b-hq-fast":
+    cmd: |
+      docker run --rm --name ${MODEL_ID}
+      --gpus '"device=GPU-094f1ca3-2155-7b04-b5aa-4abae3b5ffeb"'
+      --ipc host
+      -e FAST_VARIANT=0
+      -e DFLASH2=0
+      -e VLLM_OFFLOAD_KEEP_SHM=1
+      -v /fast/hyperqwen/models:/app/models
+      -v /fast/hyperqwen/cache:/cache
+      -p 127.0.0.1:${PORT}:18020
+      ghcr.io/syv-ai/hyperqwen:sha-ce9615c
+      batch
+    cmdStop: docker stop ${MODEL_ID}
+    proxy: http://127.0.0.1:${PORT}
+    checkEndpoint: /health
+    ttl: 18000
+    concurrencyLimit: 256
+    useModelName: "qwen3.8-27b"
     filters:
       setParams:
         chat_template_kwargs:
@@ -880,6 +980,8 @@ routing:
               | c0.qwen3.8-27b
               | c0.qwen3.8-27b-text
               | c0.qwen3.8-27b-int4
+              | c0.qwen3.8-27b-hq
+              | c0.qwen3.8-27b-hq-fast
               | c0.muse-glimmer
               | c0.granite-4.1-30b
             )
@@ -892,6 +994,8 @@ routing:
               | c2.qwen3.8-27b
               | c2.qwen3.8-27b-text
               | c2.qwen3.8-27b-int4
+              | c2.qwen3.8-27b-hq
+              | c2.qwen3.8-27b-hq-fast
               | c2.muse-glimmer
               | c2.granite-4.1-30b
               | c2.comfyui
