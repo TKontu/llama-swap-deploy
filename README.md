@@ -1071,3 +1071,36 @@ per-card shape as the other POOL members: `c0.qwen3.8-27b-int4` and `c2.qwen3.8-
   D="docker run --rm -v $M --entrypoint hf $I"
   $D download $R --revision $V
   ```
+
+## Qwen3.8-27B on HyperQwen (vLLM fork, one 3090)
+
+Added 2026-10-28 as a throughput candidate for Iknos judge and producer traffic.
+[HyperQwen](https://github.com/syv-ai/HyperQwen) (Apache-2.0) patches vLLM 0.31.0 for
+Qwen3.8-27B on one 3090. These entries run its **batch** launcher, pinned to image
+`ghcr.io/syv-ai/hyperqwen:sha-ce9615c`.
+
+| Model ID | GPUs | Activations | KV | Thinking |
+|---|---|---|---|---|
+| `c0.`/`c2.qwen3.8-27b-hq` | one 3090 | W4A16 (precision arm) | f16 | off (filter) |
+| `c0.`/`c2.qwen3.8-27b-hq-fast` | one 3090 | W4A8 int8 MLP (upstream default) | fp8 | off (filter) |
+
+- **Not measured here yet.** Upstream claims about 1,035 tok/s total decode at 64 concurrent
+  requests on a 250 W 3090. Record our numbers in `gen_config.py`.
+- **New weights.** `dbirks/Qwen3.8-27B-W4A16-AutoRound` plus HyperQwen's own requantized heads.
+  It is not the GGUF and not `qwen3.8-27b-int4`, so treat quality as unproven until the A/B.
+- **Text only.** No vision tower. Use the GGUF `qwen3.8-27b` entry for images.
+- **Storage.** `/fast/hyperqwen/models` (about 20 GB once prepared) and `/fast/hyperqwen/cache`
+  (compile caches). Both cards share them.
+- **Prepare once before first use.** A first boot can take over 30 minutes, which is longer than
+  llama-swap's 900 s health timeout. Preparing runs on the CPU, so no GPU is needed. On the host:
+
+  ```
+  I=ghcr.io/syv-ai/hyperqwen:sha-ce9615c
+  M=/fast/hyperqwen/models:/app/models
+  C=/fast/hyperqwen/cache:/cache
+  E="-e FAST_VARIANT=0 -e DFLASH2=0"
+  docker run --rm -v $M -v $C $E $I prepare
+  ```
+
+  After that, the first request to an `-hq` entry still compiles kernels and CUDA graphs for
+  a few minutes. Later starts reuse the cache.

@@ -59,6 +59,16 @@ LLAMACPP_QWEN4 = "ghcr.io/tkontu/llamacpp-qwen4:latest"
 # (#30042, 10-06) and GLM5Next MTP (#29928, 10-07), both after b11461. A separate image so
 # Qwen3.8-Flash-Next stays on the build it was fitted on.
 LLAMACPP_GLM5 = "ghcr.io/tkontu/llamacpp-glm5:latest"
+# HyperQwen (github.com/syv-ai/HyperQwen, Apache-2.0): a patch series on vLLM 0.31.0 plus a
+# model-preparation pipeline, tuned for Qwen3.8-27B on one 3090. Pinned to its immutable
+# per-commit tag (upstream main ce9615c4, 2026-10-22); `latest` moves on every upstream push.
+HYPERQWEN_IMAGE = "ghcr.io/syv-ai/hyperqwen:sha-ce9615c"
+# Its prepared models (base W4A16 download ~19.5 GB + the requantized heads) and its
+# torch.compile / FlashInfer JIT cache, on /fast because /models is nearly full. Shared by the
+# c0 and c2 entries: prepare.sh holds a flock on the models root, and the cache is
+# content-addressed. (host dir, container dir)
+HYPERQWEN_MODELS = ("/fast/hyperqwen/models", "/app/models")
+HYPERQWEN_CACHE = ("/fast/hyperqwen/cache", "/cache")
 # ComfyUI with the pinned icon-pipeline node packs (Dockerfile.comfyui).
 COMFYUI_IMAGE = "ghcr.io/tkontu/comfyui:latest"
 
@@ -119,6 +129,7 @@ TTL_BIGMOE = 28800 # 8 h  — RAM-offload MoE (~145 GiB cold load off NVMe; see 
 #                                                   enable_thinking:false filter)
 #   fork: (none)                                   (Ternary via the PrismML bonsai image entrypoint)
 #   gguf: repo, hf_file, ctx, par                  (standard GGUF via the bonsai image's llama-server)
+#   hyperqwen: env, think_off                      (HyperQwen's batch launcher; env = its knobs)
 # Optional on any backend:
 #   card_ttl: {label: ttl}                         (overrides TTL for that card's entry only)
 # Concurrency is NOT per-model: vLLM members all use CONCURRENCY, GGUF members all
@@ -384,6 +395,36 @@ POOL = [
          extra=("--revision 91bd022d5b49442a868bc35008f6c21e1860edfa",
                 "--kv-cache-dtype auto",
                 "--limit-mm-per-prompt '{\"image\":0}'")),
+    # Qwen3.8-27B on HyperQwen's BATCH launcher (batch/start_qwen.sh) — a throughput candidate for
+    # Iknos's judge/producer traffic, under trial against qwen3.8-27b-text and qwen3.8-27b-int4.
+    # Upstream claims ~1,035 tok/s aggregate decode at 64 concurrent (128 in / 512 out) on a
+    # 250 W 3090; NOT measured here yet. Batch mode runs no speculation (speculation only pays
+    # below ~8 concurrent users), so upstream's MTP/DFlash2 caveats do not apply.
+    #
+    # A NEW weights identity: dbirks/Qwen3.8-27B-W4A16-AutoRound (seen at 1f05c441 on
+    # 2026-10-28) plus HyperQwen's own requantized heads. prepare.sh cannot pin an HF revision;
+    # it downloads only when the prepared directory is missing, so what is on /fast is what
+    # serves. Record its identity from the first startup log.
+    #
+    # Two arms, so the A/B needs no redeploy:
+    #   qwen3.8-27b-hq       precision arm: W4A16 activations (INT8_ACT empty; upstream calls
+    #                        it quality-neutral) and f16 KV. `--kv-cache-dtype auto` in
+    #                        EXTRA_ARGS lands after the launcher's fp8 and wins (vLLM's
+    #                        argparse keeps the last value); the 3090 has no FP8 compute.
+    #   qwen3.8-27b-hq-fast  upstream's tuned defaults: int8 activations on the MLP GEMMs (W4A8
+    #                        Marlin, ~+35 % aggregate for +2.2 % perplexity) and fp8 KV.
+    # Both: text only (VISION unset = --language-model-only), thinking off by the filter (its
+    # chat template honours enable_thinking), --served-model-name qwen3.8-27b fixed by the
+    # launcher (useModelName rewrites to it), MAX_SEQS 64 (fp16 DeltaNet state fits all 64),
+    # prefix caching on (the launcher's default). Sampling is the checkpoint's
+    # generation_config unless the request sets its own, as on the int4 entry.
+    # FAST_VARIANT=0 / DFLASH2=0: those downloads only serve the single-user launcher.
+    #
+    # FIRST BOOT exceeds healthCheckTimeout (900 s): the ~9.5 GB image pull plus download and
+    # requantization can pass 30 min. Run prepare once by hand first (README, "HyperQwen").
+    dict(tok="qwen3.8-27b-hq", backend="hyperqwen", think_off=True,
+         env=dict(INT8_ACT="", EXTRA_ARGS="--kv-cache-dtype auto")),
+    dict(tok="qwen3.8-27b-hq-fast", backend="hyperqwen", think_off=True, env={}),
     # Muse-Glimmer-30B — the on-call standby, and an ordinary pool member on both cards.
     #
     # `card_ttl={"c0": 0}` preserves the on-call contract: `c0.muse-glimmer` never idle-unloads
@@ -905,9 +946,48 @@ def member_entry(spec, model_id, card, ttl=TTL, aliases=()):
                           template_kwargs=spec.get("template_kwargs"),
                           sampling=spec.get("sampling"), aliases=aliases,
                           storage=spec.get("storage"), **gguf_knobs(spec))
+    if b == "hyperqwen":
+        return hyperqwen_entry(model_id, card, spec["env"], spec.get("think_off", False),
+                               ttl=ttl, aliases=aliases)
     return vllm_entry(model_id, spec["repo"], card, spec["mml"], spec.get("seqs", CONCURRENCY),
                       spec.get("eager", False), spec.get("think_off", False),
                       ttl=ttl, extra=spec.get("extra", ()), aliases=aliases)
+
+
+def hyperqwen_entry(model_id, gpus, env, think_off, ttl=TTL, aliases=()):
+    # The image's entrypoint runs prepare.sh (seconds once prepared), verify.sh --no-server,
+    # then batch/start_qwen.sh, which listens on $PORT (18020) and, with no API key inside a
+    # container, binds 0.0.0.0 — published on loopback only, like every backend here.
+    # --ipc host as in upstream's compose; with both cards up the two engines then share
+    # /dev/shm, so VLLM_OFFLOAD_KEEP_SHM=1 stops each launcher's stale-region reaper from
+    # touching the other's (upstream compose header).
+    env = dict(FAST_VARIANT="0", DFLASH2="0", VLLM_OFFLOAD_KEEP_SHM="1", **env)
+    opt = "".join(f"      -e '{k}={v}'\n" if " " in v else f"      -e {k}={v}\n"
+                  for k, v in env.items())
+    e = (
+        f'  "{model_id}":\n'
+        f"    cmd: |\n"
+        f"      docker run --rm --name ${{MODEL_ID}}\n"
+        f"      --gpus '\"device={gpus}\"'\n"
+        f"      --ipc host\n"
+        f"{opt}"
+        f"      -v {HYPERQWEN_MODELS[0]}:{HYPERQWEN_MODELS[1]}\n"
+        f"      -v {HYPERQWEN_CACHE[0]}:{HYPERQWEN_CACHE[1]}\n"
+        f"      -p {LOOPBACK}:${{PORT}}:18020\n"
+        f"      {HYPERQWEN_IMAGE}\n"
+        f"      batch\n"
+        f"    cmdStop: docker stop ${{MODEL_ID}}\n"
+        f"    proxy: http://127.0.0.1:${{PORT}}\n"
+        f"    checkEndpoint: /health\n"
+        f"    ttl: {ttl}\n"
+        f"    concurrencyLimit: {REQUEST_LIMIT}\n"
+        # The launcher fixes --served-model-name qwen3.8-27b, and vLLM rejects any other name.
+        f'    useModelName: "qwen3.8-27b"\n'
+        f"{aliases_block(aliases)}"
+    )
+    if think_off:
+        e += THINK_FILTER
+    return e
 
 
 def ungrouped_gguf_entry(spec):
