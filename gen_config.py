@@ -422,9 +422,16 @@ POOL = [
     #
     # FIRST BOOT exceeds healthCheckTimeout (900 s): the ~9.5 GB image pull plus download and
     # requantization can pass 30 min. Run prepare once by hand first (README, "HyperQwen").
+    #
+    # MAX_LEN 32768 on both arms. MEASURED 2026-10-30 (first boot of -hq): weights 14.26 GiB, then
+    # 7.14 GiB left for KV at util 0.94, and vLLM refused to start because one request at the
+    # launcher's default 150000 needs 9.3 GiB of f16 KV. 32768 covers every Iknos request
+    # (<= ~11.5k in + output). The pool is sized by util, not MAX_LEN, so this caps one request,
+    # not concurrency. -hq-fast gets the same cap so the arms differ only in their numerics.
     dict(tok="qwen3.8-27b-hq", backend="hyperqwen", think_off=True,
-         env=dict(INT8_ACT="", EXTRA_ARGS="--kv-cache-dtype auto")),
-    dict(tok="qwen3.8-27b-hq-fast", backend="hyperqwen", think_off=True, env={}),
+         env=dict(INT8_ACT="", EXTRA_ARGS="--kv-cache-dtype auto", MAX_LEN="32768")),
+    dict(tok="qwen3.8-27b-hq-fast", backend="hyperqwen", think_off=True,
+         env=dict(MAX_LEN="32768")),
     # Muse-Glimmer-30B — the on-call standby, and an ordinary pool member on both cards.
     #
     # `card_ttl={"c0": 0}` preserves the on-call contract: `c0.muse-glimmer` never idle-unloads
