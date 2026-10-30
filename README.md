@@ -1089,6 +1089,8 @@ Qwen3.8-27B on one 3090. These entries run its **batch** launcher, pinned to ima
 - **New weights.** `dbirks/Qwen3.8-27B-W4A16-AutoRound` plus HyperQwen's own requantized heads.
   It is not the GGUF and not `qwen3.8-27b-int4`, so treat quality as unproven until the A/B.
 - **Text only.** No vision tower. Use the GGUF `qwen3.8-27b` entry for images.
+- **Context 32768 per request** (`MAX_LEN`). With f16 KV the launcher's 150000 default does not
+  fit: one full-length request needs 9.3 GiB of KV, and 7.14 GiB is left after the weights.
 - **Storage.** `/fast/hyperqwen/models` (about 20 GB once prepared) and `/fast/hyperqwen/cache`
   (compile caches). Both cards share them.
 - **Prepare once before first use.** A first boot can take over 30 minutes, which is longer than

@@ -265,6 +265,7 @@ models:
       -e VLLM_OFFLOAD_KEEP_SHM=1
       -e INT8_ACT=
       -e 'EXTRA_ARGS=--kv-cache-dtype auto'
+      -e MAX_LEN=32768
       -v /fast/hyperqwen/models:/app/models
       -v /fast/hyperqwen/cache:/cache
       -p 127.0.0.1:${PORT}:18020
@@ -289,6 +290,7 @@ models:
       -e FAST_VARIANT=0
       -e DFLASH2=0
       -e VLLM_OFFLOAD_KEEP_SHM=1
+      -e MAX_LEN=32768
       -v /fast/hyperqwen/models:/app/models
       -v /fast/hyperqwen/cache:/cache
       -p 127.0.0.1:${PORT}:18020
@@ -578,6 +580,7 @@ models:
       -e VLLM_OFFLOAD_KEEP_SHM=1
       -e INT8_ACT=
       -e 'EXTRA_ARGS=--kv-cache-dtype auto'
+      -e MAX_LEN=32768
       -v /fast/hyperqwen/models:/app/models
       -v /fast/hyperqwen/cache:/cache
       -p 127.0.0.1:${PORT}:18020
@@ -602,6 +605,7 @@ models:
       -e FAST_VARIANT=0
       -e DFLASH2=0
       -e VLLM_OFFLOAD_KEEP_SHM=1
+      -e MAX_LEN=32768
       -v /fast/hyperqwen/models:/app/models
       -v /fast/hyperqwen/cache:/cache
       -p 127.0.0.1:${PORT}:18020
